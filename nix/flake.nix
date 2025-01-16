@@ -42,6 +42,7 @@
             pkgs.neovim
             pkgs.nixd
             pkgs.nixfmt-rfc-style
+            pkgs.git
           ];
 
           fonts.packages = [
@@ -50,10 +51,17 @@
 
           homebrew = {
             enable = true;
+            onActivation.autoUpdate = true;
+            onActivation.upgrade = true;
             casks = [
               "ghostty"
               "zed"
               "zen-browser"
+              "aldente"
+              "obsidian"
+              # "slack"
+              "raycast"
+              "karabiner-elements"
             ];
             brews = [
               "mas"
@@ -78,12 +86,62 @@
 
           # The platform the configuration will be used on.
           nixpkgs.hostPlatform = "x86_64-darwin";
+
+          # use touch id for sudo permissions
+          security.pam.enableSudoTouchIdAuth = true;
+
+          # system settings configuration
+          system.defaults = {
+            screencapture.location = "~/Pictures/Screenshots";
+
+            NSGlobalDomain = {
+              # Dark mode
+              AppleInterfaceStyle = "Dark";
+
+              # Show all file extensions
+              AppleShowAllExtensions = true;
+            };
+
+            dock = {
+              # autohide dock
+              autohide = true;
+
+              # move dock to the left of the screen
+              orientation = "bottom";
+
+              # dont show recents in dock
+              show-recents = false;
+
+              # reduce animation time for showing/hiding the dock
+              autohide-time-modifier = 0.8;
+
+              # dont rearrange spaces based on most recent used
+              mru-spaces = false;
+            };
+
+            finder = {
+              # show all extensions on finder
+              AppleShowAllExtensions = true;
+
+              # dont show icons on desktop
+              CreateDesktop = false;
+
+              # use column view for finder
+              FXPreferredViewStyle = "clmv";
+
+              # don't show external drives on desktop
+              ShowExternalHardDrivesOnDesktop = false;
+
+              # show path bar on finder
+              ShowPathbar = true;
+            };
+          };
         };
     in
     {
       # Build darwin flake using:
-      # $ darwin-rebuild build --flake .#simple
-      darwinConfigurations."macbook" = nix-darwin.lib.darwinSystem {
+      # $ darwin-rebuild build --flake .#macbook
+      darwinConfigurations.macbook = nix-darwin.lib.darwinSystem {
         modules = [
           configuration
           nix-homebrew.darwinModules.nix-homebrew
