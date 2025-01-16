@@ -117,6 +117,18 @@
 
               # dont rearrange spaces based on most recent used
               mru-spaces = false;
+
+              # apps to show on the dock
+              persistent-apps = [
+                "/Applications/Zen Browser.app"
+                "/Applications/Slack.app"
+                "/Applications/Obsidian.app"
+                "/Applications/Ghostty.app"
+                "/Applications/Zed.app"
+                "/System/Applications/Clock.app"
+                "/System/Applications/Calendar.app"
+                "/System/Applications/Mail.app"
+              ];
             };
 
             finder = {
