@@ -126,14 +126,14 @@
               # dont show icons on desktop
               CreateDesktop = false;
 
-              # use column view for finder
-              FXPreferredViewStyle = "clmv";
-
               # don't show external drives on desktop
               ShowExternalHardDrivesOnDesktop = false;
 
               # show path bar on finder
               ShowPathbar = true;
+
+              # show status bar
+              ShowStatusBar = true;
             };
           };
         };
