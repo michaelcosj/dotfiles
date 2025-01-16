@@ -3,7 +3,7 @@
 // Example:
 [
   {
-    "label": "Nix darwin rebuild",
+    "label": "Nix Darwin Rebuild",
     "command": "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook",
     //"args": [],
     // Whether to use a new terminal tab or reuse the existing one to spawn the process, defaults to `false`.

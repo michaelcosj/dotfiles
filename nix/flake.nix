@@ -43,6 +43,7 @@
             pkgs.nixd
             pkgs.nixfmt-rfc-style
             pkgs.git
+            pkgs.fnm
           ];
 
           fonts.packages = [
@@ -62,6 +63,7 @@
               # "slack"
               "raycast"
               "karabiner-elements"
+              "localsend"
             ];
             brews = [
               "mas"
@@ -118,6 +120,9 @@
               # dont rearrange spaces based on most recent used
               mru-spaces = false;
 
+              # make hidden apps translucent
+              showhidden = true;
+
               # apps to show on the dock
               persistent-apps = [
                 "/Applications/Zen Browser.app"
@@ -126,6 +131,7 @@
                 "/Applications/Ghostty.app"
                 "/Applications/Zed.app"
                 "/Applications/Postman.app"
+                "/Applications/Localsend.app"
                 "/System/Applications/Clock.app"
                 "/System/Applications/Calendar.app"
                 "/System/Applications/Mail.app"
