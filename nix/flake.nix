@@ -125,6 +125,7 @@
                 "/Applications/Obsidian.app"
                 "/Applications/Ghostty.app"
                 "/Applications/Zed.app"
+                "/Applications/Postman.app"
                 "/System/Applications/Clock.app"
                 "/System/Applications/Calendar.app"
                 "/System/Applications/Mail.app"
