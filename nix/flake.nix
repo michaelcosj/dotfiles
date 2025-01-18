@@ -93,8 +93,8 @@
           security.pam.enableSudoTouchIdAuth = true;
 
           nix = {
-            settings.experimental-features = "nix-command flakes";
-            gc.automatic
+            gc.automatic = true;
+            settings = { experimental-features = "nix-command flakes"; }
           };
 
 
@@ -139,7 +139,7 @@
                 NewWindowTarget = "Home";
               };
             };
-          }
+          };
         };
     in
     {
