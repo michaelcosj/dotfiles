@@ -37,8 +37,8 @@
       configuration =
         { pkgs, ... }:
         {
-          # List packages installed in system profile. To search by name, run:
-          # $ nix-env -qaP | grep wget
+          # Run darwin-help for documentation of all the configuration options
+
           environment.systemPackages = [
             pkgs.neovim
             pkgs.nixd
@@ -67,6 +67,7 @@
               "raycast"
               "karabiner-elements"
               "localsend"
+              "stremio"
             ];
             brews = [
               "mas"
@@ -75,6 +76,8 @@
               # "Yoink" = 457622435;
             };
           };
+
+          environment.variables.HOMEBREW_NO_ANALYTICS = "1";
 
           programs = {
             zsh = {
@@ -86,91 +89,57 @@
             };
           };
 
-          # Necessary for using flakes on this system.
-          nix.settings.experimental-features = "nix-command flakes";
-
-          # Enable alternative shell support in nix-darwin.
-          # programs.fish.enable = true;
-
-          # Set Git commit hash for darwin-version.
-          system.configurationRevision = self.rev or self.dirtyRev or null;
-
-          # Used for backwards compatibility, please read the changelog before changing.
-          # $ darwin-rebuild changelog
-          system.stateVersion = 5;
-
-          # The platform the configuration will be used on.
           nixpkgs.hostPlatform = "x86_64-darwin";
-
-          # use touch id for sudo permissions
           security.pam.enableSudoTouchIdAuth = true;
 
-          # system settings configuration
-          system.defaults = {
-            screencapture.location = "~/Pictures/Screenshots";
-
-            NSGlobalDomain = {
-              # Dark mode
-              AppleInterfaceStyle = "Dark";
-
-              # Show all file extensions
-              AppleShowAllExtensions = true;
-            };
-
-            dock = {
-              # autohide dock
-              autohide = true;
-
-              # dont show recents in dock
-              show-recents = false;
-
-              # reduce animation time for showing/hiding the dock
-              autohide-time-modifier = 0.8;
-
-              # dont rearrange spaces based on most recent used
-              mru-spaces = false;
-
-              # make hidden apps translucent
-              showhidden = true;
-
-              # apps to show on the dock
-              persistent-apps = [
-                "/Applications/Zen Browser.app"
-                "/Applications/Slack.app"
-                "/Applications/Obsidian.app"
-                "/Applications/Ghostty.app"
-                "/Applications/Zed.app"
-                "/Applications/Postman.app"
-                "/Applications/Localsend.app"
-                "/System/Applications/Clock.app"
-                "/System/Applications/Calendar.app"
-                "/System/Applications/Mail.app"
-              ];
-            };
-
-            finder = {
-              # show all extensions on finder
-              AppleShowAllExtensions = true;
-
-              # dont show icons on desktop
-              CreateDesktop = false;
-
-              # don't show external drives on desktop
-              ShowExternalHardDrivesOnDesktop = false;
-
-              # show path bar on finder
-              ShowPathbar = true;
-
-              # show status bar
-              ShowStatusBar = true;
-
-              # open new windows in home folder
-              NewWindowTarget = "Home";
-
-              # allow quitting finder
-              QuitMenuItem = true;
-            };
+          nix = {
+            settings.experimental-features = "nix-command flakes";
+            gc.automatic
           };
+
+
+          system = {
+            configurationRevision = self.rev or self.dirtyRev or null;
+            stateVersion = 5;
+
+            defaults = {
+              screencapture.location = "~/Pictures/Screenshots";
+
+              NSGlobalDomain = {
+                AppleInterfaceStyle = "Dark";
+                AppleShowAllExtensions = true;
+              };
+
+              dock = {
+                autohide = true;
+                show-recents = false;
+                autohide-time-modifier = 0.8;
+                mru-spaces = false;
+                showhidden = true;
+                persistent-apps = [
+                  "/Applications/Zen Browser.app"
+                  "/Applications/Slack.app"
+                  "/Applications/Obsidian.app"
+                  "/Applications/Ghostty.app"
+                  "/Applications/Zed.app"
+                  "/Applications/Postman.app"
+                  "/Applications/Localsend.app"
+                  "/System/Applications/Clock.app"
+                  "/System/Applications/Calendar.app"
+                  "/System/Applications/Mail.app"
+                ];
+              };
+
+              finder = {
+                AppleShowAllExtensions = true;
+                CreateDesktop = false;
+                ShowExternalHardDrivesOnDesktop = false;
+                ShowPathbar = true;
+                ShowStatusBar = true;
+                NewWindowTarget = "Home";
+              };
+            };
+          }
         };
     in
     {
@@ -182,16 +151,8 @@
           nix-homebrew.darwinModules.nix-homebrew
           {
             nix-homebrew = {
-              # Install Homebrew under the default prefix
               enable = true;
-
-              # Apple Silicon Only: Also install Homebrew under the default Intel prefix for Rosetta 2
-              # enableRosetta = true;
-
-              # User owning the Homebrew prefix
               user = "synth";
-
-              # Automatically migrate existing Homebrew installations
               autoMigrate = true;
             };
           }
