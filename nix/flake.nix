@@ -5,9 +5,10 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     nix-darwin.url = "github:LnL7/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Homebrew [https://github.com/zhaofengli/nix-homebrew]
     nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
 
-    # Optional: Declarative tap management
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
       flake = false;
@@ -44,6 +45,8 @@
             pkgs.nixfmt-rfc-style
             pkgs.git
             pkgs.fnm
+            pkgs.fzf
+            pkgs.imagemagickBig
           ];
 
           fonts.packages = [
@@ -70,6 +73,16 @@
             ];
             masApps = {
               # "Yoink" = 457622435;
+            };
+          };
+
+          programs = {
+            zsh = {
+              enable = true;
+              enableCompletion = true;
+              enableSyntaxHighlighting = true;
+              enableFzfCompletion = true;
+              enableFzfHistory = true;
             };
           };
 
@@ -107,9 +120,6 @@
             dock = {
               # autohide dock
               autohide = true;
-
-              # move dock to the left of the screen
-              orientation = "bottom";
 
               # dont show recents in dock
               show-recents = false;
@@ -153,6 +163,12 @@
 
               # show status bar
               ShowStatusBar = true;
+
+              # open new windows in home folder
+              NewWindowTarget = "Home";
+
+              # allow quitting finder
+              QuitMenuItem = true;
             };
           };
         };
