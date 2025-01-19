@@ -37,29 +37,19 @@
       configuration =
         { pkgs, ... }:
         {
-          environment.systemPackages = [
-            pkgs.neovim
-            pkgs.nixd
-            pkgs.nixfmt-rfc-style
-            pkgs.git
-            pkgs.fnm
-            pkgs.fzf
-            pkgs.imagemagickBig
-          ];
+          # fonts.packages = [
+          #   pkgs.jetbrains-mono
+          # ];
 
-          fonts.packages = [
-            pkgs.jetbrains-mono
-          ];
-
-          programs = {
-            zsh = {
-              enable = true;
-              enableCompletion = true;
-              enableSyntaxHighlighting = true;
-              enableFzfCompletion = true;
-              enableFzfHistory = true;
-            };
-          };
+          # programs = {
+          #   zsh = {
+          #     enable = true;
+          #     enableCompletion = true;
+          #     enableSyntaxHighlighting = true;
+          #     enableFzfCompletion = true;
+          #     enableFzfHistory = true;
+          #   };
+          # };
         };
     in
     {
@@ -68,7 +58,6 @@
       darwinConfigurations.macbook = nix-darwin.lib.darwinSystem {
         modules = [
           configuration
-          ./darwin.nix
           nix-homebrew.darwinModules.nix-homebrew
           {
             nix-homebrew = {
@@ -79,6 +68,7 @@
           }
           home-manager.darwinModules.home-manager
           ./home.nix
+          ./darwin.nix
         ];
       };
     };

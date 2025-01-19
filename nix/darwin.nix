@@ -1,5 +1,5 @@
 # Run darwin-help for documentation of all the configuration options
-{ self, ... }:
+{ ... }:
 
 {
   environment.variables.HOMEBREW_NO_ANALYTICS = "1";
@@ -10,21 +10,29 @@
     enable = true;
     onActivation.autoUpdate = true;
     onActivation.upgrade = true;
+
+    taps = [
+      # "karimbenbourenane/cask-fonts"
+    ];
+
     casks = [
       "ghostty"
       "zed"
       "zen-browser"
       "aldente"
       "obsidian"
-      # "slack"
       "raycast"
       "karabiner-elements"
       "localsend"
       "stremio"
+      "font-zed-mono-nerd-font"
+      # "slack"
     ];
+
     brews = [
       "mas"
     ];
+
     masApps = {
       # "Yoink" = 457622435;
     };
@@ -32,14 +40,13 @@
 
   nix = {
     gc.automatic = true;
+    optimise.automatic = true;
     settings = {
       experimental-features = "nix-command flakes";
-      auto-optimise-store = true;
     };
   };
 
   system = {
-    configurationRevision = self.rev or self.dirtyRev or null;
     stateVersion = 5;
 
     defaults = {
