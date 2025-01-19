@@ -13,12 +13,12 @@
         neovim
         nixd
         nixfmt-rfc-style
-        git
         fnm
-        fzf
         imagemagickBig
         jetbrains-mono
-	htop
+        htop
+        pkgs.php84
+        pkgs.php84Packages.composer
       ];
 
       fonts.fontconfig.enable = true;
@@ -41,16 +41,20 @@
           };
 
           initExtra = "
-            export PATH=\"/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin\":$PATH
-            export FNM_MULTISHELL_PATH=\"/Users/synth/.local/state/fnm_multishells/26685_1737249628581\"
-            export FNM_VERSION_FILE_STRATEGY=\"local\"
-            export FNM_DIR=\"/Users/synth/.local/share/fnm\"
-            export FNM_LOGLEVEL=\"info\"
-            export FNM_NODE_DIST_MIRROR=\"https://nodejs.org/dist\"
-            export FNM_COREPACK_ENABLED=\"false\"
-            export FNM_RESOLVE_ENGINES=\"true\"
-            export FNM_ARCH=\"x64\"
-            rehash
+# fnm node version manager
+export PATH=\"/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin\":$PATH
+export FNM_MULTISHELL_PATH=\"/Users/synth/.local/state/fnm_multishells/26685_1737249628581\"
+export FNM_VERSION_FILE_STRATEGY=\"local\"
+export FNM_DIR=\"/Users/synth/.local/share/fnm\"
+export FNM_LOGLEVEL=\"info\"
+export FNM_NODE_DIST_MIRROR=\"https://nodejs.org/dist\"
+export FNM_COREPACK_ENABLED=\"false\"
+export FNM_RESOLVE_ENGINES=\"true\"
+export FNM_ARCH=\"x64\"
+rehash
+
+# laravel valet
+export PATH=\"$HOME/.composer/vendor/bin\":$PATH
           ";
         };
 
@@ -61,6 +65,7 @@
         };
 
         fzf = {
+          enable = true;
           enableZshIntegration = true;
           defaultOptions = [
             "--height 80%"

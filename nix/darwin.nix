@@ -26,6 +26,8 @@
       "localsend"
       "stremio"
       "font-zed-mono-nerd-font"
+      "discord"
+      "dataflare"
       # "slack"
     ];
 
