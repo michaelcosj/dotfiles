@@ -4,8 +4,10 @@
   home-manager.useUserPackages = true;
 
   home-manager.users.synth =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     {
+      home.stateVersion = "24.11";
+
       home.username = "synth";
       home.homeDirectory = /Users/synth;
 
@@ -17,19 +19,33 @@
         imagemagickBig
         jetbrains-mono
         htop
-        pkgs.php84
-        pkgs.php84Packages.composer
+        uv
+        jq
+        bat
+        tmux
       ];
+
+      home.sessionVariables = {
+        EDITOR = "nvim";
+        VISUAL = "nvim";
+      };
+
+      xdg.configFile.nvim.enable = false;
+      home.file.".config/nvim".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/nvim";
 
       fonts.fontconfig.enable = true;
 
       programs = {
+        home-manager.enable = true;
+
         zsh = {
           enable = true;
           enableCompletion = true;
           autosuggestion.enable = true;
           syntaxHighlighting.enable = true;
           autocd = true;
+          defaultKeymap = "viins";
 
           shellAliases = {
             rm = "rm -i";
@@ -40,28 +56,153 @@
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
           };
 
-          initExtra = "
-# fnm node version manager
-export PATH=\"/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin\":$PATH
-export FNM_MULTISHELL_PATH=\"/Users/synth/.local/state/fnm_multishells/26685_1737249628581\"
-export FNM_VERSION_FILE_STRATEGY=\"local\"
-export FNM_DIR=\"/Users/synth/.local/share/fnm\"
-export FNM_LOGLEVEL=\"info\"
-export FNM_NODE_DIST_MIRROR=\"https://nodejs.org/dist\"
-export FNM_COREPACK_ENABLED=\"false\"
-export FNM_RESOLVE_ENGINES=\"true\"
-export FNM_ARCH=\"x64\"
-rehash
+          initExtra = ''
+            # fnm node version manager
+            export PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin":$PATH
+            export FNM_MULTISHELL_PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581"
+            export FNM_VERSION_FILE_STRATEGY="local"
+            export FNM_DIR="/Users/synth/.local/share/fnm"
+            export FNM_LOGLEVEL="info"
+            export FNM_NODE_DIST_MIRROR="https://nodejs.org/dist"
+            export FNM_COREPACK_ENABLED="false"
+            export FNM_RESOLVE_ENGINES="true"
+            export FNM_ARCH="x64"
+            rehash
 
-# laravel valet
-export PATH=\"$HOME/.composer/vendor/bin\":$PATH
-          ";
+            # laravel valet
+            export PATH="$HOME/.config/composer/vendor/bin":$PATH
+
+            # autosuggestion keybind
+            bindkey '^ ' autosuggest-accept
+          '';
         };
 
-        oh-my-posh = {
+        # oh-my-posh = {
+        #   enable = true;
+        #   enableZshIntegration = true;
+        #   useTheme = "gruvbox";
+        # };
+        starship = {
           enable = true;
           enableZshIntegration = true;
-          useTheme = "gruvbox";
+          settings = {
+            format = ''
+              [](color_orange)\
+              $username\
+              [](bg:color_yellow fg:color_orange)\
+              $directory\
+              [](fg:color_yellow bg:color_aqua)\
+              $git_branch\
+              $git_status\
+              [](fg:color_aqua bg:color_blue)\
+              $c\
+              $rust\
+              $golang\
+              $nodejs\
+              $php\
+              $python\
+              [](fg:color_blue bg:color_bg3)\
+              $docker_context\
+              [ ](fg:color_bg1)\
+              $line_break$character
+            '';
+
+            palette = "gruvbox_dark";
+
+            pallettes.gruvbox_dark = {
+              color_fg0 = "#fbf1c7";
+              color_bg1 = "#3c3836";
+              color_bg3 = "#665c54";
+              color_blue = "#458588";
+              color_aqua = "#689d6a";
+              color_green = "#98971a";
+              color_orange = "#d65d0e";
+              color_purple = "#b16286";
+              color_red = "#cc241d";
+              color_yellow = "#d79921";
+            };
+
+            username = {
+              show_always = true;
+              style_user = "bg:color_orange fg:color_fg0";
+              style_root = "bg:color_orange fg:color_fg0";
+              format = "[ $user ]($style)";
+            };
+
+            directory = {
+              style = "fg:color_fg0 bg:color_yellow";
+              format = "[ $path ]($style)";
+              truncation_length = 3;
+              truncation_symbol = "…/";
+            };
+
+            git_branch = {
+              symbol = "";
+              style = "bg:color_aqua";
+              format = "[[ $symbol $branch ](fg:color_fg0 bg:color_aqua)]($style)";
+            };
+
+            git_status = {
+              style = "bg:color_aqua";
+              format = "[[($all_status$ahead_behind )](fg:color_fg0 bg:color_aqua)]($style)";
+            };
+
+            nodejs = {
+              symbol = "";
+              style = "bg:color_blue";
+              format = "[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)";
+            };
+
+            c = {
+              symbol = " ";
+              style = "bg:color_blue";
+              format = "[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)";
+            };
+
+            rust = {
+              symbol = "";
+              style = "bg:color_blue";
+              format = "[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)";
+            };
+
+            golang = {
+              symbol = "";
+              style = "bg:color_blue";
+              format = "[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)";
+            };
+
+            php = {
+              symbol = "";
+              style = "bg:color_blue";
+              format = "[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)";
+            };
+
+            python = {
+              symbol = "";
+              style = "bg:color_blue";
+              format = "[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)";
+            };
+
+            docker_context = {
+              symbol = "";
+              style = "bg:color_bg3";
+              format = "[[ $symbol( $context) ](fg:#83a598 bg:color_bg3)]($style)";
+            };
+
+            line_break = {
+              disabled = false;
+            };
+
+            character = {
+              disabled = false;
+              success_symbol = "[](bold fg:color_green)";
+              error_symbol = "[](bold fg:color_red)";
+              vimcmd_symbol = "[](bold fg:color_green)";
+              vimcmd_replace_one_symbol = "[](bold fg:color_purple)";
+              vimcmd_replace_symbol = "[](bold fg:color_purple)";
+              vimcmd_visual_symbol = "[](bold fg:color_yellow)";
+            };
+          };
         };
 
         fzf = {
@@ -79,15 +220,33 @@ export PATH=\"$HOME/.composer/vendor/bin\":$PATH
           enable = true;
           userName = "Michael";
           userEmail = "michaelcosj@proton.me";
+          aliases = {
+            sw = "switch";
+            ci = "commit";
+            st = "status";
+            br = "branch";
+            df = "diff";
+            lg = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
+          };
+          extraConfig = {
+            core.editor = "nvim";
+            color.ui = true;
+            pull.ff = "only";
+            init.defaultBranch = "main";
+          };
+          ignores = [
+            ".DS_Store"
+            "node_modules"
+            "*.pyc"
+          ];
+          delta = {
+            enable = true;
+            options = {
+              navigate = true;
+              line-numbers = true;
+            };
+          };
         };
       };
-
-      home.sessionVariables = {
-        EDITOR = "zed";
-        VISUAL = "zed";
-      };
-
-      home.stateVersion = "24.11";
-      programs.home-manager.enable = true;
     };
 }

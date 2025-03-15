@@ -4,7 +4,7 @@
 {
   environment.variables.HOMEBREW_NO_ANALYTICS = "1";
   nixpkgs.hostPlatform = "x86_64-darwin";
-  security.pam.enableSudoTouchIdAuth = true;
+  security.pam.services.sudo_local.touchIdAuth = true;
 
   homebrew = {
     enable = true;
@@ -28,11 +28,19 @@
       "font-zed-mono-nerd-font"
       "discord"
       "dataflare"
+      "dbngin"
+      "devtoys"
+      "linearmouse"
+      "spotify"
       # "slack"
     ];
 
     brews = [
       "mas"
+      "php"
+      "composer"
+      "mailpit"
+      "mailhog"
     ];
 
     masApps = {
@@ -66,7 +74,7 @@
         mru-spaces = false;
         showhidden = true;
         persistent-apps = [
-          "/Applications/Zen Browser.app"
+          "/Applications/Google Chrome.app"
           "/Applications/Slack.app"
           "/Applications/Obsidian.app"
           "/Applications/Ghostty.app"
@@ -86,6 +94,7 @@
         ShowPathbar = true;
         ShowStatusBar = true;
         NewWindowTarget = "Home";
+        QuitMenuItem = true;
       };
     };
   };

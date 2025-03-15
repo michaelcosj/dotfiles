@@ -26,31 +26,14 @@
   };
 
   outputs =
-    inputs@{
-      self,
+    {
       nix-darwin,
       nix-homebrew,
       home-manager,
       ...
     }:
     let
-      configuration =
-        { pkgs, ... }:
-        {
-          # fonts.packages = [
-          #   pkgs.jetbrains-mono
-          # ];
-
-          # programs = {
-          #   zsh = {
-          #     enable = true;
-          #     enableCompletion = true;
-          #     enableSyntaxHighlighting = true;
-          #     enableFzfCompletion = true;
-          #     enableFzfHistory = true;
-          #   };
-          # };
-        };
+      configuration = { ... }: { };
     in
     {
       # Build darwin flake using:
