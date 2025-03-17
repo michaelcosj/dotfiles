@@ -32,6 +32,7 @@
       "devtoys"
       "linearmouse"
       "spotify"
+      "transmission"
       # "slack"
     ];
 

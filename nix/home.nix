@@ -12,17 +12,24 @@
       home.homeDirectory = /Users/synth;
 
       home.packages = with pkgs; [
+        bat
+        biome
+        fd
+        fnm
+        htop
+        jetbrains-mono
+        jq
+        lazygit
+        lua-language-server
         neovim
         nixd
         nixfmt-rfc-style
-        fnm
-        imagemagickBig
-        jetbrains-mono
-        htop
+        nodePackages.vscode-json-languageserver
+        prettierd
+        ripgrep
+        stylua
+        typescript-language-server
         uv
-        jq
-        bat
-        tmux
       ];
 
       home.sessionVariables = {
@@ -103,7 +110,7 @@
           enableZshIntegration = true;
           package = null;
           settings = {
-            theme = "GruvboxDark";
+            theme = "Kanagawa Wave";
             font-family = "JetBrains Mono";
             maximize = true;
           };
@@ -138,6 +145,13 @@
               navigate = true;
               line-numbers = true;
             };
+          };
+        };
+
+        lazygit = {
+          enable = true;
+          settings = {
+            os.editPreset = "nvim";
           };
         };
       };

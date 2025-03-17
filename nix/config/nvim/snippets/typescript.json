@@ -1,0 +1,43 @@
+{
+  "synth-new-model": {
+    "prefix": "make-new-model",
+    "body": [
+      "import { type Document, Schema, Types, model } from \"mongoose\";\n\n",
+      "export interface ${1:model} extends Document {",
+      "  ldb: ILDBObject | Types.ObjectId;",
+      "  ldbId: string;",
+      "};\n\n",
+      "export const ${1:model}Schema = new Schema<${1:model}>({",
+      "  ldb: { type: Types.ObjectId, ref: \"LDB\" },",
+      "  ldbId: { type: String, required: true },",
+      "}, { timestamps: true });\n\n",
+      "export const ${1:model}Model = model<${1:model}>(${1:model}, ${1:model}Schema);\n\n"
+    ]
+  },
+  "synth-new-repo": {
+    "prefix": "make-new-repo",
+    "body": [
+      "import { type ${1:model}, ${1:model}Model } from \"../models/${2:import_name}.model\";",
+      "import BaseRepo from \"./base.repo\";\n\n",
+      "class ${3:repo}Repo extends BaseRepo<${1:model}> {",
+      "  constructor() {",
+      "    super(${1:model}Model);",
+      "  }",
+      "}",
+      "export default ${3:repo}Repo;"
+    ]
+  },
+  "synth-new-script": {
+    "prefix": "make-new-script",
+    "body": [
+      "import { connectDB, disconnectDB } from \"./src/startup/db\";\n\n",
+      "run()\n\n",
+      "async function run() {",
+      "   await connectDB();\n\n",
+      "   ${0}",
+      "   console.log(\"done\");",
+      "   disconnectDB();",
+      "}"
+    ]
+  }
+}
