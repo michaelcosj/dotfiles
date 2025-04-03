@@ -22,24 +22,6 @@ return {
 		"folke/todo-comments.nvim",
 		events = "VimEnter",
 		opts = {},
-		keys = {
-			{
-				"<leader>st",
-				function()
-					---@diagnostic disable-next-line: undefined-field
-					Snacks.picker.todo_comments()
-				end,
-				desc = "Todo",
-			},
-			{
-				"<leader>sT",
-				function()
-					---@diagnostic disable-next-line: undefined-field
-					Snacks.picker.todo_comments({ keywords = { "TODO", "FIX", "FIXME" } })
-				end,
-				desc = "Todo/Fix/Fixme",
-			},
-		},
 	},
 
 	-- Status line
@@ -62,10 +44,8 @@ return {
 				hide_in_width = function()
 					return vim.fn.winwidth(0) > 80
 				end,
-				check_git_workspace = function()
-					local file_path = vim.fn.expand("%:p:h")
-					local git_dir = vim.fs.find(".git", { path = file_path, upward = true, limit = 1 })
-					return #git_dir > 0
+				in_git = function()
+					return Snacks.git.get_root() ~= nil
 				end,
 				diff_mode = function()
 					return vim.o.diff == true
@@ -80,6 +60,7 @@ return {
 						normal = { c = { fg = colors.theme.ui.fg, bg = colors.theme.ui.bg_p1 } },
 						inactive = { c = { fg = colors.theme.ui.fg_dim, bg = colors.theme.ui.bg_dim } },
 					},
+					disabled_filetypes = { "snacks_dashboard" },
 				},
 				sections = {
 					lualine_a = {},
@@ -225,7 +206,16 @@ return {
 				sync_install = false,
 				ignore_install = {},
 
-				highlight = { enable = true },
+				highlight = {
+					enable = true,
+					disable = function(_, buf)
+						local max_filesize = 500 * 1024 -- 100 KB
+						local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+						if ok and stats and stats.size > max_filesize then
+							return true
+						end
+					end,
+				},
 				indent = { enable = true },
 			})
 		end,
@@ -262,13 +252,16 @@ return {
 			},
 			signature = { enabled = true, window = { show_documentation = false, border = "rounded" } },
 			sources = {
-				default = { "lazydev", "lsp", "path", "snippets", "buffer" },
+				default = { "lazydev", "lsp", "path", "buffer", "snippets" },
 				providers = {
 					lazydev = {
 						name = "LazyDev",
 						module = "lazydev.integrations.blink",
 						-- make lazydev completions top priority (see `:h blink.cmp`)
 						score_offset = 100,
+					},
+					lsp = {
+						fallbacks = {},
 					},
 				},
 			},
@@ -340,6 +333,7 @@ return {
 				svelte = { "prettierd" },
 				nix = { "nixfmt" },
 				json = { "jq" },
+				php = { "pint" },
 			},
 			format_on_save = {
 				timeout_ms = 500,
@@ -360,7 +354,21 @@ return {
 	-- Task runner
 	{
 		"stevearc/overseer.nvim",
-		opts = {},
+		opts = {
+			strategy = "terminal",
+			task_list = {
+				max_height = nil,
+				height = 0.3,
+			},
+		},
+		cmd = {
+			"OverseerDebugParser",
+			"OverseerInfo",
+			"OverseerOpen",
+			"OverseerRun",
+			"OverseerRunCmd",
+			"OverseerToggle",
+		},
 		keys = {
 			{
 				"<leader>or",
@@ -455,18 +463,70 @@ return {
 	-- Snacks Nvim
 	{
 		"folke/snacks.nvim",
+		dependencies = { "folke/todo-comments.nvim" },
 		priority = 1000,
 		lazy = false,
 		---@type snacks.Config
 		opts = {
 			animate = { enabled = true, duration = 1 },
 			bigfile = { enabled = true },
-			dashboard = { enabled = true },
+			dashboard = {
+				enabled = true,
+				preset = {
+					keys = {
+						{ icon = " ", key = "q", desc = "Quit", action = ":qa" },
+					},
+					header = [[
+⣇⣿⠘⣿⣿⣿⡿⡿⣟⣟⢟⢟⢝⠵⡝⣿⡿⢂⣼⣿⣷⣌⠩⡫⡻⣝⠹⢿⣿⣷
+⡆⣿⣆⠱⣝⡵⣝⢅⠙⣿⢕⢕⢕⢕⢝⣥⢒⠅⣿⣿⣿⡿⣳⣌⠪⡪⣡⢑⢝⣇
+⡆⣿⣿⣦⠹⣳⣳⣕⢅⠈⢗⢕⢕⢕⢕⢕⢈⢆⠟⠋⠉⠁⠉⠉⠁⠈⠼⢐⢕⢽
+⡗⢰⣶⣶⣦⣝⢝⢕⢕⠅⡆⢕⢕⢕⢕⢕⣴⠏⣠⡶⠛⡉⡉⡛⢶⣦⡀⠐⣕⢕
+⡝⡄⢻⢟⣿⣿⣷⣕⣕⣅⣿⣔⣕⣵⣵⣿⣿⢠⣿⢠⣮⡈⣌⠨⠅⠹⣷⡀⢱⢕
+⡝⡵⠟⠈⢀⣀⣀⡀⠉⢿⣿⣿⣿⣿⣿⣿⣿⣼⣿⢈⡋⠴⢿⡟⣡⡇⣿⡇⡀⢕
+⡝⠁⣠⣾⠟⡉⡉⡉⠻⣦⣻⣿⣿⣿⣿⣿⣿⣿⣿⣧⠸⣿⣦⣥⣿⡇⡿⣰⢗⢄
+⠁⢰⣿⡏⣴⣌⠈⣌⠡⠈⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣬⣉⣉⣁⣄⢖⢕⢕⢕
+⡀⢻⣿⡇⢙⠁⠴⢿⡟⣡⡆⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣵⣵⣿
+⡻⣄⣻⣿⣌⠘⢿⣷⣥⣿⠇⣿⣿⣿⣿⣿⣿⠛⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣷⢄⠻⣿⣟⠿⠦⠍⠉⣡⣾⣿⣿⣿⣿⣿⣿⢸⣿⣦⠙⣿⣿⣿⣿⣿⣿⣿⣿⠟
+⡕⡑⣑⣈⣻⢗⢟⢞⢝⣻⣿⣿⣿⣿⣿⣿⣿⠸⣿⠿⠃⣿⣿⣿⣿⣿⣿⡿⠁⣠
+⡝⡵⡈⢟⢕⢕⢕⢕⣵⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣶⣿⣿⣿⣿⣿⠿⠋⣀⣈⠙
+⡝⡵⡕⡀⠑⠳⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⢉⡠⡲⡫⡪⡪⡣ 
+]],
+				},
+				sections = {
+					{ section = "header" },
+					{
+						text = { { "Ad Astra Per Aspera", hl = "special" } },
+						align = "center",
+					},
+					{
+						text = { { os.date("%A %B, %Y") .. "", hl = "key" } },
+						align = "center",
+						padding = 1,
+					},
+					{ section = "projects", title = " Projects", padding = 2, indent = 2 },
+					{ section = "recent_files", title = " Recent Files", padding = 1, indent = 2 },
+					{ section = "keys", padding = 2 },
+					{ section = "startup" },
+				},
+				pane_gap = 10,
+			},
 			explorer = {
 				enabled = true,
 			},
 			indent = { enabled = true },
-			input = { enabled = true },
+			input = {
+				enabled = true,
+				win = {
+					position = "float",
+					relative = "cursor",
+					row = -3,
+					col = 0,
+					wo = {
+						cursorline = false,
+					},
+				},
+			},
 			notifier = { enabled = false },
 			picker = {
 				enabled = true,
@@ -502,8 +562,8 @@ return {
 				win = {
 					border = "rounded",
 					position = "float",
-					height = 0.6,
-					width = 0.6,
+					height = 0.8,
+					width = 0.8,
 				},
 			},
 			styles = {},
@@ -522,27 +582,18 @@ return {
 				function()
 					Snacks.picker.files()
 				end,
-				desc = "Smart Find Files",
+				desc = "Find Files",
 			},
 			{
-				"<leader>;",
+				"<leader>fb",
 				function()
 					Snacks.picker.buffers()
 				end,
 				desc = "Buffers",
 			},
 			{
-				"<leader>/",
-				function()
-					Snacks.picker.grep()
-				end,
-				desc = "Grep",
-			},
-			{
 				"<leader>fn",
-				function()
-					Snacks.picker.notifications()
-				end,
+				"<cmd>NoiceSnacks<cr>",
 				desc = "Notification History",
 			},
 			{
@@ -564,7 +615,7 @@ return {
 				function()
 					Snacks.picker.explorer()
 				end,
-				desc = "Recent",
+				desc = "Explorer",
 			},
 
 			-- git
@@ -608,7 +659,30 @@ return {
 				end,
 				desc = "Git Diff (Hunks)",
 			},
+			{
+				"<leader>gB",
+				function()
+					Snacks.gitbrowse()
+				end,
+				desc = "Git Browse",
+				mode = { "n", "v" },
+			},
+			{
+				"<leader>gg",
+				function()
+					Snacks.lazygit()
+				end,
+				desc = "Lazygit",
+			},
+
 			-- search
+			{
+				"<leader>sS",
+				function()
+					Snacks.picker.grep()
+				end,
+				desc = "Grep",
+			},
 			{
 				"<leader>ss",
 				function()
@@ -701,13 +775,31 @@ return {
 				end,
 				desc = "Undo History",
 			},
+			-- Doesn't work on mac
+			-- {
+			-- 	"<leader>c",
+			-- 	function()
+			-- 		Snacks.picker.cliphist()
+			-- 	end,
+			-- 	desc = "Clipboard history",
+			-- },
 			{
-				"<leader>'",
+				"<leader>st",
 				function()
-					Snacks.picker.cliphist()
+					---@diagnostic disable-next-line: undefined-field
+					Snacks.picker.todo_comments()
 				end,
-				desc = "Clipboard history",
+				desc = "Todo",
 			},
+			{
+				"<leader>sT",
+				function()
+					---@diagnostic disable-next-line: undefined-field
+					Snacks.picker.todo_comments({ keywords = { "TODO", "FIX", "FIXME" } })
+				end,
+				desc = "Todo/Fix/Fixme",
+			},
+
 			-- LSP
 			{
 				"gd",
@@ -753,12 +845,13 @@ return {
 				desc = "LSP Symbols",
 			},
 			{
-				"<leader>sS",
+				"gS",
 				function()
 					Snacks.picker.lsp_workspace_symbols()
 				end,
 				desc = "LSP Workspace Symbols",
 			},
+
 			-- Other
 			{
 				"<leader>z",
@@ -794,21 +887,6 @@ return {
 					Snacks.rename.rename_file()
 				end,
 				desc = "Rename File",
-			},
-			{
-				"<leader>gB",
-				function()
-					Snacks.gitbrowse()
-				end,
-				desc = "Git Browse",
-				mode = { "n", "v" },
-			},
-			{
-				"<leader>gg",
-				function()
-					Snacks.lazygit()
-				end,
-				desc = "Lazygit",
 			},
 			{
 				"<leader>un",
@@ -902,11 +980,30 @@ return {
 		},
 		opts = {
 			servers = {
-				lua_ls = {},
-				ts_ls = {},
-				nixd = {},
-				intelephense = {},
 				biome = {},
+				intelephense = {},
+				lua_ls = {},
+				nixd = {},
+				ts_ls = {
+					settings = {
+						typescript = {
+							tsserver = {
+								useSyntaxServer = false,
+								maxTsServerMemory = 8192,
+							},
+							inlayHints = {
+								includeInlayParameterNameHints = "all",
+								includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+								includeInlayFunctionParameterTypeHints = true,
+								includeInlayVariableTypeHints = true,
+								includeInlayVariableTypeHintsWhenTypeMatchesName = false,
+								includeInlayPropertyDeclarationTypeHints = false,
+								includeInlayFunctionLikeReturnTypeHints = false,
+								includeInlayEnumMemberValueHints = false,
+							},
+						},
+					},
+				},
 			},
 		},
 		config = function(_, opts)
@@ -915,15 +1012,47 @@ return {
 			for server, config in pairs(opts.servers) do
 				-- Completion setup [[https://cmp.saghen.dev/installation.html]]
 				config.capabilities = require("blink.cmp").get_lsp_capabilities(config.capabilities)
+
 				lspconfig[server].setup(config)
 			end
 
-			vim.keymap.set("n", "cd", vim.lsp.buf.rename, { desc = "Rename item under the cusor" })
-			vim.keymap.set("n", "g.", vim.lsp.buf.code_action, { desc = "Code Actions" })
+			vim.api.nvim_create_autocmd("LspAttach", {
+				callback = function(ev)
+					-- Turn off LSP for large typescript files > 500KB
+					-- because tsserver is very slow and frustrating to work with
 
-			vim.keymap.set("n", "K", function()
-				vim.lsp.buf.hover()
-			end, { desc = "Documentation hover floating window" })
+					local file_type = vim.bo.filetype
+
+					if file_type == "typescript" then
+						local max_file_size = 500 * 1024 -- 500kb
+
+						local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(ev.buf))
+						if ok and stats and stats.size > max_file_size then
+							vim.schedule(function()
+								local client = vim.lsp.get_client_by_id(ev.data.client_id)
+								if client then
+									vim.lsp.buf_detach_client(ev.buf, ev.data.client_id)
+									Snacks.notify.warn("LSP Disabled for large file > 500KB")
+								end
+							end)
+							return
+						end
+					end
+
+					-- LSP keymaps
+					vim.keymap.set("n", "cd", function()
+						vim.lsp.buf.rename()
+					end, { desc = "Rename item under the cusor" })
+
+					vim.keymap.set("n", "g.", function()
+						vim.lsp.buf.code_action()
+					end, { desc = "Code Actions" })
+
+					vim.keymap.set("n", "K", function()
+						vim.lsp.buf.hover()
+					end, { desc = "Documentation hover floating window" })
+				end,
+			})
 		end,
 	},
 }
