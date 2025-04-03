@@ -14,9 +14,12 @@
       home.packages = with pkgs; [
         bat
         biome
+        cowsay
         fd
+        fortune
         fnm
         htop
+        intelephense
         jetbrains-mono
         jq
         lazygit
@@ -30,6 +33,7 @@
         stylua
         typescript-language-server
         uv
+        vtsls
       ];
 
       home.sessionVariables = {
@@ -61,6 +65,7 @@
             ls = "ls --color=auto -h";
             grep = "grep --color=auto -i";
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
+            nv = "nvim";
           };
 
           initExtra = ''

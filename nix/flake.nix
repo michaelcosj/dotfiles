@@ -33,7 +33,11 @@
       ...
     }:
     let
-      configuration = { ... }: { };
+      configuration =
+        { ... }:
+        {
+          nixpkgs.config.allowUnfree = true;
+        };
     in
     {
       # Build darwin flake using:
