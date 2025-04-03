@@ -86,3 +86,6 @@ vim.opt.shiftwidth = 0
 vim.schedule(function()
 	vim.opt.clipboard = "unnamedplus"
 end)
+
+-- Treesitter filtypes
+vim.treesitter.language.register("html", "handlebars")
