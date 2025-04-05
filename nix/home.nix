@@ -1,5 +1,6 @@
 {
   users.users.synth.home = /Users/synth;
+  users.users.synth.extraGroups = [ "docker" ];
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
 
@@ -15,6 +16,7 @@
         bat
         biome
         cowsay
+        docker
         fd
         fortune
         fnm
