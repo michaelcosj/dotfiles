@@ -37,7 +37,7 @@
         { ... }:
         {
           nixpkgs.config.allowUnfree = true;
-          virtualisation.docker.enable = true;
+          # virtualisation.docker.enable = true;
         };
     in
     {

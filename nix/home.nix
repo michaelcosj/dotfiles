@@ -1,6 +1,5 @@
 {
   users.users.synth.home = /Users/synth;
-  users.users.synth.extraGroups = [ "docker" ];
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
 
@@ -16,7 +15,7 @@
         bat
         biome
         cowsay
-        docker
+        # docker
         fd
         fortune
         fnm
@@ -88,6 +87,9 @@
 
             # autosuggestion keybind
             bindkey '^ ' autosuggest-accept
+
+            # gemini ai api key
+            export GEMINI_API_KEY=$(cat ~/.dotfiles/.api_key.gemini)
           '';
         };
 
