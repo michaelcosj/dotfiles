@@ -6,9 +6,6 @@ vim.g.maplocalleader = " "
 -- Make line numbers default
 vim.opt.number = true
 
--- Global statusline
-vim.opt.laststatus = 3
-
 -- Relative line numbers
 vim.opt.relativenumber = true
 
@@ -81,6 +78,12 @@ end
 vim.opt.expandtab = true
 vim.opt.tabstop = 2
 vim.opt.shiftwidth = 0
+
+-- Global statusline
+vim.opt.laststatus = 3
+
+-- exrc (I use this for overseer)
+vim.opt.exrc = true
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.

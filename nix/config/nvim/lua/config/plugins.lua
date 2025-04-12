@@ -65,6 +65,7 @@ return {
 					theme = {
 						normal = { c = { fg = colors.theme.ui.fg, bg = colors.theme.ui.bg_p1 } },
 						inactive = { c = { fg = colors.theme.ui.fg_dim, bg = colors.theme.ui.bg_dim } },
+						globalstatus = true,
 					},
 					disabled_filetypes = { "snacks_dashboard" },
 				},
