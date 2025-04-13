@@ -12,6 +12,26 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 
+local persistence_nvim_augroup = vim.api.nvim_create_augroup("user-persistence", { clear = true })
+vim.api.nvim_create_autocmd("User", {
+	group = persistence_nvim_augroup,
+	pattern = "PersistenceLoadPost",
+	callback = function()
+		-- Source exrc (for some reason changing sessions doesn't load exrc,
+		-- I think it's an issue with snacks picker projects)
+		if vim.fn.filereadable(".nvim.lua") == 1 then
+			vim.cmd("silent! source .nvim.lua")
+			Snacks.notify("Sourced .nvim.lua")
+		end
+	end,
+})
+
+-- select a session to load
+-- Persistence.nvim keymaps
+vim.keymap.set("n", "<leader>qS", function()
+	require("persistence").select()
+end, { desc = "Select Session" })
+
 return {
 	---[[ Visual Stuff ]]---
 	{
@@ -510,7 +530,14 @@ return {
 					enabled = true,
 					preset = {
 						keys = {
-							{ icon = "󰦛 ", key = "s", desc = "Restore Session", section = "session" },
+							{
+								icon = "󰦛 ",
+								key = "s",
+								desc = "Restore Session",
+								action = function()
+									require("persistence").load({ last = true })
+								end,
+							},
 							{ icon = " ", key = "q", desc = "Quit", action = ":qa" },
 						},
 						header = [[
@@ -1009,6 +1036,10 @@ return {
 			"folke/persistence.nvim",
 			event = "BufReadPre",
 			opts = {},
+			init = function()
+				vim.opt.sessionoptions =
+					{ "buffers", "curdir", "tabpages", "winsize", "help", "globals", "skiprtp", "folds" }
+			end,
 		},
 	},
 
