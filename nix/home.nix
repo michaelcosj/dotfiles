@@ -19,6 +19,7 @@
         fd
         fortune
         fnm
+        gh
         htop
         intelephense
         jetbrains-mono
