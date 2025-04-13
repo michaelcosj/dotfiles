@@ -1,37 +1,3 @@
--- [[ Plugin Autocmds ]]
--- -- Highlights for avante
-vim.api.nvim_create_autocmd("FileType", {
-	pattern = "Avante",
-	group = vim.api.nvim_create_augroup("avante_highlights", { clear = true }),
-	callback = function()
-		vim.api.nvim_set_hl(0, "AvanteSidebarNormal", { link = "Normal" })
-		vim.api.nvim_set_hl(0, "AvanteSidebarWinSeparator", { link = "WinSeparator" })
-
-		local normal_bg = string.format("#%06x", vim.api.nvim_get_hl(0, { name = "Normal" }).bg)
-		vim.api.nvim_set_hl(0, "AvanteSidebarWinHorizontalSeparator", { fg = normal_bg })
-	end,
-})
-
-local persistence_nvim_augroup = vim.api.nvim_create_augroup("user-persistence", { clear = true })
-vim.api.nvim_create_autocmd("User", {
-	group = persistence_nvim_augroup,
-	pattern = "PersistenceLoadPost",
-	callback = function()
-		-- Source exrc (for some reason changing sessions doesn't load exrc,
-		-- I think it's an issue with snacks picker projects)
-		if vim.fn.filereadable(".nvim.lua") == 1 then
-			vim.cmd("silent! source .nvim.lua")
-			Snacks.notify("Sourced .nvim.lua")
-		end
-	end,
-})
-
--- select a session to load
--- Persistence.nvim keymaps
-vim.keymap.set("n", "<leader>qS", function()
-	require("persistence").select()
-end, { desc = "Select Session" })
-
 return {
 	---[[ Visual Stuff ]]---
 	{
@@ -282,7 +248,8 @@ return {
 				"onsails/lspkind.nvim",
 				"nvim-tree/nvim-web-devicons",
 				{ "xzbdmw/colorful-menu.nvim", opts = {} },
-				"Kaiser-Yang/blink-cmp-avante",
+				"olimorris/codecompanion.nvim",
+				"giuxtaposition/blink-cmp-copilot",
 			},
 			-- use a release tag to download pre-built binaries
 			version = "*",
@@ -295,8 +262,14 @@ return {
 				},
 				signature = { enabled = true, window = { show_documentation = false, border = "rounded" } },
 				sources = {
-					default = { "avante", "lazydev", "lsp", "path", "buffer", "snippets" },
+					default = { "copilot", "lazydev", "lsp", "path", "buffer", "snippets" },
 					providers = {
+						copilot = {
+							name = "copilot",
+							module = "blink-cmp-copilot",
+							score_offset = 100,
+							async = true,
+						},
 						lazydev = {
 							name = "LazyDev",
 							module = "lazydev.integrations.blink",
@@ -333,8 +306,8 @@ return {
 											if dev_icon then
 												icon = dev_icon
 											end
-										elseif vim.tbl_contains({ "Avante" }, ctx.source_name) then
-											icon = " "
+										elseif vim.tbl_contains({ "copilot" }, ctx.source_name) then
+											icon = " "
 										else
 											icon = require("lspkind").symbolic(ctx.kind, {
 												mode = "symbol",
@@ -1035,10 +1008,74 @@ return {
 		{
 			"folke/persistence.nvim",
 			event = "BufReadPre",
+			dependencies = { "stevearc/overseer.nvim" },
 			opts = {},
 			init = function()
-				vim.opt.sessionoptions =
-					{ "buffers", "curdir", "tabpages", "winsize", "help", "globals", "skiprtp", "folds" }
+				vim.opt.sessionoptions = {
+					"buffers",
+					"curdir",
+					"tabpages",
+					"winsize",
+					"help",
+					"globals",
+					"skiprtp",
+					"folds",
+				}
+
+				local function get_cwd_as_name()
+					local dir = vim.fn.getcwd(0)
+					return dir:gsub("[^A-Za-z0-9]", "_")
+				end
+
+				local overseer = require("overseer")
+
+				vim.api.nvim_create_autocmd("User", {
+					group = vim.api.nvim_create_augroup("user-persistence-pre-save", { clear = true }),
+					pattern = "PersistenceSavePre",
+					callback = function()
+						overseer.save_task_bundle(get_cwd_as_name(), nil, { on_conflict = "overwrite" })
+					end,
+				})
+
+				vim.api.nvim_create_autocmd("User", {
+					group = vim.api.nvim_create_augroup("user-persistence-pre-load", { clear = true }),
+					pattern = "PersistenceLoadPre",
+					callback = function()
+						for _, task in ipairs(overseer.list_tasks({})) do
+							task:dispose(true)
+						end
+					end,
+				})
+
+				vim.api.nvim_create_autocmd("User", {
+					group = vim.api.nvim_create_augroup("user-persistence-post-load", { clear = true }),
+					pattern = "PersistenceLoadPost",
+					callback = function()
+						-- Source exrc (for some reason changing sessions doesn't load exrc,
+						-- I think it's an issue with snacks picker projects)
+						if vim.fn.filereadable(".nvim.lua") == 1 then
+							vim.cmd("silent! source .nvim.lua")
+							Snacks.notify("Sourced .nvim.lua")
+						end
+
+						-- load overseer tasks
+						overseer.load_task_bundle(get_cwd_as_name(), { ignore_missing = true })
+					end,
+				})
+
+				vim.api.nvim_create_autocmd("FileType", {
+					group = vim.api.nvim_create_augroup("disable_session_persistence", { clear = true }),
+					pattern = { "gitcommit", "codecompanion" },
+					callback = function()
+						require("persistence").stop()
+					end,
+				})
+
+				-- select a session to load
+				-- Persistence.nvim keymaps
+				vim.keymap.set("n", "<leader>qS", function()
+					require("persistence").select()
+				end, { desc = "Select Session" })
 			end,
 		},
 	},
@@ -1144,62 +1181,82 @@ return {
 
 	---[[ AI ]]---
 	{
-		-- { "zbirenbaum/copilot.lua", opts = {} },
-		-- {
-		-- 	"olimorris/codecompanion.nvim",
-		-- 	opts = {},
-		-- 	dependencies = {
-		-- 		"nvim-lua/plenary.nvim",
-		-- 		"nvim-treesitter/nvim-treesitter",
-		-- 	},
-		-- },
 		{
-			"yetone/avante.nvim",
-			event = "VeryLazy",
-			version = false, -- Never set this value to "*"! Never!
+			"zbirenbaum/copilot.lua",
+			event = "InsertEnter",
 			opts = {
-				provider = "gemini",
-				behaviour = {
-					enable_cursor_planning_mode = true,
-				},
-				gemini = {
-					model = "gemini-2.5-pro-exp-03-25",
-				},
-				file_selector = {
-					provider = "snacks",
-					provider_opts = {},
-				},
+				suggestion = { enabled = false },
+				panel = { enabled = false },
 			},
-			build = "make",
+		},
+
+		{
+			"olimorris/codecompanion.nvim",
 			dependencies = {
-				"nvim-treesitter/nvim-treesitter",
 				"nvim-lua/plenary.nvim",
-				"MunifTanjim/nui.nvim",
-				"nvim-tree/nvim-web-devicons",
-				-- { "stevearc/dressing.nvim", opts = { select = { backend = "builtin" } } },
-				{
-					-- support for image pasting
-					"HakonHarnes/img-clip.nvim",
-					event = "VeryLazy",
-					opts = {
-						default = {
-							embed_image_as_base64 = false,
-							prompt_for_file_name = false,
-							drag_and_drop = {
-								insert_mode = true,
-							},
-						},
+				"nvim-treesitter/nvim-treesitter",
+				"folke/noice.nvim",
+			},
+			opts = {
+				strategies = {
+					chat = {
+						adapter = "copilot",
+					},
+					inline = {
+						adapter = "gemini",
 					},
 				},
-				{
-					-- Make sure to set this up properly if you have lazy=true
-					"MeanderingProgrammer/render-markdown.nvim",
-					opts = {
-						file_types = { "markdown", "Avante" },
-					},
-					ft = { "markdown", "Avante" },
+				adapters = {
+					gemini = function()
+						return require("codecompanion.adapters").extend("gemini", {
+							env = {
+								api_key = "GEMINI_API_KEY",
+							},
+							schema = {
+								model = {
+									default = "gemini-2.5-pro-exp-03-25",
+								},
+							},
+						})
+					end,
+					copilot = function()
+						return require("codecompanion.adapters").extend("copilot", {
+							schema = {
+								model = {
+									default = "claude-3.5-sonnet",
+								},
+							},
+						})
+					end,
 				},
 			},
+			init = function()
+				vim.keymap.set(
+					{ "n", "v" },
+					"<leader>A",
+					"<cmd>CodeCompanionActions<cr>",
+					{ noremap = true, silent = true, desc = "Code Companion Actions" }
+				)
+
+				vim.keymap.set(
+					{ "n", "v" },
+					"<leader>a",
+					"<cmd>CodeCompanionChat Toggle<cr>",
+					{ noremap = true, silent = true, desc = "Code Companion Chat" }
+				)
+
+				vim.keymap.set(
+					"v",
+					"ga",
+					"<cmd>CodeCompanionChat Add<cr>",
+					{ noremap = true, silent = true, desc = "Add To Code Companion Chat" }
+				)
+
+				-- Expand 'cc' into 'CodeCompanion' in the command line
+				vim.cmd([[cab cc CodeCompanion]])
+
+				require("plugin-extentions.code-companion").init_notifications()
+			end,
 		},
 	},
 }
