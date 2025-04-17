@@ -4,6 +4,7 @@ local Manager = require("noice.message.manager")
 local Router = require("noice.message.router")
 
 local ThrottleTime = 200
+
 local M = {}
 
 M.handles = {}
@@ -50,7 +51,7 @@ function M.create_progress_message(request)
 		client_id = "client " .. id,
 		client = M.llm_role_title(request.data.adapter),
 		id = id,
-		message = "Awaiting Response: ",
+		message = "",
 	}
 	return msg
 end
@@ -87,6 +88,76 @@ function M.report_exit_status(request)
 	else
 		return "󰜺 Cancelled"
 	end
+end
+
+M.opts = {
+	strategies = {
+		chat = {
+			adapter = "gemini",
+			tools = {
+				["mcp"] = {
+					callback = function()
+						return require("mcphub.extensions.codecompanion")
+					end,
+					description = "Call tools and resources from the MCP Servers",
+				},
+			},
+		},
+		inline = {
+			adapter = "copilot",
+		},
+	},
+	adapters = {
+		gemini = function()
+			return require("codecompanion.adapters").extend("gemini", {
+				env = {
+					api_key = "GEMINI_API_KEY",
+				},
+				schema = {
+					model = {
+						default = "gemini-2.5-pro-exp-03-25",
+					},
+				},
+			})
+		end,
+		copilot = function()
+			return require("codecompanion.adapters").extend("copilot", {
+				schema = {
+					model = {
+						default = "claude-3.5-sonnet",
+					},
+				},
+			})
+		end,
+	},
+}
+
+M.init = function()
+	vim.keymap.set(
+		{ "n", "v" },
+		"<leader>ac",
+		"<cmd>CodeCompanionActions<cr>",
+		{ noremap = true, silent = true, desc = "Code Companion Actions" }
+	)
+
+	vim.keymap.set(
+		{ "n", "v" },
+		"<leader>aa",
+		"<cmd>CodeCompanionChat Toggle<cr>",
+		{ noremap = true, silent = true, desc = "Code Companion Chat" }
+	)
+
+	vim.keymap.set(
+		"v",
+		"ga",
+		"<cmd>CodeCompanionChat Add<cr>",
+		{ noremap = true, silent = true, desc = "Add To Code Companion Chat" }
+	)
+
+	-- Expand 'cc' into 'CodeCompanion' in the command line
+	vim.cmd([[cab cc CodeCompanion]])
+
+	M:init_notifications()
 end
 
 return M

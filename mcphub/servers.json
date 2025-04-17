@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "mongodb-lens": {
+      "disabled": true,
+      "command": "npx",
+      "args": [
+        "-y",
+        "mongodb-lens@latest"
+      ],
+      "env": {
+        "CONFIG_LOG_LEVEL": "verbose",
+        "CONFIG_PATH": "~/.dotfiles/mcphub/config/mongodb-lens.json"
+      },
+      "disabled_tools": [
+        "drop-user",
+        "drop-index",
+        "create-user",
+        "transaction",
+        "create-index",
+        "drop-database",
+        "drop-collection",
+        "insert-document",
+        "update-document",
+        "delete-document",
+        "bulk-operations",
+        "create-database",
+        "gridfs-operation",
+        "create-collection",
+        "rename-collection",
+        "create-timeseries"
+      ]
+    }
+  }
+}
