@@ -41,6 +41,7 @@
       "php"
       "composer"
       "mailpit"
+      "blueutil"
     ];
 
     masApps = {

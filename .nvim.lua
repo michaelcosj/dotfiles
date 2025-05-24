@@ -7,9 +7,7 @@ require("overseer").register_template({
 	builder = function()
 		return {
 			cmd = { "darwin-rebuild" },
-			args = { "switch", "--flake", "~/.dotfiles/nix#macbook" },
+			args = { "switch", "--flake", "./nix#macbook" },
 		}
 	end,
 })
-
-print("hello")

@@ -3,7 +3,7 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
-require("config.options")
-require("config.keymaps")
-require("config.autocmds")
-require("config.plugins")
+require("nvim.options")
+require("nvim.keymaps")
+require("nvim.autocmds")
+require("nvim.plugins")

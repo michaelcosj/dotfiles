@@ -5,7 +5,12 @@ local servers = {
 	intelephense = {},
 	lua_ls = {},
 	nixd = {},
-	jsonls = {},
+	jsonls = {
+		cmd = {
+			"/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin/vscode-json-languageserver",
+			"--stdio",
+		},
+	},
 	ts_ls = {
 		settings = {
 			typescript = {

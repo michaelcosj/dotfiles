@@ -29,13 +29,14 @@
         neovim
         nixd
         nixfmt-rfc-style
-        nodePackages.vscode-json-languageserver
         prettierd
         ripgrep
         stylua
+        tree
         typescript-language-server
         uv
         vtsls
+        yt-dlp
       ];
 
       home.sessionVariables = {

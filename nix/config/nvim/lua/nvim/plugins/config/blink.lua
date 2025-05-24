@@ -7,7 +7,7 @@ M.opts = {
 	},
 	signature = { enabled = true, window = { show_documentation = false, border = "rounded" } },
 	sources = {
-		default = { "copilot", "lazydev", "lsp", "path", "buffer", "snippets" },
+		default = { "lazydev", "lsp", "path", "buffer", "snippets" },
 		providers = {
 			copilot = {
 				name = "copilot",

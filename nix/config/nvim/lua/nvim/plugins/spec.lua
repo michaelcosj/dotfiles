@@ -34,7 +34,7 @@ return {
 			dependencies = { "nvim-tree/nvim-web-devicons" },
 			enabled = true,
 			event = "VeryLazy",
-			opts = require("config.plugins.config.lualine").opts,
+			opts = require("nvim.plugins.config.lualine").opts,
 		},
 
 		-- Noice makes nvim fancy
@@ -137,7 +137,7 @@ return {
 			version = "*",
 			---@module 'blink.cmp'
 			---@type blink.cmp.Config
-			opts = require("config.plugins.config.blink").opts,
+			opts = require("nvim.plugins.config.blink").opts,
 			opts_extend = { "sources.default" },
 		},
 
@@ -156,10 +156,10 @@ return {
 					json = { "jq" },
 					php = { "pint" },
 				},
-				format_on_save = {
-					timeout_ms = 500,
-					lsp_format = "fallback",
-				},
+				-- format_on_save = {
+				-- 	timeout_ms = 500,
+				-- 	lsp_format = "fallback",
+				-- },
 			},
 			keys = {
 				{
@@ -220,13 +220,24 @@ return {
 					desc = "Buffer Local Keymaps (which-key)",
 				},
 			},
+			init = function()
+				local wk = require("which-key")
+				wk.add({
+					{ "<leader>f", group = "Find" },
+					{ "<leader>a", group = "AI" },
+					{ "<leader>b", group = "Buffer" },
+					{ "<leader>g", group = "Git" },
+					{ "<leader>h", group = "Git Signs" },
+					{ "<leader>u", group = "Toggle" },
+				})
+			end,
 		},
 
 		-- Git signs and utils
 		{
 			"lewis6991/gitsigns.nvim",
 			opts = {
-				on_attach = require("config.plugins.config.gitsigns").on_attach,
+				on_attach = require("nvim.plugins.config.gitsigns").on_attach,
 			},
 		},
 
@@ -237,9 +248,9 @@ return {
 			priority = 1000,
 			lazy = false,
 			---@type snacks.Config
-			opts = require("config.plugins.config.snacks").opts,
-			keys = require("config.plugins.config.snacks").keys,
-			init = require("config.plugins.config.snacks").init,
+			opts = require("nvim.plugins.config.snacks").opts,
+			keys = require("nvim.plugins.config.snacks").keys,
+			init = require("nvim.plugins.config.snacks").init,
 		},
 
 		-- Session Management
@@ -248,7 +259,7 @@ return {
 			event = "BufReadPre",
 			dependencies = { "stevearc/overseer.nvim" },
 			opts = {},
-			init = require("config.plugins.config.persistence").init,
+			init = require("nvim.plugins.config.persistence").init,
 		},
 	},
 
@@ -269,8 +280,9 @@ return {
 					},
 				},
 			},
-			config = require("config.plugins.config.lspconfig").config,
+			config = require("nvim.plugins.config.lspconfig").config,
 		},
+
 		-- Asynchronous Lint Engine (for linters that don't have LSP support)
 		{
 			"dense-analysis/ale",
@@ -280,6 +292,14 @@ return {
 				g.ale_linters = {
 					php = { "phpstan" },
 				}
+				--  Only run linters named in ale_linters settings.
+				g.ale_linters_explicit = 1
+
+				-- turn off echo errors
+				g.ale_echo_cursor = 0
+
+				-- display diagnostics through neovim
+				g.ale_use_neovim_diagnostics_api = 1
 			end,
 		},
 	},
@@ -290,6 +310,7 @@ return {
 		{
 			"zbirenbaum/copilot.lua",
 			event = "InsertEnter",
+			enabled = false,
 			opts = {
 				suggestion = { enabled = false },
 				panel = { enabled = false },
@@ -304,8 +325,8 @@ return {
 				"nvim-treesitter/nvim-treesitter",
 				"folke/noice.nvim",
 			},
-			opts = require("config.plugins.config.codecompanion").opts,
-			init = require("config.plugins.config.codecompanion").init,
+			opts = require("nvim.plugins.config.codecompanion").opts,
+			init = require("nvim.plugins.config.codecompanion").init,
 		},
 
 		-- MCP Hub
@@ -316,7 +337,7 @@ return {
 			},
 			cmd = "MCPHub",
 			build = "npm install -g mcp-hub@latest",
-			opts = require("config.plugins.config.mcphub").opts,
+			opts = require("nvim.plugins.config.mcphub").opts,
 		},
 	},
 }

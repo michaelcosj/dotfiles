@@ -39,5 +39,21 @@
       "   disconnectDB();",
       "}"
     ]
+  },
+  "synth-new-dto": {
+    "prefix": "make-new-dto",
+    "body": [
+      "export class ${1:dto_name} {",
+      "  ${2:dto_body};",
+      "",
+      "  static validate(data: unknown) {",
+      "    const { error, value } = Joi.object<${1:dto_name}, true>({",
+      "    }).validate(data);",
+      "",
+      "    if (error) return handleValidationError(error);",
+      "    return value;",
+      "  }",
+      "}"
+    ]
   }
 }

@@ -114,27 +114,29 @@ M.opts = {
 }
 
 M.keys = {
-	-- Find
+	-- Buffer
 	{
-		"<leader><space>",
+		"<leader>bl",
 		function()
-			Snacks.picker.smart()
+			Snacks.picker.buffers()
 		end,
-		desc = "Smart Find Files",
+		desc = "List Buffers",
 	},
+	{
+		"<leader>bd",
+		function()
+			Snacks.bufdelete()
+		end,
+		desc = "Delete Buffer",
+	},
+
+	-- Find
 	{
 		"<leader>ff",
 		function()
 			Snacks.picker.files()
 		end,
 		desc = "Find Files",
-	},
-	{
-		"<leader>fb",
-		function()
-			Snacks.picker.buffers()
-		end,
-		desc = "Buffers",
 	},
 	{
 		"<leader>fn",
@@ -162,6 +164,114 @@ M.keys = {
 		end,
 		desc = "Explorer",
 	},
+	{
+		"<leader>fg",
+		function()
+			Snacks.picker.grep()
+		end,
+		desc = "Grep",
+	},
+	{
+		"<leader><space>",
+		function()
+			Snacks.picker.lines()
+		end,
+		desc = "Buffer Lines",
+	},
+	{
+		"<leader>fw",
+		function()
+			Snacks.picker.grep_word()
+		end,
+		desc = "Visual selection or word",
+		mode = { "n", "x" },
+	},
+	{
+		"<leader>fd",
+		function()
+			Snacks.picker.diagnostics()
+		end,
+		desc = "Diagnostics",
+	},
+	{
+		"<leader>fD",
+		function()
+			Snacks.picker.diagnostics_buffer()
+		end,
+		desc = "Buffer Diagnostics",
+	},
+	{
+		"<leader>fh",
+		function()
+			Snacks.picker.help()
+		end,
+		desc = "Help Pages",
+	},
+	{
+		"<leader>fi",
+		function()
+			Snacks.picker.icons()
+		end,
+		desc = "Icons",
+	},
+	{
+		"<leader>fj",
+		function()
+			Snacks.picker.jumps()
+		end,
+		desc = "Jumps",
+	},
+	{
+		"<leader>fk",
+		function()
+			Snacks.picker.keymaps()
+		end,
+		desc = "Keymaps",
+	},
+	{
+		"<leader>fl",
+		function()
+			Snacks.picker.loclist()
+		end,
+		desc = "Location List",
+	},
+	{
+		"<leader>fP",
+		function()
+			Snacks.picker.lazy()
+		end,
+		desc = "Search for Plugin Spec",
+	},
+	{
+		"<leader>fq",
+		function()
+			Snacks.picker.qflist()
+		end,
+		desc = "Quickfix List",
+	},
+	{
+		"<leader>fu",
+		function()
+			Snacks.picker.undo()
+		end,
+		desc = "Undo History",
+	},
+	{
+		"<leader>ft",
+		function()
+			---@diagnostic disable-next-line: undefined-field
+			Snacks.picker.todo_comments()
+		end,
+		desc = "Todo",
+	},
+	{
+		"<leader>fT",
+		function()
+			---@diagnostic disable-next-line: undefined-field
+			Snacks.picker.todo_comments({ keywords = { "TODO", "FIX", "FIXME" } })
+		end,
+		desc = "Todo/Fix/Fixme",
+	},
 
 	-- git
 	{
@@ -177,14 +287,14 @@ M.keys = {
 		desc = "Git Log File",
 	},
 	{
-		"<leader>gL",
+		"<leader>gl",
 		function()
 			Snacks.picker.git_log()
 		end,
 		desc = "Git Log",
 	},
 	{
-		"<leader>gl",
+		"<leader>gL",
 		function()
 			Snacks.picker.git_log_line()
 		end,
@@ -221,105 +331,6 @@ M.keys = {
 	},
 
 	-- search
-	{
-		"<leader>sS",
-		function()
-			Snacks.picker.grep()
-		end,
-		desc = "Grep",
-	},
-	{
-		"<leader>ss",
-		function()
-			Snacks.picker.lines()
-		end,
-		desc = "Buffer Lines",
-	},
-	{
-		"<leader>sw",
-		function()
-			Snacks.picker.grep_word()
-		end,
-		desc = "Visual selection or word",
-		mode = { "n", "x" },
-	},
-	{
-		"<leader>sr",
-		function()
-			Snacks.picker.registers()
-		end,
-		desc = "Registers",
-	},
-	{
-		"<leader>sd",
-		function()
-			Snacks.picker.diagnostics()
-		end,
-		desc = "Diagnostics",
-	},
-	{
-		"<leader>sD",
-		function()
-			Snacks.picker.diagnostics_buffer()
-		end,
-		desc = "Buffer Diagnostics",
-	},
-	{
-		"<leader>sh",
-		function()
-			Snacks.picker.help()
-		end,
-		desc = "Help Pages",
-	},
-	{
-		"<leader>si",
-		function()
-			Snacks.picker.icons()
-		end,
-		desc = "Icons",
-	},
-	{
-		"<leader>sj",
-		function()
-			Snacks.picker.jumps()
-		end,
-		desc = "Jumps",
-	},
-	{
-		"<leader>sk",
-		function()
-			Snacks.picker.keymaps()
-		end,
-		desc = "Keymaps",
-	},
-	{
-		"<leader>sl",
-		function()
-			Snacks.picker.loclist()
-		end,
-		desc = "Location List",
-	},
-	{
-		"<leader>sp",
-		function()
-			Snacks.picker.lazy()
-		end,
-		desc = "Search for Plugin Spec",
-	},
-	{
-		"<leader>sq",
-		function()
-			Snacks.picker.qflist()
-		end,
-		desc = "Quickfix List",
-	},
-	{
-		"<leader>su",
-		function()
-			Snacks.picker.undo()
-		end,
-		desc = "Undo History",
-	},
 	-- Doesn't work on mac
 	-- {
 	-- 	"<leader>c",
@@ -328,22 +339,6 @@ M.keys = {
 	-- 	end,
 	-- 	desc = "Clipboard history",
 	-- },
-	{
-		"<leader>st",
-		function()
-			---@diagnostic disable-next-line: undefined-field
-			Snacks.picker.todo_comments()
-		end,
-		desc = "Todo",
-	},
-	{
-		"<leader>sT",
-		function()
-			---@diagnostic disable-next-line: undefined-field
-			Snacks.picker.todo_comments({ keywords = { "TODO", "FIX", "FIXME" } })
-		end,
-		desc = "Todo/Fix/Fixme",
-	},
 
 	-- LSP
 	{
@@ -418,13 +413,6 @@ M.keys = {
 			Snacks.scratch.select()
 		end,
 		desc = "Select Scratch Buffer",
-	},
-	{
-		"<leader>bd",
-		function()
-			Snacks.bufdelete()
-		end,
-		desc = "Delete Buffer",
 	},
 	{
 		"<leader>cR",
