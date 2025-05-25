@@ -30,8 +30,7 @@ return {
 	{
 		"echasnovski/mini.icons",
 		version = false,
-		opts = {
-		},
+		opts = {},
 		config = function(_, opts)
 			require("mini.icons").setup(opts)
 			require("mini.icons").mock_nvim_web_devicons()
@@ -189,6 +188,12 @@ return {
 			"MunifTanjim/nui.nvim",
 			"folke/snacks.nvim",
 		},
+	},
+
+	-- Smoother cursor movement animations
+	{
+		"sphamba/smear-cursor.nvim",
+		opts = {},
 	},
 
 	-- Better Markdown rendering
