@@ -125,6 +125,33 @@
             font-family = "JetBrains Mono";
             maximize = true;
           };
+          themes = {
+            kanso-pearl = {
+              background = "f2f1ef";
+              cursor-color = "24262D";
+              foreground = "24262D";
+              palette = [
+                "0=#24262D"
+                "1=#c84053"
+                "2=#6f894e"
+                "3=#77713f"
+                "4=#4d699b"
+                "5=#b35b79"
+                "6=#597b75"
+                "7=#545464"
+                "8=#6d6f6e"
+                "9=#d7474b"
+                "10=#6e915f"
+                "11=#836f4a"
+                "12=#6693bf"
+                "13=#624c83"
+                "14=#5e857a"
+                "15=#43436c"
+              ];
+              selection-background = "e2e1df";
+              selection-foreground = "24262D";
+            };
+          };
         };
 
         git = {
