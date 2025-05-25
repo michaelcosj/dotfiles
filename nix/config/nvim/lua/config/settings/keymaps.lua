@@ -47,3 +47,7 @@ map("v", ">", ">gv")
 -- Better up/down (does not care about wrapping)
 map({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 map({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
+
+-- Better quickfix navigation
+map("n", "[q", "<cmd>cprev<CR>", { desc = "Previous quickfix item" })
+map("n", "]q", "<cmd>cnext<CR>", { desc = "Next quickfix item" })

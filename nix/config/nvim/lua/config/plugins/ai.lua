@@ -97,6 +97,21 @@ return {
 				chat = {
 					show_settings = true,
 					show_token_count = true,
+					window = {
+						opts = {
+							breakindent = true,
+							cursorcolumn = false,
+							cursorline = false,
+							foldcolumn = "0",
+							linebreak = true,
+							list = false,
+							signcolumn = "no",
+							spell = false,
+							wrap = true,
+							number = false,
+							relativenumber = false,
+						},
+					},
 				},
 			},
 		},

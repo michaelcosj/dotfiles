@@ -7,7 +7,7 @@ return {
 	{ "echasnovski/mini.pairs", version = "*", opts = {} },
 
 	-- Surround
-	{ "echasnovski/mini.surround", version = "*", opts = {} },
+	{ "echasnovski/mini.surround", version = "*", opts = { n_lines = 100 } },
 
 	-- Better quickfix
 	{
