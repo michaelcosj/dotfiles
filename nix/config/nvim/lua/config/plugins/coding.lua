@@ -262,6 +262,14 @@ return {
 					vim.keymap.set("n", "K", function()
 						vim.lsp.buf.hover()
 					end, { desc = "Documentation hover floating window" })
+
+					vim.keymap.set("n", "gl", function()
+						vim.diagnostic.setloclist({})
+					end, { desc = "Diagnostics in quickfix list" })
+
+					vim.keymap.set("n", "gq", function()
+						vim.diagnostic.setloclist({})
+					end, { desc = "Diagnostics in quickfix list" })
 				end,
 			})
 		end,
