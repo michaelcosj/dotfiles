@@ -71,7 +71,7 @@
             nv = "nvim";
           };
 
-          initExtra = ''
+          initContent = ''
             # fnm node version manager
             export PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin":$PATH
             export FNM_MULTISHELL_PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581"

@@ -15,6 +15,11 @@ require("lazy").setup({
 	install = { colorscheme = { "habamax" } },
 	checker = { enabled = true },
 	spec = {
-		{ import = "nvim.plugins.spec" },
+		{ import = "config.plugins.snacks" },
+		{ import = "config.plugins.ui" },
+		{ import = "config.plugins.coding" },
+		{ import = "config.plugins.editor" },
+		{ import = "config.plugins.tools" },
+		{ import = "config.plugins.ai" },
 	},
 })

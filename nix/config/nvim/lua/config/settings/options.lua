@@ -1,3 +1,7 @@
+--  Set leader key
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+
 ------------------=[[Options]]=----------------------------
 -- Make line numbers default
 vim.opt.number = true
@@ -33,6 +37,18 @@ vim.opt.timeoutlen = 300
 -- Configure how new splits should be opened
 vim.opt.splitright = true
 vim.opt.splitbelow = true
+
+-- session options
+vim.opt.sessionoptions = {
+	"buffers",
+	"curdir",
+	"tabpages",
+	"winsize",
+	"help",
+	"globals",
+	"skiprtp",
+	"folds",
+}
 
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
