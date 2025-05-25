@@ -2,7 +2,55 @@ return {
 	-- Colorscheme
 	{
 		"rebelot/kanagawa.nvim",
+		enabled = true,
 		priority = 1000,
+		opts = {
+			colors = {
+				theme = {
+					all = {
+						ui = {
+							bg_gutter = "none",
+						},
+					},
+				},
+			},
+			background = {
+				dark = "wave",
+				light = "lotus",
+			},
+			overrides = function(colors)
+				local theme = colors.theme
+				return {
+					Pmenu = { fg = theme.ui.shade0, bg = theme.ui.bg_p1 },
+					PmenuSel = { fg = "NONE", bg = theme.ui.bg_p2 },
+					PmenuSbar = { bg = theme.ui.bg_m1 },
+					PmenuThumb = { bg = theme.ui.bg_p2 },
+
+					NormalFloat = { bg = "none" },
+					FloatBorder = { bg = "none" },
+					FloatTitle = { bg = "none" },
+
+					-- Save an hlgroup with dark background and dimmed foreground
+					-- so that you can use it where your still want darker windows.
+					-- E.g.: autocmd TermOpen * setlocal winhighlight=Normal:NormalDark
+					NormalDark = { fg = theme.ui.fg_dim, bg = theme.ui.bg_m3 },
+
+					-- Popular plugins that open floats will link to NormalFloat by default;
+					-- set their background accordingly if you wish to keep them dark and borderless
+					LazyNormal = { bg = theme.ui.bg_m3, fg = theme.ui.fg_dim },
+				}
+			end,
+		},
+		init = function()
+			vim.cmd("colorscheme kanagawa")
+		end,
+	},
+
+	{
+		"webhooked/kanso.nvim",
+		lazy = false,
+		priority = 1000,
+		enabled = false,
 		opts = {
 			overrides = function(colors)
 				local theme = colors.theme
@@ -15,7 +63,7 @@ return {
 			end,
 		},
 		init = function()
-			vim.cmd("colorscheme kanagawa")
+			vim.cmd("colorscheme kanso")
 		end,
 	},
 
