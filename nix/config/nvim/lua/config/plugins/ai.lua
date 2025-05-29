@@ -1,24 +1,13 @@
 return {
-	-- Github Copilot
-	{
-		"zbirenbaum/copilot.lua",
-		event = "InsertEnter",
-		enabled = false,
-		opts = {
-			suggestion = { enabled = false },
-			panel = { enabled = false },
-		},
-	},
-
-	-- Minuet AI
+	-- Minuet AI (better copilot)
 	{
 		"milanglacier/minuet-ai.nvim",
 		dependencies = {
 			{ "nvim-lua/plenary.nvim" },
 		},
 		opts = {
-			throttle = 500,
-			provider = "gemini",
+			throttle = 250,
+			provider = "codestral",
 			provider_options = {
 				gemini = {
 					model = "gemini-2.0-flash",
@@ -29,14 +18,16 @@ return {
 						},
 						safetySettings = {
 							{
-								-- HARM_CATEGORY_HATE_SPEECH,
-								-- HARM_CATEGORY_HARASSMENT
-								-- HARM_CATEGORY_SEXUALLY_EXPLICIT
 								category = "HARM_CATEGORY_DANGEROUS_CONTENT",
-								-- BLOCK_NONE
 								threshold = "BLOCK_ONLY_HIGH",
 							},
 						},
+					},
+				},
+				codestral = {
+					optional = {
+						max_tokens = 256,
+						stop = { "\n\n" },
 					},
 				},
 			},
@@ -50,6 +41,7 @@ return {
 			"nvim-lua/plenary.nvim",
 			"nvim-treesitter/nvim-treesitter",
 			"folke/noice.nvim",
+			"ravitemer/codecompanion-history.nvim",
 		},
 		opts = {
 			strategies = {
@@ -67,6 +59,12 @@ return {
 						make_vars = true,
 						make_slash_commands = true,
 						show_result_in_chat = true,
+					},
+				},
+				history = {
+					enabled = true,
+					opts = {
+						picker = "snacks",
 					},
 				},
 			},
@@ -111,6 +109,16 @@ return {
 							number = false,
 							relativenumber = false,
 						},
+					},
+				},
+				action_palette = {
+					width = 95,
+					height = 10,
+					prompt = "Prompt ",
+					provider = "snacks",
+					opts = {
+						show_default_actions = true,
+						show_default_prompt_library = true,
 					},
 				},
 			},

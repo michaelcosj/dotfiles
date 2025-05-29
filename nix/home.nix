@@ -92,6 +92,9 @@
 
             # gemini ai api key
             export GEMINI_API_KEY=$(cat ~/.dotfiles/.api_key.gemini)
+
+            # codestal ai api key
+            export CODESTRAL_API_KEY=$(cat ~/.dotfiles/.api_key.codestral)
           '';
         };
 
