@@ -44,6 +44,17 @@ return {
 		end,
 	},
 
+	-- Lua ls setup for Neovim
+	{
+		"folke/lazydev.nvim",
+		ft = "lua",
+		opts = {
+			library = {
+				{ path = "${3rd}/luv/library", words = { "vim%.uv" } },
+			},
+		},
+	},
+
 	-- Auto Completions
 	{
 
@@ -54,15 +65,7 @@ return {
 			"olimorris/codecompanion.nvim",
 			"echasnovski/mini.icons",
 			"giuxtaposition/blink-cmp-copilot",
-			{
-				"folke/lazydev.nvim",
-				ft = "lua",
-				opts = {
-					library = {
-						{ path = "${3rd}/luv/library", words = { "vim%.uv" } },
-					},
-				},
-			},
+			{ "folke/lazydev.nvim" },
 		},
 		-- use a release tag to download pre-built binaries
 		version = "*",
@@ -75,22 +78,14 @@ return {
 			},
 			signature = { enabled = true, window = { show_documentation = false, border = "rounded" } },
 			sources = {
-				default = { "minuet", "lazydev", "lsp", "path", "buffer", "snippets" },
+				default = { "lazydev", "lsp", "minuet", "path", "buffer", "snippets" },
 				providers = {
-					-- copilot = {
-					--   name = "copilot",
-					--   module = "blink-cmp-copilot",
-					--   score_offset = 100,
-					--   async = true,
-					-- },
 					minuet = {
 						name = "minuet",
 						module = "minuet.blink",
 						async = true,
-						-- Should match minuet.config.request_timeout * 1000,
-						-- since minuet.config.request_timeout is in seconds
-						timeout_ms = 3000,
-						score_offset = 100, -- Gives minuet higher priority among suggestions
+						timeout_ms = 3000, -- Should match minuet.config.request_timeout * 1000,
+						score_offset = 50,
 					},
 					lazydev = {
 						name = "LazyDev",
@@ -101,11 +96,6 @@ return {
 					lsp = {
 						fallbacks = {},
 					},
-					avante = {
-						module = "blink-cmp-avante",
-						name = "Avante",
-						opts = {},
-					},
 				},
 				per_filetype = {
 					codecompanion = { "codecompanion", "path", "buffer" },
@@ -114,11 +104,11 @@ return {
 			completion = {
 				documentation = { window = { border = "single" } },
 				ghost_text = {
-					enabled = true,
-					show_with_menu = false,
+					enabled = false,
+					show_with_menu = true,
 				},
 				menu = {
-					auto_show = false,
+					auto_show = true,
 					draw = {
 						columns = { { "kind_icon" }, { "label", gap = 1 } },
 						components = {
@@ -167,6 +157,7 @@ return {
 				svelte = { "prettierd" },
 				nix = { "nixfmt" },
 				json = { "jq" },
+				jsonc = { "jq" },
 				php = { "pint" },
 			},
 			-- too much trouble
@@ -181,6 +172,8 @@ return {
 				function()
 					require("conform").format({ async = true, lsp_format = "fallback" })
 				end,
+        mode = { "n", "v" },
+        desc = "Format Code",
 			},
 		},
 	},
