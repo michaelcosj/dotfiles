@@ -139,6 +139,11 @@ return {
 					},
 				},
 				trigger = { prefetch_on_insert = false },
+				list = {
+					selection = {
+						auto_insert = false,
+					},
+				},
 			},
 		},
 		opts_extend = { "sources.default" },
@@ -172,8 +177,8 @@ return {
 				function()
 					require("conform").format({ async = true, lsp_format = "fallback" })
 				end,
-        mode = { "n", "v" },
-        desc = "Format Code",
+				mode = { "n", "v" },
+				desc = "Format Code",
 			},
 		},
 	},
