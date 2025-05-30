@@ -32,6 +32,7 @@
         prettierd
         ripgrep
         stylua
+        svelte-language-server
         tree
         typescript-language-server
         uv
