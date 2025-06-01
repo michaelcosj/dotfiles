@@ -159,7 +159,6 @@ return {
 				lua = { "stylua" },
 				javascript = { "biome-check" },
 				typescript = { "biome-check" },
-				svelte = { "prettierd" },
 				nix = { "nixfmt" },
 				json = { "jq" },
 				jsonc = { "jq" },
