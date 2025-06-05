@@ -8,6 +8,7 @@ return {
 				max_height = nil,
 				height = 0.3,
 			},
+			templates = { "builtin", "tasks.rector", "tasks.nix-rebuild" },
 		},
 		cmd = {
 			"OverseerDebugParser",
@@ -54,6 +55,7 @@ return {
 			return {
 				suppressed_dirs = { "~/", "~/Downloads", "/" },
 				cwd_change_handling = true,
+				lsp_stop_on_restore = false,
 				bypass_save_filetypes = {
 					"alpha",
 					"dashboard",
@@ -83,7 +85,7 @@ return {
 				},
 
 				pre_save_cmds = {
-          -- close all snacks pickers before save
+					-- close all snacks pickers before save
 					function()
 						local pickers = require("snacks").picker.get()
 						for _, picker in ipairs(pickers) do
@@ -113,13 +115,14 @@ return {
 		end,
 	},
 
-	{
-		{
-			"jedrzejboczar/exrc.nvim",
-			dependencies = { "neovim/nvim-lspconfig" }, -- (optional)
-			opts = {},
-		},
-	},
+  -- Probably not needed anymore
+	-- {
+	-- 	{
+	-- 		"jedrzejboczar/exrc.nvim",
+	-- 		dependencies = { "neovim/nvim-lspconfig" }, -- (optional)
+	-- 		opts = {},
+	-- 	},
+	-- },
 
 	-- Asynchronous Lint Engine (for linters that don't have LSP support)
 	{
