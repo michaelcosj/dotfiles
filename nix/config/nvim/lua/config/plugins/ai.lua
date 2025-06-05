@@ -93,7 +93,7 @@ return {
 			},
 			display = {
 				chat = {
-					show_settings = true,
+					show_settings = false,
 					show_token_count = true,
 					window = {
 						opts = {
