@@ -6,7 +6,7 @@ return {
 			{ "nvim-lua/plenary.nvim" },
 		},
 		opts = {
-			throttle = 500,
+			throttle = 700,
 			provider = "codestral",
 			provider_options = {
 				gemini = {
