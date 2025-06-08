@@ -54,61 +54,6 @@
       programs = {
         home-manager.enable = true;
 
-        zsh = {
-          enable = true;
-          enableCompletion = true;
-          autosuggestion.enable = true;
-          syntaxHighlighting.enable = true;
-          autocd = true;
-          defaultKeymap = "viins";
-
-          shellAliases = {
-            rm = "rm -i";
-            cp = "cp -i";
-            mv = "mv -i";
-            ls = "ls --color=auto -h";
-            grep = "grep --color=auto -i";
-            nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
-            nv = "nvim";
-          };
-
-          initContent = ''
-            # fnm node version manager
-            export PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin":$PATH
-            export FNM_MULTISHELL_PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581"
-            export FNM_VERSION_FILE_STRATEGY="local"
-            export FNM_DIR="/Users/synth/.local/share/fnm"
-            export FNM_LOGLEVEL="info"
-            export FNM_NODE_DIST_MIRROR="https://nodejs.org/dist"
-            export FNM_COREPACK_ENABLED="false"
-            export FNM_RESOLVE_ENGINES="true"
-            export FNM_ARCH="x64"
-            rehash
-
-            # laravel valet
-            export PATH="$HOME/.config/composer/vendor/bin":$PATH
-
-            # autosuggestion keybind
-            bindkey '^ ' autosuggest-accept
-
-            # gemini ai api key
-            export GEMINI_API_KEY=$(cat ~/.dotfiles/.api_key.gemini)
-
-            # codestal ai api key
-            export CODESTRAL_API_KEY=$(cat ~/.dotfiles/.api_key.codestral)
-          '';
-        };
-
-        starship = {
-          enable = true;
-          enableZshIntegration = true;
-          settings = {
-            format = "$directory$git_branch$git_metrics$git_status$line_break$character";
-            git_commit.tag_symbol = "  ";
-            git_branch.symbol = " ";
-          };
-        };
-
         fzf = {
           enable = true;
           enableZshIntegration = true;
@@ -196,6 +141,62 @@
             os.editPreset = "nvim";
           };
         };
+
+        starship = {
+          enable = true;
+          enableZshIntegration = true;
+          settings = {
+            format = "$directory$git_branch$git_metrics$git_status$line_break$character";
+            git_commit.tag_symbol = "  ";
+            git_branch.symbol = " ";
+          };
+        };
+
+        zsh = {
+          enable = true;
+          enableCompletion = true;
+          autosuggestion.enable = true;
+          syntaxHighlighting.enable = true;
+          autocd = true;
+          defaultKeymap = "viins";
+
+          shellAliases = {
+            rm = "rm -i";
+            cp = "cp -i";
+            mv = "mv -i";
+            ls = "ls --color=auto -h";
+            grep = "grep --color=auto -i";
+            nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
+            nv = "nvim";
+          };
+
+          initContent = ''
+            # fnm node version manager
+            export PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin":$PATH
+            export FNM_MULTISHELL_PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581"
+            export FNM_VERSION_FILE_STRATEGY="local"
+            export FNM_DIR="/Users/synth/.local/share/fnm"
+            export FNM_LOGLEVEL="info"
+            export FNM_NODE_DIST_MIRROR="https://nodejs.org/dist"
+            export FNM_COREPACK_ENABLED="false"
+            export FNM_RESOLVE_ENGINES="true"
+            export FNM_ARCH="x64"
+            rehash
+
+            # laravel valet
+            export PATH="$HOME/.config/composer/vendor/bin":$PATH
+
+            # autosuggestion keybind
+            bindkey '^ ' autosuggest-accept
+
+            # gemini ai api key
+            export GEMINI_API_KEY=$(cat ~/.dotfiles/.api_key.gemini)
+
+            # codestal ai api key
+            export CODESTRAL_API_KEY=$(cat ~/.dotfiles/.api_key.codestral)
+          '';
+        };
+
       };
     };
 }
