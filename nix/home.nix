@@ -160,7 +160,7 @@
           mouse = true;
           plugins = [
             pkgs.tmuxPlugins.fzf-tmux-url
-            pkgs.tmuxPlugins.kanagawa
+            # pkgs.tmuxPlugins.kanagawa
           ];
           prefix = "C-Space";
           shortcut = "Space";
@@ -185,12 +185,13 @@
             bind C-p previous-window
             bind C-n next-window
 
+            setw -g status-style 'fg=colour7 bg=terminal bold'
             set -g status-position top
 
-            set -g status-right-style 'fg=colour3 bold'
+            set -g status-right-style 'fg=colour7 bold'
             set -g status-right " #S "
 
-            set -g status-right-style 'fg=colour3 bold'
+            set -g status-right-style 'fg=colour7 bold'
             set -g status-left " #W "
 
             setw -g window-status-current-style 'fg=colour60'
