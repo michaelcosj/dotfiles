@@ -152,6 +152,52 @@
           };
         };
 
+        tmux = {
+          enable = true;
+          customPaneNavigationAndResize = true;
+          escapeTime = 0;
+          keyMode = "vi";
+          mouse = true;
+          plugins = [
+            pkgs.tmuxPlugins.fzf-tmux-url
+            pkgs.tmuxPlugins.kanagawa
+          ];
+          prefix = "C-Space";
+          shortcut = "Space";
+          terminal = "screen-256color";
+          extraConfig = ''
+            set -g renumber-windows on
+            bind r source-file ~/.config/tmux/tmux.conf \; display "config reloaded!"
+
+            bind-key c  new-window -c "#{pane_current_path}"
+            bind-key "|" split-window -h -c "#{pane_current_path}"
+            bind-key "\\" split-window -fh -c "#{pane_current_path}"
+
+            bind-key "-" split-window -v -c "#{pane_current_path}"
+            bind-key "_" split-window -fv -c "#{pane_current_path}"
+
+            bind -r "<" swap-window -d -t -1
+            bind -r ">" swap-window -d -t +1
+
+            bind Space last-window
+            bind-key C-Space switch-client -l
+
+            bind C-p previous-window
+            bind C-n next-window
+
+            set -g status-right-style 'fg=colour3 bold'
+            set -g status-right " #S "
+
+            set -g status-right-style 'fg=colour3 bold'
+            set -g status-left " #W "
+
+            setw -g window-status-current-style 'fg=colour60'
+            setw -g window-status-style 'fg=colour60'
+            setw -g window-status-format "  "
+            setw -g window-status-current-format "  "
+          '';
+        };
+
         zsh = {
           enable = true;
           enableCompletion = true;
