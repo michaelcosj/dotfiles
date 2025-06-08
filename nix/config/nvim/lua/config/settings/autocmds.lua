@@ -54,3 +54,11 @@ vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
 		})
 	end,
 })
+
+-- PHP comment string config
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "php",
+  callback = function()
+    vim.opt_local.commentstring = "// %s"
+  end,
+})
