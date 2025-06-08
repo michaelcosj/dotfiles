@@ -185,6 +185,8 @@
             bind C-p previous-window
             bind C-n next-window
 
+            set -g status-position top
+
             set -g status-right-style 'fg=colour3 bold'
             set -g status-right " #S "
 
