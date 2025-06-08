@@ -84,17 +84,13 @@ return {
 						name = "minuet",
 						module = "minuet.blink",
 						async = true,
-						timeout_ms = 3000, -- Should match minuet.config.request_timeout * 1000,
+						timeout_ms = 3000,
 						score_offset = 50,
 					},
 					lazydev = {
 						name = "LazyDev",
 						module = "lazydev.integrations.blink",
-						-- make lazydev completions top priority (see `:h blink.cmp`)
 						score_offset = 100,
-					},
-					lsp = {
-						fallbacks = {},
 					},
 				},
 				per_filetype = {
