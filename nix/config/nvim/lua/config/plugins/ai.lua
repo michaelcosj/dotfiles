@@ -6,7 +6,7 @@ return {
 			{ "nvim-lua/plenary.nvim" },
 		},
 		opts = {
-			throttle = 700,
+			throttle = 1000,
 			provider = "codestral",
 			provider_options = {
 				gemini = {
@@ -14,7 +14,7 @@ return {
 					api_key = "GEMINI_API_KEY",
 					optional = {
 						generationConfig = {
-							maxOutputTokens = 256,
+							maxOutputTokens = 512,
 						},
 						safetySettings = {
 							{
@@ -26,7 +26,7 @@ return {
 				},
 				codestral = {
 					optional = {
-						max_tokens = 256,
+						max_tokens = 512,
 						stop = { "\n\n" },
 					},
 				},
