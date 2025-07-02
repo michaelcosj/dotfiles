@@ -59,6 +59,7 @@
   };
 
   system = {
+    primaryUser = "synth";
     stateVersion = 5;
 
     defaults = {

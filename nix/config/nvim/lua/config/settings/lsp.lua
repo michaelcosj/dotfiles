@@ -1,10 +1,13 @@
 -- Enabled configs
 vim.lsp.enable({
 	"biome",
+	"cssls",
+	"html",
 	"intelephense",
 	"jsonls",
 	"lua_ls",
 	"nixd",
+	"oxlint",
 	"svelte",
 	"ts_ls",
 })

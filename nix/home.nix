@@ -29,6 +29,7 @@
         neovim
         nixd
         nixfmt-rfc-style
+        oxlint
         prettierd
         ripgrep
         stylua
@@ -162,8 +163,8 @@
             pkgs.tmuxPlugins.fzf-tmux-url
             # pkgs.tmuxPlugins.kanagawa
           ];
-          prefix = "C-Space";
-          shortcut = "Space";
+          prefix = "C-a";
+          shortcut = "a";
           terminal = "screen-256color";
           extraConfig = ''
             set -g renumber-windows on
@@ -221,7 +222,7 @@
 
           initContent = ''
             # fnm node version manager
-            export PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581/bin":$PATH
+            export PATH="$HOME/.local/state/fnm_multishells/26685_1737249628581/bin":"$HOME/.dotfiles/nix/scripts/":$PATH
             export FNM_MULTISHELL_PATH="/Users/synth/.local/state/fnm_multishells/26685_1737249628581"
             export FNM_VERSION_FILE_STRATEGY="local"
             export FNM_DIR="/Users/synth/.local/share/fnm"
@@ -243,6 +244,21 @@
 
             # codestal ai api key
             export CODESTRAL_API_KEY=$(cat ~/.dotfiles/.api_key.codestral)
+
+            run_tsm() {
+                $HOME/.dotfiles/nix/scripts/tsm
+                zle reset-prompt  # Refresh the prompt after execution
+            }
+
+            # Create a zle widget
+            zle -N run_tsm
+
+            # Bind it to a key combination
+            bindkey '^S' run_tsm
+
+            # add bun to path
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
           '';
         };
 
