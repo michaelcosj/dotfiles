@@ -43,6 +43,12 @@
       "mailpit"
       "blueutil"
       "imagemagick"
+      "docker"
+      "docker-compose"
+      {
+        name = "colima";
+        start_service = true;
+      }
     ];
 
     masApps = {

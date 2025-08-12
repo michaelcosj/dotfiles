@@ -7,14 +7,17 @@ return {
 		},
 		opts = {
 			throttle = 1000,
-			provider = "codestral",
+			provider = "gemini",
 			provider_options = {
 				gemini = {
-					model = "gemini-2.0-flash",
+					model = "gemini-2.5-flash-lite-preview-06-17",
 					api_key = "GEMINI_API_KEY",
 					optional = {
 						generationConfig = {
-							maxOutputTokens = 512,
+							maxOutputTokens = 1024,
+							thinkingConfig = {
+								thinkingBudget = 0,
+							},
 						},
 						safetySettings = {
 							{
@@ -76,16 +79,7 @@ return {
 						},
 						schema = {
 							model = {
-								default = "gemini-2.5-flash-preview-05-20",
-							},
-						},
-					})
-				end,
-				copilot = function()
-					return require("codecompanion.adapters").extend("copilot", {
-						schema = {
-							model = {
-								default = "claude-3.5-sonnet",
+								default = "gemini-2.5-pro",
 							},
 						},
 					})

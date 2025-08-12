@@ -93,7 +93,6 @@ return {
 		event = "VeryLazy",
 		opts = function()
 			-- based on [[https://yeripratama.com/blog/customizing-nvim-lualine/]]
-			local colors = require("kanagawa.colors").setup()
 
 			local conditions = {
 				buffer_not_empty = function()
@@ -112,6 +111,8 @@ return {
 					return vim.o.diff == true
 				end,
 			}
+
+			local colors = require("kanagawa.colors").setup()
 
 			local config = {
 				options = {
