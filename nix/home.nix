@@ -74,9 +74,10 @@
           enableFishIntegration = true;
           package = null;
           settings = {
-            theme = "Kanagawa Wave";
+            theme = "GruvboxDark";
             font-family = "JetBrains Mono";
             maximize = true;
+            macos-option-as-alt = true;
           };
           themes = {
             kanso-pearl = {
@@ -152,9 +153,6 @@
               };
             }
           ];
-          binds = {
-            "ctrl-space".command = "accept-autosuggestion";
-          };
           shellAliases = {
             rm = "rm -i";
             cp = "cp -i";
@@ -167,6 +165,39 @@
           interactiveShellInit = ''
             # vi keybindings
             set -g fish_key_bindings fish_vi_key_bindings
+
+            # binds
+            bind -M insert ctrl-space 'accept-autosuggestion'
+
+            # gruvbox color scheme
+            set -g fish_color_autosuggestion 928374
+            set -g fish_color_command 8ec07c
+            set -g fish_color_comment 928374
+            set -g fish_color_cwd 8ec07c
+            set -g fish_color_cwd_root 9d0006
+            set -g fish_color_end 928374
+            set -g fish_color_error fb4934
+            set -g fish_color_escape add8e6
+            set -g fish_color_history_current 928374
+            set -g fish_color_host 8ec07c
+            set -g fish_color_host_remote 8ec07c
+            set -g fish_color_match --background=3c3836 ffe094
+            set -g fish_color_normal fbf1c7
+            set -g fish_color_operator 8ec07c
+            set -g fish_color_param fbf1c7
+            set -g fish_color_quote 8ec07c
+            set -g fish_color_redirection 8ec07c
+            set -g fish_color_search_match --background=3c3836 ffe094
+            set -g fish_color_selection --background=3c3836 ffe094
+            set -g fish_color_user 8ec07c
+            set -g fish_color_valid_path 8ec07c
+            set -g fish_pager_color_completion fbf1c7
+            set -g fish_pager_color_description 928374
+            set -g fish_pager_color_prefix 8ec07c
+            set -g fish_pager_color_progress 8ec07c
+            set -g fish_pager_color_selected_background --background=3c3836 ffe094
+            set -g fish_pager_color_selected_completion ffe094
+            set -g fish_pager_color_selected_description ffe094
 
             # fnm node version manager
             set -gx PATH \
