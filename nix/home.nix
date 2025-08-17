@@ -2,6 +2,7 @@
   users.users.synth.home = /Users/synth;
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
+  home-manager.backupFileExtension = "backup";
 
   home-manager.users.synth =
     { pkgs, config, ... }:
@@ -57,7 +58,8 @@
 
         fzf = {
           enable = true;
-          enableZshIntegration = true;
+          # enableZshIntegration = true;
+          enableFishIntegration = true;
           defaultOptions = [
             "--height 80%"
             "--layout"
@@ -68,7 +70,8 @@
 
         ghostty = {
           enable = true;
-          enableZshIntegration = true;
+          # enableZshIntegration = true;
+          enableFishIntegration = true;
           package = null;
           settings = {
             theme = "Kanagawa Wave";
@@ -136,6 +139,72 @@
           };
         };
 
+        fish = {
+          enable = true;
+          plugins = [
+            {
+              name = "pure-fish";
+              src = pkgs.fetchFromGitHub {
+                owner = "pure-fish";
+                repo = "pure";
+                rev = "b8ae744d8489b66a387ce13ae17005d510333546";
+                sha256 = "2UEIvlm8D11cMkz1GvaSBpaauZALwYZR1Q4Xd7/I4FQ=";
+              };
+            }
+          ];
+          binds = {
+            "ctrl-space".command = "accept-autosuggestion";
+          };
+          shellAliases = {
+            rm = "rm -i";
+            cp = "cp -i";
+            mv = "mv -i";
+            ls = "ls --color=auto -h";
+            grep = "grep --color=auto -i";
+            nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
+            nv = "nvim";
+          };
+          interactiveShellInit = ''
+            # vi keybindings
+            set -g fish_key_bindings fish_vi_key_bindings
+
+            # fnm node version manager
+            set -gx PATH \
+              "$HOME/.local/state/fnm_multishells/26685_1737249628581/bin" \
+              "$HOME/.dotfiles/nix/scripts" \
+              $PATH
+
+            set -gx FNM_MULTISHELL_PATH "$HOME/.local/state/fnm_multishells/26685_1737249628581"
+            set -gx FNM_VERSION_FILE_STRATEGY local
+            set -gx FNM_DIR "$HOME/.local/share/fnm"
+            set -gx FNM_NODE_DIST_MIRROR https://nodejs.org/dist
+            set -gx FNM_LOGLEVEL info
+            set -gx FNM_COREPACK_ENABLED false
+            set -gx FNM_RESOLVE_ENGINES true
+            set -gx FNM_ARCH x64
+
+            # laravel valet
+            set -gx PATH "$HOME/.config/composer/vendor/bin" $PATH
+
+            # gemini ai api key
+            if test -f "$HOME/.dotfiles/.api_key.gemini"
+              set -gx GEMINI_API_KEY (cat "$HOME/.dotfiles/.api_key.gemini")
+            end
+
+            # codestral ai api key
+            if test -f "$HOME/.dotfiles/.api_key.codestral"
+              set -gx CODESTRAL_API_KEY (cat "$HOME/.dotfiles/.api_key.codestral")
+            end
+
+            # add bun to path
+            set -gx BUN_INSTALL "$HOME/.bun"
+            set -gx PATH "$BUN_INSTALL/bin" $PATH
+
+            # pure-fish configuration
+            set -g pure_reverse_prompt_symbol_in_vimode true
+          '';
+        };
+
         lazygit = {
           enable = true;
           settings = {
@@ -144,8 +213,9 @@
         };
 
         starship = {
-          enable = true;
-          enableZshIntegration = true;
+          enable = false;
+          # enableZshIntegration = true;
+          enableFishIntegration = true;
           settings = {
             format = "$directory$git_branch$git_metrics$git_status$line_break$character";
             git_commit.tag_symbol = "  ";
@@ -203,7 +273,7 @@
         };
 
         zsh = {
-          enable = true;
+          enable = false;
           enableCompletion = true;
           autosuggestion.enable = true;
           syntaxHighlighting.enable = true;

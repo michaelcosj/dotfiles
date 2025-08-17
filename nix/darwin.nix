@@ -1,10 +1,15 @@
 # Run darwin-help for documentation of all the configuration options
-{ ... }:
+{ pkgs, ... }:
 
 {
   environment.variables.HOMEBREW_NO_ANALYTICS = "1";
   nixpkgs.hostPlatform = "x86_64-darwin";
   security.pam.services.sudo_local.touchIdAuth = true;
+
+  programs.fish.enable = true;
+  users.users.synth = {
+    shell = pkgs.fish;
+  };
 
   homebrew = {
     enable = true;
