@@ -6,15 +6,53 @@ arg=$1
 # This allows me to use tsm to conveniently 
 # view and attach to existing sessions
 if [[ $arg = '-ls' ]]; then
-  session=$(tmux list-sessions | cut -d ':' -f 1 | fzf);
-  tmux attach-session -t $session
+  # Check if we're already in a tmux session
+  if [ -n "$TMUX" ]; then
+    # If in a tmux session, switch to selected session
+    session=$(tmux list-sessions | cut -d ':' -f 1 | grep -v "^$(tmux display-message -p '#S')$" | fzf)
+    if [ -n "$session" ]; then
+      tmux switch-client -t $session
+    fi
+  else
+    # If not in a tmux session, attach to selected session
+    session=$(tmux list-sessions | cut -d ':' -f 1 | fzf)
+    if [ -n "$session" ]; then
+      tmux attach-session -t $session
+    fi
+  fi
   exit 0
 fi
 
 # Parse paths
 path=$arg
 if [[ -z $path ]]; then
-  path=$(fd . ~/Projects/ ~/Projects/Synthally/ ~/Projects/Synthally/ally-api/ ~/Projects/Synthally/heysynth-api/ ~/Projects/Valutech/ ~/.dotfiles --max-depth 1 --type d --exclude node_modules | fzf --preview="ls {}")
+  # Check if directories file exists, otherwise use default paths
+  if [ -f "$HOME/.dotfiles/nix/config/tsm/directories" ]; then
+    # Read directories from file and include both parent dirs and subdirs
+    dirs=$(cat "$HOME/.dotfiles/nix/config/tsm/directories" | sed "s|~|$HOME|g")
+    # Create a list of all directories (parent + subdirs)
+    all_dirs=$(
+      while IFS= read -r dir; do
+        if [ -d "$dir" ]; then
+          echo "$dir"
+          fd . "$dir" --max-depth 1 --type d --exclude node_modules 2>/dev/null
+        fi
+      done <<< "$dirs"
+    )
+    path=$(echo "$all_dirs" | sort -u | fzf --preview="ls {}")
+  else
+    # Use default paths
+    all_dirs=$(
+      for dir in ~/Projects ~/.dotfiles; do
+        if [ -d "$dir" ]; then
+          echo "$dir"
+          fd . "$dir" --max-depth 1 --type d --exclude node_modules 2>/dev/null
+        fi
+      done
+    )
+    path=$(echo "$all_dirs" | sort -u | fzf --preview="ls {}")
+  fi
+  
   if [[ -z $path ]]; then
     exit 0
   fi
