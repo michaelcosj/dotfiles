@@ -66,6 +66,7 @@ return {
 			"echasnovski/mini.icons",
 			"giuxtaposition/blink-cmp-copilot",
 			{ "folke/lazydev.nvim" },
+			"milanglacier/minuet-ai.nvim",
 		},
 		-- use a release tag to download pre-built binaries
 		version = "*",
@@ -77,8 +78,11 @@ return {
 				nerd_font_variant = "mono",
 			},
 			signature = { enabled = true, window = { show_documentation = false, border = "rounded" } },
+			keymap = {
+				["<A-y>"] = require("minuet").make_blink_map(),
+			},
 			sources = {
-				default = { "lazydev", "lsp", "minuet", "path", "buffer", "snippets" },
+				default = { "lazydev", "lsp", "path", "buffer", "snippets" },
 				providers = {
 					minuet = {
 						name = "minuet",

@@ -100,7 +100,7 @@ return {
 				lualine_c = { "filename", "branch", "diff" },
 				lualine_x = {
 					"overseer",
-					require("config.extensions.mcphub").lualine,
+					-- require("config.extensions.mcphub").lualine,
 					"location",
 					"filetype",
 					require("noice").api.status.mode.get,
