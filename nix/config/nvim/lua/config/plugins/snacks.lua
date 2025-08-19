@@ -27,6 +27,27 @@ return {
 				},
 			},
 		},
+		lazygit = {
+			configure = true,
+			config = {
+				os = { editPreset = "nvim-remote" },
+				gui = {
+					nerdFontsVersion = "3",
+				},
+			},
+			theme = {
+				[241] = { fg = "Special" },
+				activeBorderColor = { fg = "MatchParen", bold = true },
+				cherryPickedCommitBgColor = { fg = "Identifier" },
+				cherryPickedCommitFgColor = { fg = "Function" },
+				defaultFgColor = { fg = "Normal" },
+				inactiveBorderColor = { fg = "FloatBorder" },
+				optionsTextColor = { fg = "Function" },
+				searchingActiveBorderColor = { fg = "MatchParen", bold = true },
+				selectedLineBgColor = { bg = "Visual" },
+				unstagedChangesColor = { fg = "DiagnosticError" },
+			},
+		},
 		notifier = { enabled = false },
 		picker = {
 			enabled = true,
@@ -75,6 +96,9 @@ return {
 				position = "float",
 				height = 0.8,
 				width = 0.8,
+				wo = {
+					winhighlight = "Normal:Normal,FloatBorder:Normal",
+				},
 			},
 		},
 		styles = {},

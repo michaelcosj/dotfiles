@@ -59,7 +59,7 @@ if [[ -z $path ]]; then
 fi
 
 path=$(realpath $path)
-name=$(basename $path | tr . _)
+name=$(basename $path | tr . _ | tr : _)
 
 if ! tmux has-session -t=$name 2> /dev/null; then
   if [ ! -d $path ]; then

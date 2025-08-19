@@ -54,6 +54,11 @@ return {
 			vim.g.gruvbox_material_enable_italic = true
 			vim.g.gruvbox_material_background = "medium"
 			vim.g.gruvbox_material_better_performance = 1
+
+			-- set some highlights for floating windows
+			vim.api.nvim_set_hl(0, "NormalFloat", { bg = "NONE" })
+			vim.api.nvim_set_hl(0, "FloatBorder", { bg = "NONE" })
+			vim.api.nvim_set_hl(0, "FloatTitle", { bg = "NONE" })
 		end,
 		init = function()
 			vim.cmd.colorscheme("gruvbox-material")
