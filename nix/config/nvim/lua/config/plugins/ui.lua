@@ -2,7 +2,7 @@ return {
 	-- Colorscheme
 	{
 		"rebelot/kanagawa.nvim",
-		enabled = false,
+		enabled = true,
 		priority = 1000,
 		opts = {
 			colors = {
@@ -15,7 +15,7 @@ return {
 				},
 			},
 			background = {
-				dark = "wave",
+				dark = "dragon",
 				light = "lotus",
 			},
 			overrides = function(colors)
@@ -38,6 +38,7 @@ return {
 					-- Popular plugins that open floats will link to NormalFloat by default;
 					-- set their background accordingly if you wish to keep them dark and borderless
 					LazyNormal = { bg = theme.ui.bg_m3, fg = theme.ui.fg_dim },
+					OpencodeBorder = { bg = "none", fg = "none" },
 				}
 			end,
 		},
@@ -48,6 +49,7 @@ return {
 
 	{
 		"sainnhe/gruvbox-material",
+		enabled = false,
 		lazy = false,
 		priority = 1000,
 		config = function()
@@ -91,7 +93,7 @@ return {
 		event = "VeryLazy",
 		opts = {
 			options = {
-				theme = "gruvbox-material",
+				theme = "auto",
 				component_separators = "",
 				section_separators = "",
 				disabled_filetypes = { "snacks_dashboard" },
@@ -102,13 +104,27 @@ return {
 				lualine_b = {},
 				lualine_y = {},
 				lualine_z = {},
-				lualine_c = { "filename", "branch", "diff" },
+				lualine_c = { "filetype", "filename", "branch", "diff", "diagnostics" },
 				lualine_x = {
 					"overseer",
-					-- require("config.extensions.mcphub").lualine,
 					"location",
-					"filetype",
-					require("noice").api.status.mode.get,
+					"progress",
+					"searchcount",
+					"selectedcount",
+					{
+						"macro",
+						fmt = function()
+							local reg = vim.fn.reg_recording()
+							if reg ~= "" then
+								return "Recording @" .. reg
+							end
+							return nil
+						end,
+						color = { fg = "#ff9e64" },
+						draw_empty = false,
+					},
+					-- require("config.extensions.mcphub").lualine,
+					-- require("noice").api.status.mode.get,
 				},
 			},
 			inactive_sections = {
@@ -135,6 +151,11 @@ return {
 				command_palette = true,
 				lsp_doc_border = true,
 			},
+			lsp = {
+				progress = {
+					enabled = true,
+				},
+			},
 		},
 		dependencies = {
 			"MunifTanjim/nui.nvim",
@@ -145,6 +166,7 @@ return {
 	-- Smoother cursor movement animations
 	{
 		"sphamba/smear-cursor.nvim",
+		enabled = false,
 		opts = {},
 	},
 

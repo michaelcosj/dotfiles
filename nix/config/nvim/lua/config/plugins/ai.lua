@@ -1,7 +1,57 @@
 return {
+	{
+		"sudo-tee/opencode.nvim",
+		config = function()
+			require("opencode").setup({
+				keymap = {
+					global = {
+						toggle = "<leader>cg",
+						open_input = "<leader>ci",
+						open_input_new_session = "<leader>cI",
+						open_output = "<leader>co",
+						toggle_focus = "<leader>cf",
+						close = "<leader>cq",
+						select_session = "<leader>cs",
+						configure_provider = "<leader>cp",
+						diff_open = "<leader>cd",
+						diff_next = "<leader>c]",
+						diff_prev = "<leader>c[",
+						diff_close = "<leader>cc",
+						diff_revert_all_last_prompt = "<leader>cra",
+						diff_revert_this_last_prompt = "<leader>crt",
+						diff_revert_all = "<leader>crA",
+						diff_revert_this = "<leader>crT",
+						swap_position = "<leader>cx",
+					},
+					window = {
+						switch_mode = "<leader>cm",
+					},
+					context = {
+						cursor_data = {
+							enabled = true,
+						},
+					},
+				},
+			})
+		end,
+		dependencies = {
+			"nvim-lua/plenary.nvim",
+			{
+				"MeanderingProgrammer/render-markdown.nvim",
+				opts = {
+					anti_conceal = { enabled = false },
+					file_types = { "markdown", "opencode_output" },
+				},
+				ft = { "markdown", "Avante", "copilot-chat", "opencode_output" },
+			},
+			"saghen/blink.cmp",
+			"folke/snacks.nvim",
+		},
+	},
 	-- Minuet AI (better copilot)
 	{
 		"milanglacier/minuet-ai.nvim",
+		enabled = false,
 		dependencies = {
 			{ "nvim-lua/plenary.nvim" },
 		},
@@ -176,8 +226,8 @@ return {
 					zindex = 50,
 				},
 			},
-			on_ready = function(hub) end,
-			on_error = function(err) end,
+			-- on_ready = function() end,
+			-- on_error = function() end,
 			log = {
 				level = vim.log.levels.WARN,
 				to_file = false,
@@ -186,23 +236,24 @@ return {
 			},
 		},
 	},
-	{
-		"NickvanDyke/opencode.nvim",
-		dependencies = { "folke/snacks.nvim" },
-		---@type opencode.Config
-		opts = {
-			-- Your configuration, if any
-		},
-    -- stylua: ignore
-		keys = {
-			{ "<leader>at", function() require("opencode").toggle() end, desc = "Toggle embedded opencode", },
-			{ "<leader>aa", function() require("opencode").ask("@cursor: ") end, desc = "Ask opencode", mode = "n", },
-			{ "<leader>aa", function() require("opencode").ask("@selection: ") end, desc = "Ask opencode about selection", mode = "v", },
-			{ "<leader>ap", function() require("opencode").select_prompt() end, desc = "Select prompt", mode = { "n", "v" }, },
-			{ "<leader>an", function() require("opencode").command("session_new") end, desc = "New session", }, 
-      { "<leader>ay", function() require("opencode").command("messages_copy") end, desc = "Copy last message", },
-			{ "<S-C-u>", function() require("opencode").command("messages_half_page_up") end, desc = "Scroll messages up", },
-			{ "<S-C-d>", function() require("opencode").command("messages_half_page_down") end, desc = "Scroll messages down", },
-		},
-	},
+	-- {
+	-- 	"NickvanDyke/opencode.nvim",
+	-- 	enabled = false,
+	-- 	dependencies = { "folke/snacks.nvim" },
+	-- 	----@type opencode.Config
+	-- 	opts = {
+	-- 		-- Your configuration, if any
+	-- 	},
+	--    -- stylua: ignore
+	-- 	keys = {
+	-- 		{ "<leader>at", function() require("opencode").toggle() end, desc = "Toggle embedded opencode", },
+	-- 		{ "<leader>aa", function() require("opencode").ask("@cursor: ") end, desc = "Ask opencode", mode = "n", },
+	-- 		{ "<leader>aa", function() require("opencode").ask("@selection: ") end, desc = "Ask opencode about selection", mode = "v", },
+	-- 		{ "<leader>ap", function() require("opencode").select_prompt() end, desc = "Select prompt", mode = { "n", "v" }, },
+	-- 		{ "<leader>an", function() require("opencode").command("session_new") end, desc = "New session", },
+	--      { "<leader>ay", function() require("opencode").command("messages_copy") end, desc = "Copy last message", },
+	-- 		{ "<S-C-u>", function() require("opencode").command("messages_half_page_up") end, desc = "Scroll messages up", },
+	-- 		{ "<S-C-d>", function() require("opencode").command("messages_half_page_down") end, desc = "Scroll messages down", },
+	-- 	},
+	-- },
 }

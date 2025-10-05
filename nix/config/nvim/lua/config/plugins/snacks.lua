@@ -30,22 +30,15 @@ return {
 		lazygit = {
 			configure = true,
 			config = {
-				os = { editPreset = "nvim-remote" },
+				os = {
+					editPreset = "nvim-remote",
+					open = "nvim-remote",
+					editAtLine = "nvim-remote",
+					openDirInEditor = "nvim-remote",
+				},
 				gui = {
 					nerdFontsVersion = "3",
 				},
-			},
-			theme = {
-				[241] = { fg = "Special" },
-				activeBorderColor = { fg = "MatchParen", bold = true },
-				cherryPickedCommitBgColor = { fg = "Identifier" },
-				cherryPickedCommitFgColor = { fg = "Function" },
-				defaultFgColor = { fg = "Normal" },
-				inactiveBorderColor = { fg = "FloatBorder" },
-				optionsTextColor = { fg = "Function" },
-				searchingActiveBorderColor = { fg = "MatchParen", bold = true },
-				selectedLineBgColor = { bg = "Visual" },
-				unstagedChangesColor = { fg = "DiagnosticError" },
 			},
 		},
 		notifier = { enabled = false },
@@ -129,7 +122,7 @@ return {
   ⡕⡑⣑⣈⣻⢗⢟⢞⢝⣻⣿⣿⣿⣿⣿⣿⣿⠸⣿⠿⠃⣿⣿⣿⣿⣿⣿⡿⠁⣠
   ⡝⡵⡈⢟⢕⢕⢕⢕⣵⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣶⣿⣿⣿⣿⣿⠿⠋⣀⣈⠙
   ⡝⡵⡕⡀⠑⠳⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⢉⡠⡲⡫⡪⡪⡣ 
-  ]],
+			]],
 			},
 			sections = {
 				{ section = "header" },
@@ -197,7 +190,9 @@ return {
 		{
 			"<leader>e",
 			function()
-				Snacks.picker.explorer()
+				Snacks.picker.explorer({
+					auto_close = true,
+				})
 			end,
 			desc = "Explorer",
 		},
@@ -495,6 +490,19 @@ return {
 			callback = function()
 				local Snacks = require("snacks")
 
+				-- Fix for snacks explorer hanging on exit
+				vim.api.nvim_create_autocmd("BufWinLeave", {
+					pattern = "*",
+					callback = function()
+						if vim.bo.filetype == "snacks_explorer" then
+							-- Force immediate cleanup to prevent hanging
+							vim.schedule(function()
+								pcall(vim.cmd, "redraw!")
+							end)
+						end
+					end,
+				})
+
 				-- Setup some globals for debugging (lazy-loaded)
 				-- Inspect
 				_G.dd = function(...)
@@ -531,3 +539,4 @@ return {
 		})
 	end,
 }
+

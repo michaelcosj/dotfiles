@@ -1,4 +1,8 @@
 ------------------=[[Keymaps]]=----------------------------
+--  Set leader key
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+
 -- helper for setting keymaps
 local map = vim.keymap.set
 

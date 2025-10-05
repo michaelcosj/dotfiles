@@ -66,7 +66,7 @@ return {
 			"echasnovski/mini.icons",
 			"giuxtaposition/blink-cmp-copilot",
 			{ "folke/lazydev.nvim" },
-			"milanglacier/minuet-ai.nvim",
+			-- "milanglacier/minuet-ai.nvim",
 		},
 		-- use a release tag to download pre-built binaries
 		version = "*",
@@ -78,19 +78,19 @@ return {
 				nerd_font_variant = "mono",
 			},
 			signature = { enabled = true, window = { show_documentation = false, border = "rounded" } },
-			keymap = {
-				["<A-y>"] = require("minuet").make_blink_map(),
-			},
+			-- keymap = {
+			-- 	["<A-y>"] = require("minuet").make_blink_map(),
+			-- },
 			sources = {
 				default = { "lazydev", "lsp", "path", "buffer", "snippets" },
 				providers = {
-					minuet = {
-						name = "minuet",
-						module = "minuet.blink",
-						async = true,
-						timeout_ms = 3000,
-						score_offset = 50,
-					},
+					-- minuet = {
+					-- 	name = "minuet",
+					-- 	module = "minuet.blink",
+					-- 	async = true,
+					-- 	timeout_ms = 3000,
+					-- 	score_offset = 50,
+					-- },
 					lazydev = {
 						name = "LazyDev",
 						module = "lazydev.integrations.blink",
@@ -115,12 +115,8 @@ return {
 							kind_icon = {
 								ellipsis = false,
 								text = function(ctx)
-									if ctx.source_name == "minuet" then
-										return " "
-									else
-										local kind_icon, _, _ = require("mini.icons").get("lsp", ctx.kind)
-										return kind_icon
-									end
+									local kind_icon, _, _ = require("mini.icons").get("lsp", ctx.kind)
+									return kind_icon
 								end,
 								highlight = function(ctx)
 									local _, hl, _ = require("mini.icons").get("lsp", ctx.kind)

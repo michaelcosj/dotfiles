@@ -74,37 +74,12 @@
           enableFishIntegration = true;
           package = null;
           settings = {
-            theme = "GruvboxDark";
+            # theme = "Gruvbox Dark";
+            theme = "Kanagawa Dragon";
             font-family = "JetBrains Mono";
             maximize = true;
             macos-option-as-alt = true;
-          };
-          themes = {
-            kanso-pearl = {
-              background = "f2f1ef";
-              cursor-color = "24262D";
-              foreground = "24262D";
-              palette = [
-                "0=#24262D"
-                "1=#c84053"
-                "2=#6f894e"
-                "3=#77713f"
-                "4=#4d699b"
-                "5=#b35b79"
-                "6=#597b75"
-                "7=#545464"
-                "8=#6d6f6e"
-                "9=#d7474b"
-                "10=#6e915f"
-                "11=#836f4a"
-                "12=#6693bf"
-                "13=#624c83"
-                "14=#5e857a"
-                "15=#43436c"
-              ];
-              selection-background = "e2e1df";
-              selection-foreground = "24262D";
-            };
+            custom-shader = "/Users/synth/.dotfiles/nix/config/ghostty/shaders/cursor_smear.glsl";
           };
         };
 
@@ -161,6 +136,7 @@
             grep = "grep --color=auto -i";
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
             nv = "nvim";
+            reload-env = "load_env";
           };
           interactiveShellInit = ''
             # vi keybindings
@@ -217,15 +193,7 @@
             # laravel valet
             set -gx PATH "$HOME/.config/composer/vendor/bin" $PATH
 
-            # gemini ai api key
-            if test -f "$HOME/.dotfiles/.api_key.gemini"
-              set -gx GEMINI_API_KEY (cat "$HOME/.dotfiles/.api_key.gemini")
-            end
-
-            # codestral ai api key
-            if test -f "$HOME/.dotfiles/.api_key.codestral"
-              set -gx CODESTRAL_API_KEY (cat "$HOME/.dotfiles/.api_key.codestral")
-            end
+            
 
             # add bun to path
             set -gx BUN_INSTALL "$HOME/.bun"
@@ -233,6 +201,36 @@
 
             # pure-fish configuration
             set -g pure_reverse_prompt_symbol_in_vimode true
+
+            # load .env file if it exists
+            function load_env
+              set env_file "$HOME/.dotfiles/.env"
+              if test -f "$env_file"
+                while read -l line
+                  # Skip comments and empty lines
+                  if not string match -q '#*' "$line"; and test -n "$line"
+                    # Split line into key and value
+                    set key (string split -m 1 '=' "$line")[1]
+                    set value (string split -m 1 '=' "$line")[2]
+                    
+                    # Remove surrounding quotes from value if present
+                    if string match -q '"*"' "$value"
+                      set value (string sub -s 2 -e -1 "$value")
+                    else if string match -q "'*'" "$value"
+                      set value (string sub -s 2 -e -1 "$value")
+                    end
+                    
+                    # Set the environment variable
+                    if test -n "$key" -a -n "$value"
+                      set -gx "$key" "$value"
+                    end
+                  end
+                end < "$env_file"
+              end
+            end
+
+            # Load .env file on shell startup
+            load_env
           '';
         };
 
@@ -345,6 +343,9 @@
 
             # codestal ai api key
             export CODESTRAL_API_KEY=$(cat ~/.dotfiles/.api_key.codestral)
+
+            # context7 ai api key
+            export CONTEXT7_API_KEY=$(cat ~/.dotfiles/.api_key.context7)
 
             run_tsm() {
                 $HOME/.dotfiles/nix/scripts/tsm

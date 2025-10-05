@@ -12,7 +12,7 @@ return {
 	-- Better quickfix
 	{
 		"stevearc/quicker.nvim",
-		event = "FileType qf",
+		-- event = "FileType qf",
 		---@module "quicker"
 		---@type function|quicker.SetupOptions
 		opts = function()

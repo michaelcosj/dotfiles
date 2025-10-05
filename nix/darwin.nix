@@ -21,9 +21,8 @@
     ];
 
     casks = [
-      "ghostty"
+      # "ghostty"
       "zed"
-      "zen-browser"
       "aldente"
       "obsidian"
       "raycast"
@@ -50,6 +49,7 @@
       "imagemagick"
       "docker"
       "docker-compose"
+      "mpv"
       {
         name = "colima";
         start_service = true;
@@ -88,15 +88,9 @@
         mru-spaces = false;
         showhidden = true;
         persistent-apps = [
-          "/Applications/Google Chrome.app"
-          "/Applications/Slack.app"
-          "/Applications/Obsidian.app"
           "/Applications/Ghostty.app"
-          "/Applications/Zed.app"
-          "/Applications/Postman.app"
-          "/Applications/Localsend.app"
-          "/System/Applications/Clock.app"
-          "/System/Applications/Calendar.app"
+          "/Applications/Helium.app"
+          "/Applications/Slack.app"
           "/System/Applications/Mail.app"
         ];
       };
