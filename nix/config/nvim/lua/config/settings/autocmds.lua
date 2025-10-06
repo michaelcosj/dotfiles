@@ -51,3 +51,11 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.opt_local.commentstring = "// %s"
   end,
 })
+
+-- Set timeoutlen for opencode filetype
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "opencode",
+  callback = function()
+    vim.opt_local.timeoutlen = 10
+  end,
+})

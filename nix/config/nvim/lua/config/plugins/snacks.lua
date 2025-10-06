@@ -162,7 +162,7 @@ return {
 
 		-- Find
 		{
-			"<leader>ff",
+			"<leader><space>",
 			function()
 				Snacks.picker.files()
 			end,
@@ -204,7 +204,7 @@ return {
 			desc = "Grep",
 		},
 		{
-			"<leader><space>",
+			"<leader>fl",
 			function()
 				Snacks.picker.lines()
 			end,
@@ -259,13 +259,6 @@ return {
 				Snacks.picker.keymaps()
 			end,
 			desc = "Keymaps",
-		},
-		{
-			"<leader>fl",
-			function()
-				Snacks.picker.loclist()
-			end,
-			desc = "Location List",
 		},
 		{
 			"<leader>fP",
@@ -539,4 +532,3 @@ return {
 		})
 	end,
 }
-
