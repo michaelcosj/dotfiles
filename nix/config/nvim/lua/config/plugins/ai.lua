@@ -13,7 +13,7 @@ return {
 						toggle_focus = "<leader>af",
 						close = "<leader>aq",
 						select_session = "<leader>as",
-            select_child_session =  "<leader>aS",
+						select_child_session = "<leader>aS",
 						configure_provider = "<leader>ap",
 						diff_open = "<leader>ad",
 						diff_next = "<leader>a]",
@@ -39,6 +39,10 @@ return {
 					},
 				},
 			})
+
+			vim.keymap.set("i", "<S-CR>", function()
+				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "i", true)
+			end, { noremap = true, silent = true })
 		end,
 		dependencies = {
 			"nvim-lua/plenary.nvim",

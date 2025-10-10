@@ -46,16 +46,29 @@ vim.api.nvim_create_autocmd("FileType", {
 
 -- PHP comment string config
 vim.api.nvim_create_autocmd("FileType", {
-  pattern = "php",
-  callback = function()
-    vim.opt_local.commentstring = "// %s"
-  end,
+	pattern = "php",
+	callback = function()
+		vim.opt_local.commentstring = "// %s"
+	end,
 })
 
 -- Set timeoutlen for opencode filetype
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "opencode",
-  callback = function()
-    vim.opt_local.timeoutlen = 10
-  end,
+
+vim.api.nvim_create_autocmd({ "WinEnter" }, {
+	group = vim.api.nvim_create_augroup("nvim_opencode_timeout_len", { clear = true }),
+	callback = function(event)
+		if vim.bo[event.buf].filetype == "opencode" then
+			local timeoutlen = vim.opt_local.timeoutlen:get()
+			vim.opt_local.timeoutlen = 10
+
+			-- Reset timeoutlen when leaving opencode buffer
+			vim.api.nvim_create_autocmd("WinLeave", {
+				buffer = 0,
+				once = true,
+				callback = function()
+					vim.opt_local.timeoutlen = timeoutlen
+				end,
+			})
+		end
+	end,
 })

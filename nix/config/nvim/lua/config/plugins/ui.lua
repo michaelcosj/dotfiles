@@ -5,6 +5,7 @@ return {
 		enabled = true,
 		priority = 1000,
 		opts = {
+			transparent = true,
 			colors = {
 				theme = {
 					all = {
