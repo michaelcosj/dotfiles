@@ -30,6 +30,7 @@
         neovim
         nixd
         nixfmt-rfc-style
+        ngrok
         oxlint
         prettierd
         ripgrep
