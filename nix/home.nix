@@ -51,6 +51,9 @@
       home.file.".config/nvim".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/nvim";
 
+      home.file.".config/wezterm".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/wezterm";
+
       fonts.fontconfig.enable = true;
 
       programs = {
@@ -193,7 +196,7 @@
             # laravel valet
             set -gx PATH "$HOME/.config/composer/vendor/bin" $PATH
 
-            
+
 
             # add bun to path
             set -gx BUN_INSTALL "$HOME/.bun"

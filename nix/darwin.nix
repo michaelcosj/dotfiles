@@ -21,35 +21,37 @@
     ];
 
     casks = [
-      # "ghostty"
-      "zed"
       "aldente"
-      "obsidian"
-      "raycast"
-      "karabiner-elements"
-      "localsend"
-      "stremio"
-      "font-zed-mono-nerd-font"
-      "discord"
       "dataflare"
       "dbngin"
       "devtoys"
+      "discord"
+      # "ghostty"
+      "karabiner-elements"
       "linearmouse"
+      "localsend"
+      "obsidian"
+      "raycast"
       "spotify"
+      "stremio"
       "transmission"
+      "zed"
+      "font-zed-mono-nerd-font"
       # "slack"
+      "wezterm"
     ];
 
     brews = [
-      "mas"
-      "php"
-      "composer"
-      "mailpit"
       "blueutil"
-      "imagemagick"
+      "colima"
+      "composer"
       "docker"
       "docker-compose"
+      "imagemagick"
+      "mailpit"
+      "mas"
       "mpv"
+      "php"
       {
         name = "colima";
         start_service = true;
