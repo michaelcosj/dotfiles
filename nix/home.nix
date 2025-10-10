@@ -135,7 +135,7 @@
             rm = "rm -i";
             cp = "cp -i";
             mv = "mv -i";
-            ls = "ls --color=auto -h";
+            ls = "ls --hyperlinks --color=auto -h";
             grep = "grep --color=auto -i";
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
             nv = "nvim";
