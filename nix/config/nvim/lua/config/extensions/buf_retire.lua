@@ -1,4 +1,3 @@
--- buffer_cleanup.lua
 local M = {}
 
 -- Configuration

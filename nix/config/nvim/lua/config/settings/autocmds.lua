@@ -54,7 +54,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
 -- Set timeoutlen for opencode filetype
 
-vim.api.nvim_create_autocmd({ "WinEnter" }, {
+vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter", "BufWinEnter" }, {
 	group = vim.api.nvim_create_augroup("nvim_opencode_timeout_len", { clear = true }),
 	callback = function(event)
 		if vim.bo[event.buf].filetype == "opencode" then
