@@ -17,6 +17,7 @@
         biome
         cowsay
         # docker
+        eza
         fd
         fortune
         fnm
@@ -48,12 +49,18 @@
         VISUAL = "nvim";
       };
 
+      # Nvim config
       xdg.configFile.nvim.enable = false;
       home.file.".config/nvim".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/nvim";
 
+      # Wezterm config
       home.file.".config/wezterm".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/wezterm";
+
+      # Opencode config
+      home.file.".config/opencode".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/opencode";
 
       fonts.fontconfig.enable = true;
 
@@ -136,8 +143,9 @@
             rm = "rm -i";
             cp = "cp -i";
             mv = "mv -i";
-            ls = "ls --hyperlinks --color=auto -h";
-            grep = "grep --color=auto -i";
+            cat = "bat";
+            ls = "eza --hyperlink";
+            grep = "rg";
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
             nv = "nvim";
             reload-env = "load_env";
