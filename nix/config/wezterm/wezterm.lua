@@ -66,13 +66,17 @@ table.insert(config.hyperlink_rules, {
 -- Keymaps matching tmux configuration
 config.leader = { key = "a", mods = "CTRL", timeout_milliseconds = 1000 }
 config.keys = {
-	-- Disable default CMD-m to allow it to be handled by terminal
+	-- Disable some default keybinds
 	{
 		key = "m",
 		mods = "CMD",
 		action = wezterm.action.DisableDefaultAssignment,
 	},
-
+	{
+		key = "Enter",
+		mods = "ALT",
+		action = wezterm.action.DisableDefaultAssignment,
+	},
 	-- Pane splitting (matching tmux)
 	{
 		key = "|",
@@ -182,7 +186,7 @@ config.keys = {
 	-- open url with quick select
 	{
 		key = "p",
-		mods = "CTRL",
+		mods = "LEADER|SHIFT",
 		action = wezterm.action.QuickSelectArgs({
 			label = "open url",
 			patterns = {
@@ -198,7 +202,7 @@ config.keys = {
 	-- Open scrollback with nvim
 	{
 		key = "f",
-		mods = "CTRL",
+		mods = "LEADER|SHIFT",
 		action = wezterm.action.EmitEvent("trigger-vim-with-scrollback"),
 	},
 }
