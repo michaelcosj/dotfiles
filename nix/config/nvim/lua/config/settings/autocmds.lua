@@ -53,22 +53,33 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 
 -- Set timeoutlen for opencode filetype
+local set_opencode_timeout_len_aug = vim.api.nvim_create_augroup("nvim_opencode_timeout_len", { clear = true })
 
-vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter", "BufWinEnter" }, {
-	group = vim.api.nvim_create_augroup("nvim_opencode_timeout_len", { clear = true }),
+vim.api.nvim_create_autocmd({ "WinEnter", "BufWinEnter" }, {
+	group = set_opencode_timeout_len_aug,
 	callback = function(event)
-		if vim.bo[event.buf].filetype == "opencode" then
-			local timeoutlen = vim.opt_local.timeoutlen:get()
-			vim.opt_local.timeoutlen = 10
-
-			-- Reset timeoutlen when leaving opencode buffer
-			vim.api.nvim_create_autocmd("WinLeave", {
-				buffer = 0,
-				once = true,
-				callback = function()
-					vim.opt_local.timeoutlen = timeoutlen
-				end,
-			})
+		if vim.bo[event.buf].filetype ~= "opencode" then
+			return
 		end
+
+		if vim.g.__opencode_timeoutlen_orig == nil then
+			-- Read the effective current value
+			vim.g.__opencode_timeoutlen_orig = vim.api.nvim_get_option_value("timeoutlen", {})
+		end
+
+		vim.api.nvim_set_option_value("timeoutlen", 10, {})
+
+		-- Reset timeoutlen when leaving opencode window
+		vim.api.nvim_create_autocmd({ "WinLeave" }, {
+			group = set_opencode_timeout_len_aug,
+			once = true,
+			callback = function()
+				local orig = vim.g.__opencode_timeoutlen_orig
+				if orig ~= nil then
+					pcall(vim.api.nvim_set_option_value, "timeoutlen", orig, {})
+					vim.g.__opencode_timeoutlen_orig = nil
+				end
+			end,
+		})
 	end,
 })

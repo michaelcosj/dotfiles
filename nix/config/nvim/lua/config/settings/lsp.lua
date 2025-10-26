@@ -100,35 +100,59 @@ local function lsp_status()
 		return
 	end
 
-	local lines = {
+	local width = math.max(60, math.min(80, vim.o.columns - 10))
+	local lines = {}
+
+	local header = {
 		"╭─────────────────────────────────────────────────────────────╮",
-		"│                    LSP Status Overview                      │",
+		"│                       LSP Status                            │",
 		"╰─────────────────────────────────────────────────────────────╯",
-		"",
-		string.format("Buffer: %d | Filetype: %s", bufnr, vim.bo.filetype),
-		string.format("Total Clients: %d", #clients),
-		"",
 	}
+
+	for _, line in ipairs(header) do
+		local line_width = vim.fn.strdisplaywidth(line)
+		local header_padding = math.floor((width - line_width) / 2)
+		table.insert(lines, string.rep(" ", header_padding) .. line .. string.rep(" ", header_padding))
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, string.format("Buffer: %d | Filetype: %s", bufnr, vim.bo.filetype))
+	table.insert(lines, string.format("Total Clients: %d", #clients))
+	table.insert(lines, "")
 
 	for i, client in ipairs(clients) do
 		table.insert(lines, string.format("┌─ Client %d: %s", i, client.name))
 		table.insert(lines, string.format("│   ID: %d", client.id))
 		table.insert(lines, string.format("│   Root: %s", client.config.root_dir or "N/A"))
 		table.insert(lines, string.format("│   Status: %s", client.is_stopped() and "󰅚 Stopped" or "󰄬 Running"))
-		
+
 		-- Check capabilities with icons
 		local caps = client.server_capabilities
 		local features = {}
 		if caps then
-			if caps.completionProvider then table.insert(features, "󰅳 completion") end
-			if caps.hoverProvider then table.insert(features, "󰋽 hover") end
-			if caps.definitionProvider then table.insert(features, "󰘦 definition") end
-			if caps.referencesProvider then table.insert(features, "󰈻 references") end
-			if caps.renameProvider then table.insert(features, "󰑕 rename") end
-			if caps.codeActionProvider then table.insert(features, "󰌵 code_action") end
-			if caps.documentFormattingProvider then table.insert(features, "󰉶 formatting") end
+			if caps.completionProvider then
+				table.insert(features, "󰅳 completion")
+			end
+			if caps.hoverProvider then
+				table.insert(features, "󰋽 hover")
+			end
+			if caps.definitionProvider then
+				table.insert(features, "󰘦 definition")
+			end
+			if caps.referencesProvider then
+				table.insert(features, "󰈻 references")
+			end
+			if caps.renameProvider then
+				table.insert(features, "󰑕 rename")
+			end
+			if caps.codeActionProvider then
+				table.insert(features, "󰌵 code_action")
+			end
+			if caps.documentFormattingProvider then
+				table.insert(features, "󰉶 formatting")
+			end
 		end
-		
+
 		if #features > 0 then
 			table.insert(lines, string.format("│   Features: %s", table.concat(features, ", ")))
 		end
@@ -138,11 +162,19 @@ local function lsp_status()
 
 	-- Display in a floating window
 	local buf = vim.api.nvim_create_buf(false, true)
+
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+	vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
+	vim.api.nvim_set_option_value("modeline", false, { buf = buf })
+
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	
-	local width = math.max(60, math.min(80, vim.o.columns - 10))
+
+	-- TODO: fix this
+	vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+	vim.api.nvim_set_option_value("readonly", true, { buf = buf })
+
 	local height = #lines
-	
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
 		row = math.floor((vim.o.lines - height) / 2),
@@ -154,14 +186,25 @@ local function lsp_status()
 		title = " LSP Status ",
 		title_pos = "center",
 	})
-	
-	vim.api.nvim_win_set_option(win, "wrap", false)
-	vim.api.nvim_win_set_option(win, "cursorline", true)
-	
+
+	-- Window-local options: use win=
+	vim.api.nvim_set_option_value("wrap", false, { win = win })
+	vim.api.nvim_set_option_value("cursorline", true, { win = win })
+
 	-- Set keymaps to close
 	local opts = { noremap = true, silent = true, buffer = buf }
 	vim.keymap.set("n", "q", "<cmd>close<cr>", opts)
 	vim.keymap.set("n", "<Esc>", "<cmd>close<cr>", opts)
+
+	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType" }, {
+		buffer = buf,
+		callback = function(ev)
+			vim.api.nvim_set_option_value("modifiable", false, { buf = ev.buf })
+			vim.api.nvim_set_option_value("readonly", true, { buf = ev.buf })
+		end,
+	})
+
+	print("modifiable=", vim.api.nvim_get_option_value("modifiable", { buf = buf }))
 end
 
 vim.api.nvim_create_user_command("LspStatus", lsp_status, { desc = "Show detailed LSP status" })
@@ -239,10 +282,10 @@ local function check_lsp_capabilities()
 		-- Display in a floating window
 		local buf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-		
+
 		local width = math.max(50, math.min(70, vim.o.columns - 10))
 		local height = #lines
-		
+
 		local win = vim.api.nvim_open_win(buf, true, {
 			relative = "editor",
 			row = math.floor((vim.o.lines - height) / 2),
@@ -254,10 +297,10 @@ local function check_lsp_capabilities()
 			title = " LSP Capabilities ",
 			title_pos = "center",
 		})
-		
-vim.wo[win].wrap = false
-	vim.wo[win].cursorline = true
-		
+
+		vim.wo[win].wrap = false
+		vim.wo[win].cursorline = true
+
 		-- Set keymaps to close
 		local opts = { noremap = true, silent = true, buffer = buf }
 		vim.keymap.set("n", "q", "<cmd>close<cr>", opts)
@@ -303,11 +346,18 @@ local function lsp_diagnostics_info()
 		table.insert(lines, "📍 Recent Issues:")
 		local shown = 0
 		for i, diag in ipairs(diagnostics) do
-			if shown >= 5 then break end
-			local severity_icon = diag.severity == 1 and "󰅚" or diag.severity == 2 and "󰀪" or diag.severity == 3 and "󰋽" or "󰌶"
+			if shown >= 5 then
+				break
+			end
+			local severity_icon = diag.severity == 1 and "󰅚"
+				or diag.severity == 2 and "󰀪"
+				or diag.severity == 3 and "󰋽"
+				or "󰌶"
 			local line_num = diag.lnum + 1
 			local message = diag.message:gsub("\n", " ")
-			if #message > 50 then message = message:sub(1, 47) .. "..." end
+			if #message > 50 then
+				message = message:sub(1, 47) .. "..."
+			end
 			table.insert(lines, string.format("  %s L%d: %s", severity_icon, line_num, message))
 			shown = shown + 1
 		end
@@ -316,10 +366,10 @@ local function lsp_diagnostics_info()
 	-- Display in a floating window
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	
+
 	local width = math.max(60, math.min(80, vim.o.columns - 10))
 	local height = #lines
-	
+
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
 		row = math.floor((vim.o.lines - height) / 2),
@@ -331,15 +381,15 @@ local function lsp_diagnostics_info()
 		title = " Diagnostics Summary ",
 		title_pos = "center",
 	})
-	
+
 	vim.wo[win].wrap = false
 	vim.wo[win].cursorline = true
-	
+
 	-- Set keymaps to close and navigate
 	local opts = { noremap = true, silent = true, buffer = buf }
 	vim.keymap.set("n", "q", "<cmd>close<cr>", opts)
 	vim.keymap.set("n", "<Esc>", "<cmd>close<cr>", opts)
-	
+
 	-- Add jump to diagnostic functionality
 	vim.keymap.set("n", "<CR>", function()
 		vim.cmd("close")
@@ -375,7 +425,10 @@ local function lsp_info()
 		table.insert(lines, "  • File type not recognized")
 	else
 		table.insert(lines, "󰒋 LSP clients attached to buffer " .. bufnr .. ":")
-		table.insert(lines, "─────────────────────────────────")
+		table.insert(
+			lines,
+			"─────────────────────────────────"
+		)
 		table.insert(lines, "")
 
 		for i, client in ipairs(clients) do
@@ -469,10 +522,10 @@ local function lsp_info()
 	-- Display in a floating window
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	
+
 	local width = math.max(70, math.min(90, vim.o.columns - 10))
 	local height = #lines
-	
+
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
 		row = math.floor((vim.o.lines - height) / 2),
@@ -484,10 +537,10 @@ local function lsp_info()
 		title = " LSP Information ",
 		title_pos = "center",
 	})
-	
+
 	vim.wo[win].wrap = false
 	vim.wo[win].cursorline = true
-	
+
 	-- Set keymaps to close
 	local opts = { noremap = true, silent = true, buffer = buf }
 	vim.keymap.set("n", "q", "<cmd>close<cr>", opts)
