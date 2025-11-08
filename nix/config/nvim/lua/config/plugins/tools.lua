@@ -2,6 +2,7 @@ return {
 	-- Task runner
 	{
 		"stevearc/overseer.nvim",
+		tag = "v1.6.0",
 		opts = {
 			strategy = "terminal",
 			task_list = {
@@ -93,6 +94,7 @@ return {
 							picker.close()
 						end
 					end,
+
 					function()
 						overseer.save_task_bundle(get_cwd_as_name(), nil, { on_conflict = "overwrite" })
 					end,
@@ -114,15 +116,6 @@ return {
 			}
 		end,
 	},
-
-  -- Probably not needed anymore
-	-- {
-	-- 	{
-	-- 		"jedrzejboczar/exrc.nvim",
-	-- 		dependencies = { "neovim/nvim-lspconfig" }, -- (optional)
-	-- 		opts = {},
-	-- 	},
-	-- },
 
 	-- Asynchronous Lint Engine (for linters that don't have LSP support)
 	{
