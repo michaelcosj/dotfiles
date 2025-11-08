@@ -3,8 +3,8 @@ local os = require("os")
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
-config.font_size = 13
-config.color_scheme = "Kanagawa Dragon"
+config.font_size = 14
+config.color_scheme = "Kanagawa Lotus"
 config.force_reverse_video_cursor = true
 config.use_dead_keys = false
 
@@ -27,8 +27,8 @@ config.inactive_pane_hsb = {
 config.initial_cols = 500
 config.initial_rows = 500
 config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
-config.window_background_opacity = 0.8
-config.macos_window_background_blur = 90
+config.window_background_opacity = 1
+-- config.macos_window_background_blur = 90
 config.skip_close_confirmation_for_processes_named = {
 	"bash",
 	"sh",
@@ -57,6 +57,7 @@ table.insert(config.hyperlink_rules, {
 -- Relative file paths (e.g., src/components/Button.svelte)
 local extensions =
 	"(typescript|javascript|svelte|python|rust|golang|java|cpp|html|json|yaml|toml|markdown|bash|zsh|fish|tsx|jsx|ts|js|py|rs|go|c|h|css|scss|less|yml|lock|md|txt|sh)"
+
 table.insert(config.hyperlink_rules, {
 	regex = "([\\w\\-./]+[\\w\\-]\\." .. extensions .. ")",
 	format = "file://$0",
@@ -247,9 +248,12 @@ wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_wid
 	end
 
 	local text = "[" .. tab.tab_index + 1 .. "]"
-	local padding = " "
 
-	return padding .. text .. padding
+	return wezterm.format({
+		{ Background = { AnsiColor = "White" } },
+		{ Foreground = { Color = "Wheat" } },
+		{ Text = " " .. text .. " " },
+	})
 end)
 
 wezterm.on("update-right-status", function(window, pane)
@@ -258,13 +262,10 @@ wezterm.on("update-right-status", function(window, pane)
 	local colors = cfg.colors or {}
 
 	-- Safe access with fallbacks
-	local bg = colors.background or "#1b1b1b"
-	local fg = colors.foreground or "#c0c0c0"
-
 	window:set_right_status(wezterm.format({
-		{ Background = { Color = bg } },
-		{ Foreground = { Color = fg } },
-		{ Text = (window:active_workspace() or "") .. " " },
+		{ Background = { AnsiColor = "White" } },
+		{ Foreground = { Color = "Wheat" } },
+		{ Text = " " .. (window:active_workspace() or "") .. " " },
 	}))
 end)
 

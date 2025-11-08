@@ -155,35 +155,35 @@
             # binds
             bind -M insert ctrl-space 'accept-autosuggestion'
 
-            # gruvbox color scheme
-            set -g fish_color_autosuggestion 928374
-            set -g fish_color_command 8ec07c
-            set -g fish_color_comment 928374
-            set -g fish_color_cwd 8ec07c
-            set -g fish_color_cwd_root 9d0006
-            set -g fish_color_end 928374
-            set -g fish_color_error fb4934
-            set -g fish_color_escape add8e6
-            set -g fish_color_history_current 928374
-            set -g fish_color_host 8ec07c
-            set -g fish_color_host_remote 8ec07c
-            set -g fish_color_match --background=3c3836 ffe094
-            set -g fish_color_normal fbf1c7
-            set -g fish_color_operator 8ec07c
-            set -g fish_color_param fbf1c7
-            set -g fish_color_quote 8ec07c
-            set -g fish_color_redirection 8ec07c
-            set -g fish_color_search_match --background=3c3836 ffe094
-            set -g fish_color_selection --background=3c3836 ffe094
-            set -g fish_color_user 8ec07c
-            set -g fish_color_valid_path 8ec07c
-            set -g fish_pager_color_completion fbf1c7
-            set -g fish_pager_color_description 928374
-            set -g fish_pager_color_prefix 8ec07c
-            set -g fish_pager_color_progress 8ec07c
-            set -g fish_pager_color_selected_background --background=3c3836 ffe094
-            set -g fish_pager_color_selected_completion ffe094
-            set -g fish_pager_color_selected_description ffe094
+            # Kanagawa Lotus color scheme
+            set -g fish_color_autosuggestion 8a8980
+            set -g fish_color_command 6e915f
+            set -g fish_color_comment 8a8980
+            set -g fish_color_cwd 6e915f
+            set -g fish_color_cwd_root c84053
+            set -g fish_color_end 8a8980
+            set -g fish_color_error d7474b
+            set -g fish_color_escape 6693bf
+            set -g fish_color_history_current 8a8980
+            set -g fish_color_host 6e915f
+            set -g fish_color_host_remote 6e915f
+            set -g fish_color_match --background=d5cea3 43436c
+            set -g fish_color_normal 545464
+            set -g fish_color_operator 6e915f
+            set -g fish_color_param 545464
+            set -g fish_color_quote 4d699b
+            set -g fish_color_redirection 6e915f
+            set -g fish_color_search_match --background=c9cbd1 43436c
+            set -g fish_color_selection --background=c9cbd1 43436c
+            set -g fish_color_user 6e915f
+            set -g fish_color_valid_path 6e915f
+            set -g fish_pager_color_completion 545464
+            set -g fish_pager_color_description 8a8980
+            set -g fish_pager_color_prefix 6e915f
+            set -g fish_pager_color_progress 6e915f
+            set -g fish_pager_color_selected_background --background=c9cbd1 43436c
+            set -g fish_pager_color_selected_completion 43436c
+            set -g fish_pager_color_selected_description 43436c
 
             # fnm node version manager
             set -gx PATH \

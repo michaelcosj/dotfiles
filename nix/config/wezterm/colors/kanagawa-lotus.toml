@@ -1,0 +1,48 @@
+# Colorscheme based on Kanagawa Lotus (https://github.com/rebelot/kanagawa.nvim)
+[colors]
+ansi = [
+  "#1F1F28",
+  "#c84053", 
+  "#6f894e",
+  "#77713f",
+  "#4d699b",
+  "#b35b79",
+  "#597b75",
+  "#545464"
+]
+brights = [
+  "#8a8980",
+  "#d7474b",
+  "#6e915f", 
+  "#836f4a",
+  "#6693bf",
+  "#624c83",
+  "#5e857a",
+  "#43436c"
+]
+background = "#f2ecbc"
+foreground = "#545464"
+cursor_bg = "#43436c"
+cursor_border = "#43436c"
+cursor_fg = "#f2ecbc"
+selection_bg = "#c9cbd1"
+selection_fg = "#43436c"
+scrollbar_thumb = "#d5cea3"
+split = "#d5cea3"
+
+[colors.tab_bar]
+background = "#f2ecbc"
+
+[colors.tab_bar.active_tab]
+bg_color = "#e5ddb0"
+fg_color = "#716e61"
+
+[colors.tab_bar.inactive_tab]
+bg_color = "#d5cea3"
+fg_color = "#8a8980"
+
+[colors.indexed]
+
+[metadata]
+aliases = []
+name = "Kanagawa Lotus"

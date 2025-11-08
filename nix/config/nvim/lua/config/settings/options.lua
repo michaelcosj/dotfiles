@@ -66,7 +66,7 @@ vim.opt.scrolloff = 10
 vim.opt.confirm = true
 
 -- Dark mode
-vim.o.background = "dark" -- or "light" for light mode
+vim.o.background = "light" -- "dark" or "light" 
 
 -- Folds
 vim.o.foldmethod = "expr"

@@ -159,6 +159,7 @@ return {
 				json = { "jq" },
 				jsonc = { "jq" },
 				php = { "pint" },
+				svelte = { "prettier" },
 			},
 			-- too much trouble
 			-- format_on_save = {
