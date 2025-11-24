@@ -217,22 +217,22 @@ config.keys = {
 	{
 		key = "LeftArrow",
 		mods = "CMD",
-		action = wezterm.action.Nop,
+		action = wezterm.action.DisableDefaultAssignment,
 	},
 	{
 		key = "RightArrow",
 		mods = "CMD",
-		action = wezterm.action.Nop,
+		action = wezterm.action.DisableDefaultAssignment,
 	},
 	{
 		key = "UpArrow",
 		mods = "CMD",
-		action = wezterm.action.Nop,
+		action = wezterm.action.DisableDefaultAssignment,
 	},
 	{
 		key = "DownArrow",
 		mods = "CMD",
-		action = wezterm.action.Nop,
+		action = wezterm.action.DisableDefaultAssignment,
 	},
 }
 
