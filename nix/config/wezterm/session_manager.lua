@@ -30,14 +30,30 @@ local fd_command = "fd . --max-depth 1 --type d --exclude node_modules --no-igno
 	.. search_paths
 	.. " 2>/dev/null"
 
--- List active workspaces and allow switching
-M.list_active_workspaces = function(window, pane)
-	local workspaces = mux.get_workspace_names()
+-- Helper function to get workspace data reference
+local get_workspace_data_ref = function()
 	local workspace_data = wezterm.GLOBAL.workspace_data
 	if not workspace_data then
 		workspace_data = { data = {} }
 		wezterm.GLOBAL.workspace_data = workspace_data
 	end
+	return workspace_data
+end
+
+-- Helper function to get workspace timestamp
+local get_workspace_timestamp = function(workspace_name)
+	local workspace_data = get_workspace_data_ref()
+	local workspace_time = workspace_data.data[workspace_name]
+	if workspace_time then
+		return type(workspace_time) == "number" and workspace_time or tonumber(tostring(workspace_time)) or 0
+	end
+	return 0
+end
+
+-- List active workspaces and allow switching
+M.list_active_workspaces = function(window, pane)
+	local workspaces = mux.get_workspace_names()
+	local workspace_data = get_workspace_data_ref()
 	local open_workspaces = workspace_data.data
 	local choices = {}
 	local current_workspace = mux.get_active_workspace()
@@ -46,11 +62,7 @@ M.list_active_workspaces = function(window, pane)
 	-- Create list with timestamps
 	local workspace_list = {}
 	for _, workspace_name in ipairs(workspaces) do
-		local timestamp = 0
-		local workspace_time = open_workspaces[workspace_name]
-		if workspace_time then
-			timestamp = tonumber(tostring(workspace_time)) or 0
-		end
+		local timestamp = get_workspace_timestamp(workspace_name)
 
 		-- Current workspace gets highest priority
 		if workspace_name == current_workspace then
@@ -89,7 +101,6 @@ M.list_active_workspaces = function(window, pane)
 			action = wezterm.action_callback(function(win, _, id, label)
 				if id and label then
 					-- Update timestamp when switching
-					local current_time = os.time()
 					M.set_workspace_data(id, current_time)
 
 					win:perform_action(act.SwitchToWorkspace({ name = id }), pane)
@@ -103,32 +114,9 @@ M.list_active_workspaces = function(window, pane)
 	)
 end
 
--- Helper function to get workspace data as proper Lua table
-M.get_workspace_data = function()
-	local workspace_data = wezterm.GLOBAL.workspace_data
-	if not workspace_data then
-		workspace_data = { data = {} }
-		wezterm.GLOBAL.workspace_data = workspace_data
-	end
-
-	-- Convert userdata to proper Lua table if needed
-	local result = {}
-	for k, v in pairs(workspace_data.data) do
-		local time_val = type(v) == "number" and v or tonumber(tostring(v))
-		if time_val then
-			result[k] = time_val
-		end
-	end
-	return result
-end
-
 -- Helper function to set workspace data
 M.set_workspace_data = function(key, value)
-	local workspace_data = wezterm.GLOBAL.workspace_data
-	if not workspace_data then
-		workspace_data = { data = {} }
-		wezterm.GLOBAL.workspace_data = workspace_data
-	end
+	local workspace_data = get_workspace_data_ref()
 	workspace_data.data[key] = value
 end
 
@@ -159,9 +147,10 @@ M.get_directories = function()
 				if not seen[clean_line] then
 					seen[clean_line] = true
 
-					local label = clean_line:gsub(home_dir, "~")
-					local basename = clean_line:gsub(".*/", ""):gsub("[^%w%-_]", "")
-					local id = basename ~= "" and basename or clean_line:gsub("[^%w%-_/]", "")
+					local label = clean_line:gsub("^" .. home_dir, "~")
+					local basename = clean_line:match("([^/]+)$") or clean_line
+					local clean_basename = basename:gsub("[^%w%-_]", "")
+					local id = clean_basename ~= "" and clean_basename or clean_line:gsub("[^%w%-_/]", "")
 
 					table.insert(dirs, { label = label, id = id })
 				end
@@ -179,6 +168,7 @@ end
 -- List directories and create new workspace
 M.list_directories = function(window, pane)
 	local dirs = M.get_directories()
+	local current_time = os.time()
 
 	window:perform_action(
 		act.InputSelector({
@@ -193,7 +183,6 @@ M.list_directories = function(window, pane)
 						pane
 					)
 
-					local current_time = os.time()
 					M.set_workspace_data(id, current_time)
 				end
 			end),
@@ -207,30 +196,21 @@ end
 
 -- Go to last active workspace
 M.goto_last_active_workspace = function(window, pane)
-	local workspace_data = wezterm.GLOBAL.workspace_data
-	if not workspace_data or not workspace_data.data then
-		wezterm.log_info("No workspace data available")
-		return
-	end
-
+	local workspace_data = get_workspace_data_ref()
 	local open_workspaces = workspace_data.data
 	local current_workspace = mux.get_active_workspace()
 	local sorted = {}
+	local current_time = os.time()
 
 	-- Get all workspace names first
 	local workspaces = mux.get_workspace_names()
 
 	-- Access values by key directly (like in list_active_workspaces)
 	for _, workspace_name in ipairs(workspaces) do
-		local workspace_time = open_workspaces[workspace_name]
-		if workspace_time then
-			local time_val = tonumber(tostring(workspace_time)) or 0
+		local time_val = get_workspace_timestamp(workspace_name)
 
-			wezterm.log_info("Workspace: " .. workspace_name .. ", time: " .. tostring(time_val))
-
-			if time_val > 0 then
-				table.insert(sorted, { name = workspace_name, time = time_val })
-			end
+		if time_val > 0 then
+			table.insert(sorted, { name = workspace_name, time = time_val })
 		end
 	end
 
@@ -247,7 +227,6 @@ M.goto_last_active_workspace = function(window, pane)
 	if sorted[1].name == current_workspace then
 		if #sorted > 1 then
 			local target = sorted[2].name
-			local current_time = os.time()
 			M.set_workspace_data(target, current_time)
 			window:perform_action(act.SwitchToWorkspace({ name = target }), pane)
 		else
@@ -255,7 +234,6 @@ M.goto_last_active_workspace = function(window, pane)
 		end
 	else
 		local target = sorted[1].name
-		local current_time = os.time()
 		M.set_workspace_data(target, current_time)
 		window:perform_action(act.SwitchToWorkspace({ name = target }), pane)
 	end

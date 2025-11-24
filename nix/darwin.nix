@@ -18,6 +18,7 @@
 
     taps = [
       # "karimbenbourenane/cask-fonts"
+      "tursodatabase/homebrew-tap"
     ];
 
     casks = [
@@ -52,6 +53,8 @@
       "mas"
       "mpv"
       "php"
+      "turso"
+      "unar"
       {
         name = "colima";
         start_service = true;

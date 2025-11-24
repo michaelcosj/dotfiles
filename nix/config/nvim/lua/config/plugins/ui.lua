@@ -2,7 +2,7 @@ return {
 	-- Colorscheme
 	{
 		"rebelot/kanagawa.nvim",
-		enabled = true,
+		enabled = false,
 		priority = 1000,
 		opts = {
 			transparent = true,
@@ -65,6 +65,83 @@ return {
 		end,
 		init = function()
 			vim.cmd.colorscheme("gruvbox-material")
+		end,
+	},
+
+	{
+		"catppuccin/nvim",
+		name = "catppuccin",
+		enabled = false,
+		priority = 1000,
+		opts = {
+			flavour = "latte",
+			styles = {
+				comments = { "italic" },
+				conditionals = { "italic" },
+				loops = {},
+				functions = {},
+				keywords = {},
+				strings = {},
+				variables = {},
+				numbers = {},
+				booleans = {},
+				properties = {},
+				types = {},
+				operators = {},
+				-- miscs = {},
+			},
+			lsp_styles = {
+				virtual_text = {
+					errors = { "italic" },
+					hints = { "italic" },
+					warnings = { "italic" },
+					information = { "italic" },
+					ok = { "italic" },
+				},
+				underlines = {
+					errors = { "underline" },
+					hints = { "underline" },
+					warnings = { "underline" },
+					information = { "underline" },
+					ok = { "underline" },
+				},
+				inlay_hints = {
+					background = true,
+				},
+			},
+			color_overrides = {},
+			custom_highlights = function(colors)
+				return {
+					NormalFloat = { bg = "none" },
+					FloatBorder = { bg = "none" },
+					FloatTitle = { bg = "none" },
+					OpencodeBorder = { bg = "none", fg = "none" },
+				}
+			end,
+			default_integrations = true,
+			auto_integrations = true,
+		},
+		init = function()
+			vim.o.background = "light" -- "dark" or "light"
+			vim.cmd.colorscheme("catppuccin")
+		end,
+	},
+
+	{
+		"folke/tokyonight.nvim",
+		lazy = false,
+		priority = 1000,
+		opts = {
+      style = "night",
+			on_highlights = function(hl, c)
+				hl.NormalFloat = { bg = "none" }
+				hl.FloatBorder = { bg = "none" }
+				hl.FloatTitle = { bg = "none" }
+				hl.OpencodeBorder = { bg = "none", fg = "none" }
+			end,
+		},
+		init = function()
+			vim.cmd([[colorscheme tokyonight]])
 		end,
 	},
 

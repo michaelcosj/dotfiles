@@ -90,7 +90,7 @@ return {
 				context = {
 					enabled = true,
 					cursor_data = {
-						enabled = true,
+						enabled = false,
 					},
 					diagnostics = {
 						info = false,

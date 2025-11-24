@@ -4,7 +4,7 @@ local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
 config.font_size = 14
-config.color_scheme = "Kanagawa Lotus"
+config.color_scheme = "Tokyo Night"
 config.force_reverse_video_cursor = true
 config.use_dead_keys = false
 
@@ -24,10 +24,16 @@ config.inactive_pane_hsb = {
 }
 
 -- Windows
-config.initial_cols = 500
-config.initial_rows = 500
 config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
-config.window_background_opacity = 1
+config.window_background_opacity = 0.9
+-- config.macos_force_square_corners = true
+config.window_padding = {
+	left = "0.5cell",
+	right = "0.5cell",
+	top = "0.2cell",
+	bottom = "0.2cell",
+}
+
 -- config.macos_window_background_blur = 90
 config.skip_close_confirmation_for_processes_named = {
 	"bash",
@@ -206,6 +212,28 @@ config.keys = {
 		mods = "LEADER|SHIFT",
 		action = wezterm.action.EmitEvent("trigger-vim-with-scrollback"),
 	},
+
+	-- Let macos handle cmd + arrow keys
+	{
+		key = "LeftArrow",
+		mods = "CMD",
+		action = wezterm.action.Nop,
+	},
+	{
+		key = "RightArrow",
+		mods = "CMD",
+		action = wezterm.action.Nop,
+	},
+	{
+		key = "UpArrow",
+		mods = "CMD",
+		action = wezterm.action.Nop,
+	},
+	{
+		key = "DownArrow",
+		mods = "CMD",
+		action = wezterm.action.Nop,
+	},
 }
 
 -- Sessionizer
@@ -249,9 +277,16 @@ wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_wid
 
 	local text = "[" .. tab.tab_index + 1 .. "]"
 
+	local background = "#414868"
+	local foreground = "#c0caf5"
+
+	if tab.is_active then
+		foreground = "White"
+	end
+
 	return wezterm.format({
-		{ Background = { AnsiColor = "White" } },
-		{ Foreground = { Color = "Wheat" } },
+		{ Background = { Color = background } },
+		{ Foreground = { Color = foreground } },
 		{ Text = " " .. text .. " " },
 	})
 end)
@@ -263,8 +298,8 @@ wezterm.on("update-right-status", function(window, pane)
 
 	-- Safe access with fallbacks
 	window:set_right_status(wezterm.format({
-		{ Background = { AnsiColor = "White" } },
-		{ Foreground = { Color = "Wheat" } },
+		{ Background = { Color = "#414868" } },
+		{ Foreground = { Color = "#c0caf5" } },
 		{ Text = " " .. (window:active_workspace() or "") .. " " },
 	}))
 end)

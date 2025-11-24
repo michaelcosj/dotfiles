@@ -155,35 +155,35 @@
             # binds
             bind -M insert ctrl-space 'accept-autosuggestion'
 
-            # Kanagawa Lotus color scheme
-            set -g fish_color_autosuggestion 8a8980
-            set -g fish_color_command 6e915f
-            set -g fish_color_comment 8a8980
-            set -g fish_color_cwd 6e915f
-            set -g fish_color_cwd_root c84053
-            set -g fish_color_end 8a8980
-            set -g fish_color_error d7474b
-            set -g fish_color_escape 6693bf
-            set -g fish_color_history_current 8a8980
-            set -g fish_color_host 6e915f
-            set -g fish_color_host_remote 6e915f
-            set -g fish_color_match --background=d5cea3 43436c
-            set -g fish_color_normal 545464
-            set -g fish_color_operator 6e915f
-            set -g fish_color_param 545464
-            set -g fish_color_quote 4d699b
-            set -g fish_color_redirection 6e915f
-            set -g fish_color_search_match --background=c9cbd1 43436c
-            set -g fish_color_selection --background=c9cbd1 43436c
-            set -g fish_color_user 6e915f
-            set -g fish_color_valid_path 6e915f
-            set -g fish_pager_color_completion 545464
-            set -g fish_pager_color_description 8a8980
-            set -g fish_pager_color_prefix 6e915f
-            set -g fish_pager_color_progress 6e915f
-            set -g fish_pager_color_selected_background --background=c9cbd1 43436c
-            set -g fish_pager_color_selected_completion 43436c
-            set -g fish_pager_color_selected_description 43436c
+            # Theme-agnostic color scheme
+            set -g fish_color_autosuggestion brblack
+            set -g fish_color_command normal
+            set -g fish_color_comment brblack
+            set -g fish_color_cwd green
+            set -g fish_color_cwd_root red
+            set -g fish_color_end brblack
+            set -g fish_color_error red
+            set -g fish_color_escape cyan
+            set -g fish_color_history_current brblack
+            set -g fish_color_host green
+            set -g fish_color_host_remote green
+            set -g fish_color_match --background=brblack yellow
+            set -g fish_color_normal normal
+            set -g fish_color_operator green
+            set -g fish_color_param normal
+            set -g fish_color_quote blue
+            set -g fish_color_redirection green
+            set -g fish_color_search_match --background=brblack yellow
+            set -g fish_color_selection --background=brblack yellow
+            set -g fish_color_user green
+            set -g fish_color_valid_path green
+            set -g fish_pager_color_completion normal
+            set -g fish_pager_color_description brblack
+            set -g fish_pager_color_prefix green
+            set -g fish_pager_color_progress green
+            set -g fish_pager_color_selected_background --background=brblack yellow
+            set -g fish_pager_color_selected_completion yellow
+            set -g fish_pager_color_selected_description yellow
 
             # fnm node version manager
             set -gx PATH \

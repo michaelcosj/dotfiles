@@ -31,7 +31,7 @@ scrollbar_thumb = "#d5cea3"
 split = "#d5cea3"
 
 [colors.tab_bar]
-background = "#f2ecbc"
+background = "#545464"
 
 [colors.tab_bar.active_tab]
 bg_color = "#e5ddb0"
