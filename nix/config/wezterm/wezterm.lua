@@ -24,17 +24,18 @@ config.inactive_pane_hsb = {
 }
 
 -- Windows
-config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
-config.window_background_opacity = 0.9
--- config.macos_force_square_corners = true
 config.window_padding = {
 	left = "0.5cell",
 	right = "0.5cell",
 	top = "0.2cell",
 	bottom = "0.2cell",
 }
+-- config.macos_force_square_corners = true
 
--- config.macos_window_background_blur = 90
+config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
+config.window_background_opacity = 0.9
+config.macos_window_background_blur = 90
+
 config.skip_close_confirmation_for_processes_named = {
 	"bash",
 	"sh",
