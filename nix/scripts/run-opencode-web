@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+cd ~/Documents/opencode/ && OPENCODE_SERVER_PASSWORD=nomoret3 opencode web --mdns --port 42067
