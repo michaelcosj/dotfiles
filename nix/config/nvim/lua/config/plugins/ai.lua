@@ -49,7 +49,7 @@ return {
 					},
 					input = {
 						text = {
-							wrap = false,
+							wrap = true,
 						},
 					},
 					completion = {
@@ -109,6 +109,10 @@ return {
 				},
 				prompt_guard = nil,
 			})
+
+			vim.keymap.set("n", "<leader>aCc", function()
+				require("opencode.api").run_user_command("commit")
+			end, { desc = "Generate commit" })
 		end,
 		dependencies = {
 			"nvim-lua/plenary.nvim",

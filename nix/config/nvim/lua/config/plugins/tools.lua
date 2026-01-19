@@ -2,22 +2,18 @@ return {
 	-- Task runner
 	{
 		"stevearc/overseer.nvim",
-		tag = "v1.6.0",
 		opts = {
-			strategy = "terminal",
-			task_list = {
-				max_height = nil,
-				height = 0.3,
+			output = {
+				use_terminal = true,
+				preserve_output = false,
 			},
-			templates = { "builtin", "tasks.rector", "tasks.nix-rebuild" },
 		},
 		cmd = {
-			"OverseerDebugParser",
-			"OverseerInfo",
 			"OverseerOpen",
 			"OverseerRun",
-			"OverseerRunCmd",
 			"OverseerToggle",
+			"OverseerShell",
+			"OverseerTaskAction",
 		},
 		keys = {
 			{
@@ -94,23 +90,34 @@ return {
 							picker.close()
 						end
 					end,
+				},
 
+				save_extra_cmds = {
+					-- https://github.com/stevearc/overseer.nvim/blob/master/doc/third_party.md#other-session-managers
 					function()
-						overseer.save_task_bundle(get_cwd_as_name(), nil, { on_conflict = "overwrite" })
+						local tasks = require("overseer.task_list").list_tasks()
+						local cmds = {}
+						for _, task in ipairs(tasks) do
+							local json = vim.json.encode(task:serialize())
+							-- For some reason, vim.json.encode encodes / as \/.
+							json = string.gsub(json, "\\/", "/")
+							-- Escape backslashes first, then single quotes
+							json = string.gsub(json, "\\", "\\\\")
+							json = string.gsub(json, "'", "\\'")
+							table.insert(
+								cmds,
+								string.format("lua require('overseer').new_task(vim.json.decode('%s')):start()", json)
+							)
+						end
+						return cmds
 					end,
 				},
 
 				pre_restore_cmds = {
 					function()
-						for _, task in ipairs(overseer.list_tasks({})) do
+						for _, task in ipairs(require("overseer").list_tasks({})) do
 							task:dispose(true)
 						end
-					end,
-				},
-
-				post_restore_cmds = {
-					function()
-						overseer.load_task_bundle(get_cwd_as_name(), { ignore_missing = true })
 					end,
 				},
 			}
