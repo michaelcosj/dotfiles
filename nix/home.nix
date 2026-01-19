@@ -203,8 +203,6 @@
             # laravel valet
             set -gx PATH "$HOME/.config/composer/vendor/bin" $PATH
 
-
-
             # add bun to path
             set -gx BUN_INSTALL "$HOME/.bun"
             set -gx PATH "$BUN_INSTALL/bin" $PATH
@@ -238,6 +236,8 @@
                 end < "$env_file"
               end
             end
+
+            source "$HOME/.cargo/env.fish"  # For fish
 
             # Load .env file on shell startup
             load_env
