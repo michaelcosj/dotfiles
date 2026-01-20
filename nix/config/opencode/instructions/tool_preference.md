@@ -13,13 +13,14 @@ When you have native tool access for an operation, **always use the tool** inste
 
 | Task | ❌ Don't Do This | ✅ Do This Instead |
 |------|------------------|-------------------|
-| **Read file** | `cat file.txt`, `python -c "print(open('f').read())"` | Use `Read` tool |
-| **Write file** | `echo "content" > file.txt`, `python script.py` that writes | Use `Write` tool |
-| **Edit file** | `sed -i 's/old/new/'`, `awk`, Python/Node scripts | Use `Edit` tool |
-| **Search content** | `grep -r "pattern"`, `rg "pattern"` | Use `Grep` tool |
-| **Find files** | `find . -name "*.ts"`, `ls -R` | Use `Glob` tool |
-| **Fetch URL** | `curl`, `wget`, `python requests` | Use `WebFetch` tool |
-| **Ask user** | Guessing user intent, making assumptions | Use `Question` tool (if available) |
+| **Read file** | `cat file.txt`, `python -c "print(open('f').read())"` | Use `read` tool |
+| **Write file** | `echo "content" > file.txt`, `python script.py` that writes | Use `write` tool |
+| **Edit file** | `sed -i 's/old/new/'`, `awk`, Python/Node scripts | Use `edit` tool |
+| **Search content** | `grep -r "pattern"`, `rg "pattern"` | Use `grep` tool |
+| **Find files** | `find . -name "*.ts"`, `ls -R` | Use `glob` tool |
+| **List directory** | `ls`, `eza`, `tree` | Use `list` tool |
+| **Fetch URL** | `curl`, `wget`, `python requests` | Use `webfetch` tool |
+| **Ask user** | Guessing user intent, making assumptions | Use `question` tool |
 
 ### Exceptions
 
@@ -36,12 +37,12 @@ Before writing a shell command or script, ask: **"Is there a tool for this?"**
 If yes → use the tool.
 If no → proceed with shell.
 
-### Question Tool (When Available)
+### Question Tool
 
-When you have access to the `Question` tool, **use it proactively** to:
+When you have access to the `question` tool, **use it proactively** to:
 - Clarify ambiguous requirements or user intent
 - Gather preferences (technology choices, naming, styling, etc.)
 - Offer implementation options when multiple valid approaches exist
 - Get decisions on trade-offs (performance vs. simplicity, etc.)
 
-**Don't guess or make assumptions** when you can ask. The Question tool provides structured choices that help users make informed decisions quickly.
+**Don't guess or make assumptions** when you can ask. The question tool provides structured choices that help users make informed decisions quickly.

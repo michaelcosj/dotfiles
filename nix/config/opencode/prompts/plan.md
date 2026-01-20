@@ -38,7 +38,7 @@ When the user explicitly requests to save or document the plan, you may create/u
 
 ---
 
-## Handoff to Smart Agent
+## Handoff to Smart/Build Agent
 
 When the user wants to execute a plan:
 

@@ -25,7 +25,7 @@
   "agent": {
     "plan": {
       "model": "firmware/gpt-5.2",
-      "prompt": "{file:./prompts/plan.txt}",
+      "prompt": "{file:./prompts/plan.md}",
       "permission": {
         "edit": {
           "*.md": "ask",
@@ -35,7 +35,7 @@
     },
     "smart": {
       "model": "firmware/claude-opus-4-5",
-      "prompt": "{file:./prompts/smart.txt}",
+      "prompt": "{file:./prompts/smart.md}",
       "permission": {
         "question": "allow",
         "edit": {
@@ -111,7 +111,7 @@
     "build": {
       "mode": "all",
       "model": "firmware/claude-sonnet-4-5-20250929",
-      "prompt": "{file:./prompts/build.txt}",
+      "prompt": "{file:./prompts/build.md}",
       "permission": {
         "bash": {
           "*": "ask",
@@ -182,12 +182,18 @@
     },
     "librarian": {
       "mode": "subagent",
-      "model": "firmware/gpt-5.2",
-      "prompt": "{file:./prompts/librarian.txt}",
+      "model": "firmware/gemini-3-flash-preview",
+      "prompt": "{file:./prompts/librarian.md}",
       "permission": {
-        "bash": {
-          "*": "deny"
-        }
+        "bash": "deny",
+        "edit": "deny",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "codesearch": "allow",
+        "list": "allow",
+        "websearch": "allow",
+        "webfetch": "allow"
       }
     },
     "explore": {
