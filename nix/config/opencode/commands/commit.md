@@ -1,7 +1,7 @@
 ---
 description: Create well-formatted commits with conventional commit messages
 agent: smart
-model: opencode/big-pickle
+model: firmware/gemini-3-flash-preview
 subtask: true
 ---
 
