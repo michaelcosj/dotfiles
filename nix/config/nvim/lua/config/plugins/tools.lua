@@ -30,6 +30,12 @@ return {
 	},
 
 	-- Session Management
+	-- TODO: replace with
+	-- {
+	--   'stevearc/resession.nvim',
+	--   opts = {},
+	-- }
+	--
 	{
 		"rmagatti/auto-session",
 		lazy = false,
@@ -42,13 +48,6 @@ return {
 		---@module "auto-session"
 		---@type function|AutoSession.Config
 		opts = function()
-			local function get_cwd_as_name()
-				local dir = vim.fn.getcwd(0)
-				return dir:gsub("[^A-Za-z0-9]", "_")
-			end
-
-			local overseer = require("overseer")
-
 			return {
 				suppressed_dirs = { "~/", "~/Downloads", "/" },
 				cwd_change_handling = true,

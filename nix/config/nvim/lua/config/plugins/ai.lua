@@ -101,7 +101,7 @@ return {
 						enabled = true,
 					},
 					selection = {
-						enabled = true,
+						enabled = false,
 					},
 				},
 				debug = {

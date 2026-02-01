@@ -68,6 +68,11 @@ vim.opt.confirm = true
 -- Dark mode
 vim.o.background = "dark" -- "dark" or "light" 
 
+-- Titles
+vim.opt.title = true
+vim.opt.titlelen = 0 -- do not shorten title
+vim.opt.titlestring = 'nvim %{expand("%:p:t")}'
+
 -- Folds
 vim.o.foldmethod = "expr"
 vim.wo.foldexpr = "nvim_treesitter#foldexpr()"
