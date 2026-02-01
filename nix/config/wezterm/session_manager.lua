@@ -4,83 +4,38 @@ local mux = wezterm.mux
 
 local M = {}
 
--- Configuration
-local home_dir = os.getenv("HOME")
+local home_dir = wezterm.home_dir
+
 M.config = {
 	directories = {
-		home_dir .. "/Projects/Synthally/ally-api",
-		home_dir .. "/Projects/Synthally/",
-		home_dir .. "/Projects/Valutech",
+		home_dir .. "/Projects",
+		home_dir .. "/Projects/oss",
+		home_dir .. "/Projects/work",
+		home_dir .. "/Projects/work/Valutech",
+		home_dir .. "/Projects/work/Synthally",
+		home_dir .. "/Projects/work/Synthally/tests",
+		home_dir .. "/Projects/personal",
 		home_dir .. "/.dotfiles",
 		home_dir .. "/.dotfiles/nix/config",
-		home_dir .. "/Projects",
 	},
-	cache_ttl = 60 * 60, -- 1 hour
+	cache_ttl = 60 * 60, -- 1 hour,
 }
 
--- Cache system
 M.cache = {
 	dirs = {},
 	timestamp = 0,
 }
 
--- Pre-computed search paths and command
-local search_paths = table.concat(M.config.directories, " ")
-local fd_command = "fd . --max-depth 1 --type d --exclude node_modules --no-ignore-vcs "
-	.. search_paths
-	.. " 2>/dev/null"
-
--- Helper function to get workspace data reference
-local get_workspace_data_ref = function()
-	local workspace_data = wezterm.GLOBAL.workspace_data
-	if not workspace_data then
-		workspace_data = { data = {} }
-		wezterm.GLOBAL.workspace_data = workspace_data
-	end
-	return workspace_data
-end
-
--- Helper function to get workspace timestamp
-local get_workspace_timestamp = function(workspace_name)
-	local workspace_data = get_workspace_data_ref()
-	local workspace_time = workspace_data.data[workspace_name]
-	if workspace_time then
-		return type(workspace_time) == "number" and workspace_time or tonumber(tostring(workspace_time)) or 0
-	end
-	return 0
-end
-
--- List active workspaces and allow switching
 M.list_active_workspaces = function(window, pane)
-	local workspaces = mux.get_workspace_names()
-	local workspace_data = get_workspace_data_ref()
-	local open_workspaces = workspace_data.data
-	local choices = {}
 	local current_workspace = mux.get_active_workspace()
-	local current_time = os.time()
+	local workspace_list = M._get_sorted_workspaces(current_workspace)
 
-	-- Create list with timestamps
-	local workspace_list = {}
-	for _, workspace_name in ipairs(workspaces) do
-		local timestamp = get_workspace_timestamp(workspace_name)
-
-		-- Current workspace gets highest priority
-		if workspace_name == current_workspace then
-			timestamp = current_time
-		end
-
-		table.insert(workspace_list, {
-			name = workspace_name,
-			timestamp = timestamp,
-		})
+	if #workspace_list == 0 then
+		wezterm.log_info("No active workspaces")
+		return
 	end
 
-	-- Sort by timestamp (most recent first)
-	table.sort(workspace_list, function(a, b)
-		return a.timestamp > b.timestamp
-	end)
-
-	-- Create choices from sorted list
+	local choices = {}
 	for _, workspace in ipairs(workspace_list) do
 		local time_str = workspace.timestamp > 0 and os.date("%H:%M:%S", workspace.timestamp) or "unknown"
 		local indicator = workspace.name == current_workspace and " [CURRENT]" or ""
@@ -91,19 +46,11 @@ M.list_active_workspaces = function(window, pane)
 		})
 	end
 
-	if #choices == 0 then
-		wezterm.log_info("No active workspaces")
-		return
-	end
-
 	window:perform_action(
 		act.InputSelector({
-			action = wezterm.action_callback(function(win, _, id, label)
+			action = wezterm.action_callback(function(win, inner_pane, id, label)
 				if id and label then
-					-- Update timestamp when switching
-					M.set_workspace_data(id, current_time)
-
-					win:perform_action(act.SwitchToWorkspace({ name = id }), pane)
+					M._switch_to_workspace(win, inner_pane, id)
 				end
 			end),
 			fuzzy = true,
@@ -114,132 +61,93 @@ M.list_active_workspaces = function(window, pane)
 	)
 end
 
--- Helper function to set workspace data
 M.set_workspace_data = function(key, value)
-	local workspace_data = get_workspace_data_ref()
+	local workspace_data = M._get_workspace_data_ref()
 	workspace_data.data[key] = value
 end
 
--- Helper function to get directories with caching
 M.get_directories = function()
 	local current_time = os.time()
-
-	-- Check cache validity
-	if current_time - M.cache.timestamp < M.config.cache_ttl and #M.cache.dirs > 0 then
+	local cache_valid = (current_time - M.cache.timestamp) < M.config.cache_ttl
+	if cache_valid and #M.cache.dirs > 0 then
 		return M.cache.dirs
 	end
 
 	local dirs = {}
-	local seen = {} -- For deduplication
+	local seen = {}
 
-	local success, stdout, stderr = wezterm.run_child_process({
-		os.getenv("SHELL"),
-		"-c",
-		fd_command,
-	})
+	for _, search_dir in ipairs(M.config.directories) do
+		local success, entries = pcall(wezterm.read_dir, search_dir)
+		if success and entries then
+			for _, full_path in ipairs(entries) do
+				if not seen[full_path] then
+					local basename = full_path:match("([^/]+)$") or "unnamed"
 
-	if success then
-		for line in stdout:gmatch("([^\n]*)\n?") do
-			if line and line ~= "" then
-				local clean_line = line:gsub("/$", "") -- Remove trailing slash
+					if basename ~= "node_modules" and M._is_directory(full_path) then
+						seen[full_path] = true
 
-				-- Skip if already seen (deduplication)
-				if not seen[clean_line] then
-					seen[clean_line] = true
+						local label = full_path:gsub("^" .. home_dir, "~")
+						local id = M._make_workspace_id(basename, full_path)
 
-					local label = clean_line:gsub("^" .. home_dir, "~")
-					local basename = clean_line:match("([^/]+)$") or clean_line
-					local clean_basename = basename:gsub("[^%w%-_]", "")
-					local id = clean_basename ~= "" and clean_basename or clean_line:gsub("[^%w%-_/]", "")
-
-					table.insert(dirs, { label = label, id = id })
+						table.insert(dirs, {
+							label = label,
+							id = id,
+						})
+					end
 				end
 			end
 		end
 	end
 
-	-- Update cache
 	M.cache.dirs = dirs
 	M.cache.timestamp = current_time
 
 	return dirs
 end
 
--- List directories and create new workspace
 M.list_directories = function(window, pane)
 	local dirs = M.get_directories()
-	local current_time = os.time()
 
 	window:perform_action(
 		act.InputSelector({
-			action = wezterm.action_callback(function(win, _, id, label)
+			action = wezterm.action_callback(function(win, inner_pane, id, label)
 				if id and label then
 					local full_path = label:gsub("^~", home_dir)
-					win:perform_action(
-						act.SwitchToWorkspace({
-							name = id,
-							spawn = { cwd = full_path },
-						}),
-						pane
-					)
-
-					M.set_workspace_data(id, current_time)
+					M._switch_to_workspace(win, inner_pane, id, full_path)
 				end
 			end),
 			fuzzy = true,
 			title = "Select directory for new workspace",
 			choices = dirs,
+			fuzzy_description = "Select directory for new workspace: ",
 		}),
 		pane
 	)
 end
 
--- Go to last active workspace
 M.goto_last_active_workspace = function(window, pane)
-	local workspace_data = get_workspace_data_ref()
-	local open_workspaces = workspace_data.data
 	local current_workspace = mux.get_active_workspace()
-	local sorted = {}
-	local current_time = os.time()
+	local sorted = M._get_sorted_workspaces(current_workspace)
 
-	-- Get all workspace names first
-	local workspaces = mux.get_workspace_names()
-
-	-- Access values by key directly (like in list_active_workspaces)
-	for _, workspace_name in ipairs(workspaces) do
-		local time_val = get_workspace_timestamp(workspace_name)
-
-		if time_val > 0 then
-			table.insert(sorted, { name = workspace_name, time = time_val })
+	local with_history = {}
+	for _, ws in ipairs(sorted) do
+		if M._get_workspace_timestamp(ws.name) > 0 or ws.name == current_workspace then
+			table.insert(with_history, ws)
 		end
 	end
 
-	table.sort(sorted, function(a, b)
-		return a.time > b.time
-	end)
-
-	if #sorted == 0 then
+	if #with_history == 0 then
 		wezterm.log_info("No active workspaces to switch to")
 		return
 	end
 
-	-- Don't switch if we're already on the most recent workspace
-	if sorted[1].name == current_workspace then
-		if #sorted > 1 then
-			local target = sorted[2].name
-			M.set_workspace_data(target, current_time)
-			window:perform_action(act.SwitchToWorkspace({ name = target }), pane)
-		else
-			wezterm.log_info("Already on the most recent workspace")
-		end
+	if #with_history > 1 then
+		M._switch_to_workspace(window, pane, with_history[2].name)
 	else
-		local target = sorted[1].name
-		M.set_workspace_data(target, current_time)
-		window:perform_action(act.SwitchToWorkspace({ name = target }), pane)
+		wezterm.log_info("No other workspace to switch to")
 	end
 end
 
--- Cache management functions
 M.clear_cache = function()
 	M.cache.dirs = {}
 	M.cache.timestamp = 0
@@ -248,6 +156,71 @@ end
 M.refresh_directories = function()
 	M.clear_cache()
 	return M.get_directories()
+end
+
+-- Private helpers
+M._get_workspace_data_ref = function()
+	local workspace_data = wezterm.GLOBAL.workspace_data
+	if not workspace_data then
+		workspace_data = { data = {} }
+		wezterm.GLOBAL.workspace_data = workspace_data
+	end
+	return workspace_data
+end
+
+M._get_workspace_timestamp = function(workspace_name)
+	local workspace_data = M._get_workspace_data_ref()
+	return tonumber(workspace_data.data[workspace_name]) or 0
+end
+
+M._get_sorted_workspaces = function(current_workspace)
+	local workspaces = mux.get_workspace_names()
+	local list = {}
+
+	for _, name in ipairs(workspaces) do
+		local timestamp = M._get_workspace_timestamp(name)
+		if name == current_workspace then
+			timestamp = os.time()
+		end
+		table.insert(list, { name = name, timestamp = timestamp })
+	end
+
+	table.sort(list, function(a, b)
+		return a.timestamp > b.timestamp
+	end)
+	return list
+end
+
+M._switch_to_workspace = function(win, pane, id, cwd)
+	local opts = { name = id }
+	if cwd then
+		opts.spawn = { cwd = cwd }
+	end
+	M.set_workspace_data(id, os.time())
+	win:perform_action(act.SwitchToWorkspace(opts), pane)
+end
+
+M._is_directory = function(path)
+	local success, _ = pcall(wezterm.read_dir, path)
+	return success
+end
+
+-- Simple hash function to generate short unique suffix from path
+M._short_hash = function(str)
+	local hash = 0
+	for i = 1, #str do
+		hash = (hash * 31 + string.byte(str, i)) % 0xFFFFFFFF
+	end
+	return string.format("%04x", hash % 0xFFFF)
+end
+
+M._make_workspace_id = function(basename, full_path)
+	local sanitized = basename:gsub("[^%w%-_]", "")
+	if sanitized == "" then
+		sanitized = "workspace"
+	end
+	local hash = M._short_hash(full_path)
+	return sanitized .. "-" .. hash
 end
 
 return M

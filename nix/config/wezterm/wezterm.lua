@@ -1,18 +1,16 @@
-local io = require("io")
-local os = require("os")
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
-config.font_size = 14
+config.font_size = 15
 config.color_scheme = "Tokyo Night"
 config.force_reverse_video_cursor = true
 config.use_dead_keys = false
 
--- Command pallete
+-- Command palette
 config.command_palette_rows = 5
 
 -- Tab bar
-config.hide_tab_bar_if_only_one_tab = true
+config.hide_tab_bar_if_only_one_tab = false
 config.show_new_tab_button_in_tab_bar = false
 config.use_fancy_tab_bar = false
 config.tab_max_width = 10000
@@ -88,12 +86,7 @@ config.keys = {
 	-- Pane splitting (matching tmux)
 	{
 		key = "|",
-		mods = "LEADER|SHIFT",
-		action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }),
-	},
-	{
-		key = "\\",
-		mods = "LEADER|SHIFT",
+		mods = "LEADER",
 		action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }),
 	},
 	{
@@ -213,49 +206,38 @@ config.keys = {
 		mods = "LEADER|SHIFT",
 		action = wezterm.action.EmitEvent("trigger-vim-with-scrollback"),
 	},
-
 	-- Let macos handle cmd + arrow keys
 	{
 		key = "LeftArrow",
 		mods = "CMD",
-		action = wezterm.action.DisableDefaultAssignment,
+		action = wezterm.action({ SendString = "\x1bOH" }),
 	},
 	{
 		key = "RightArrow",
 		mods = "CMD",
-		action = wezterm.action.DisableDefaultAssignment,
-	},
-	{
-		key = "UpArrow",
-		mods = "CMD",
-		action = wezterm.action.DisableDefaultAssignment,
-	},
-	{
-		key = "DownArrow",
-		mods = "CMD",
-		action = wezterm.action.DisableDefaultAssignment,
+		action = wezterm.action({ SendString = "\x1bOF" }),
 	},
 }
 
 -- Sessionizer
-local sessionizer = require("session_manager")
+local session_manager = require("session_manager")
 
 table.insert(config.keys, {
 	key = "s",
 	mods = "LEADER",
-	action = wezterm.action_callback(sessionizer.list_active_workspaces),
+	action = wezterm.action_callback(session_manager.list_active_workspaces),
 })
 
 table.insert(config.keys, {
 	key = ";",
 	mods = "LEADER",
-	action = wezterm.action_callback(sessionizer.list_directories),
+	action = wezterm.action_callback(session_manager.list_directories),
 })
 
 table.insert(config.keys, {
 	key = "Space",
 	mods = "LEADER|CTRL",
-	action = wezterm.action_callback(sessionizer.goto_last_active_workspace),
+	action = wezterm.action_callback(session_manager.goto_last_active_workspace),
 })
 
 -- Event handling
@@ -270,37 +252,70 @@ wezterm.on("gui-attached", function(domain)
 	end
 end)
 
+local function shorten_tab_title(title)
+	if not title or title == "" then
+		return "?"
+	end
+
+	-- Pattern: cwd: cmd args (e.g., "~/dotfiles: nv file.lua")
+	local cwd, cmd = title:match("^(.-):%s+(.+)$")
+	if cwd and cmd then
+		local program = cmd:match("^(%S+)")
+		program = program:match("([^/\\]+)$") or program
+		return program
+	end
+
+	-- Just a command without cwd (e.g., "nvim some/file")
+	local program = title:match("^(%S+)")
+	if program then
+		program = program:match("([^/\\]+)$") or program
+		return program
+	end
+
+	return title
+end
+
 wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_width)
 	local title = tab.tab_title
 	if not (title and #title > 0) then
 		title = tab.active_pane.title
 	end
 
-	local text = "[" .. tab.tab_index + 1 .. "]"
+	-- Only shorten when tab is NOT active
+	if not tab.is_active then
+		title = shorten_tab_title(title)
+	end
 
-	local background = "#414868"
-	local foreground = "#c0caf5"
+	local text = tab.tab_index + 1
 
-	if tab.is_active then
-		foreground = "White"
+	local color_scheme = config.resolved_palette
+
+	local fg = color_scheme.background
+	local bg = color_scheme.brights[4]
+
+	if not tab.is_active then
+		bg = color_scheme.brights[5]
 	end
 
 	return wezterm.format({
-		{ Background = { Color = background } },
-		{ Foreground = { Color = foreground } },
+		{ Background = { Color = bg } },
+		{ Foreground = { Color = fg } },
 		{ Text = " " .. text .. " " },
+		{ Background = { Color = color_scheme.background } },
+		{ Foreground = { Color = color_scheme.foreground } },
+		{ Text = " " .. title .. " " },
 	})
 end)
 
 wezterm.on("update-right-status", function(window, pane)
-	-- Prefer effective_config; it includes base config + overrides
-	local cfg = window:effective_config()
-	local colors = cfg.colors or {}
+	local color_scheme = window:effective_config().resolved_palette
 
-	-- Safe access with fallbacks
 	window:set_right_status(wezterm.format({
-		{ Background = { Color = "#414868" } },
-		{ Foreground = { Color = "#c0caf5" } },
+		{ Background = { Color = color_scheme.brights[6] } },
+		{ Foreground = { Color = color_scheme.background } },
+		{ Text = "   " },
+		{ Background = { Color = color_scheme.background } },
+		{ Foreground = { Color = color_scheme.foreground } },
 		{ Text = " " .. (window:active_workspace() or "") .. " " },
 	}))
 end)
@@ -317,8 +332,7 @@ local function is_shell(foreground_process_name)
 end
 
 wezterm.on("open-uri", function(window, pane, uri)
-	local editor = "nvim"
-	print("hello")
+	local editor = os.getenv("EDITOR") or "nvim"
 
 	if uri:find("^file:") == 1 and not pane:is_alt_screen_active() then
 		local url = wezterm.url.parse(uri)
@@ -331,10 +345,10 @@ wezterm.on("open-uri", function(window, pane, uri)
 			})
 			if success then
 				if stdout:find("directory") then
-					wezterm:log_info("here directory")
+					wezterm.log_info("open-uri: navigating to directory " .. url.file_path)
 					pane:send_text(wezterm.shell_join_args({ "cd", url.file_path }) .. "\r")
 					pane:send_text(wezterm.shell_join_args({
-						"exa",
+						"eza",
 						"-a",
 						"--group-directories-first",
 					}) .. "\r")
@@ -342,7 +356,7 @@ wezterm.on("open-uri", function(window, pane, uri)
 				end
 
 				if stdout:find("text") then
-					wezterm:log_info("here text")
+					wezterm.log_info("open-uri: opening text file " .. url.file_path)
 					if url.fragment then
 						pane:send_text(wezterm.shell_join_args({
 							editor,
@@ -355,7 +369,7 @@ wezterm.on("open-uri", function(window, pane, uri)
 					return false
 				end
 
-				wezterm:log_info("here none")
+				wezterm.log_info("open-uri: unhandled mime type " .. stdout)
 			end
 		else
 			-- No shell detected, we're probably connected with SSH, use fallback command
@@ -381,6 +395,7 @@ wezterm.on("trigger-vim-with-scrollback", function(window, pane)
 	local f = io.open(name, "w+")
 
 	if f == nil then
+		wezterm.log_error("trigger-vim-with-scrollback: failed to create temp file")
 		return
 	end
 
@@ -388,19 +403,17 @@ wezterm.on("trigger-vim-with-scrollback", function(window, pane)
 	f:flush()
 	f:close()
 
+	-- Open nvim with the scrollback, then clean up the temp file after nvim exits
 	window:perform_action(
 		wezterm.action.SpawnCommandInNewWindow({
 			args = {
 				os.getenv("SHELL"),
 				"-c",
-				"nvim " .. name,
+				"nvim " .. wezterm.shell_quote_arg(name) .. "; rm -f " .. wezterm.shell_quote_arg(name),
 			},
 		}),
 		pane
 	)
-
-	wezterm.sleep_ms(1000)
-	os.remove(name)
 end)
 
 return config
