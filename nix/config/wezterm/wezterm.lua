@@ -17,7 +17,7 @@ config.tab_max_width = 10000
 
 -- Panes
 config.inactive_pane_hsb = {
-	saturation = 0.8,
+	saturation = 1,
 	brightness = 0.7,
 }
 
@@ -32,7 +32,7 @@ config.window_padding = {
 
 config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
 config.window_background_opacity = 0.9
-config.macos_window_background_blur = 90
+config.macos_window_background_blur = 99
 
 config.skip_close_confirmation_for_processes_named = {
 	"bash",
@@ -263,6 +263,12 @@ local function shorten_tab_title(title)
 		local program = cmd:match("^(%S+)")
 		program = program:match("([^/\\]+)$") or program
 		return program
+	end
+
+	-- Pattern: cwd - shell (e.g., "~/.dotfiles/nix/config/wezterm - fish")
+	local cwd2, shell = title:match("^(.-)%s+%-%s+(.+)$")
+	if cwd2 and shell then
+		return shell
 	end
 
 	-- Just a command without cwd (e.g., "nvim some/file")
