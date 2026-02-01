@@ -1,9 +1,7 @@
 ------------------=[[Options]]=----------------------------
--- Make line numbers default
-vim.opt.number = true
-
--- Relative line numbers
-vim.opt.relativenumber = true
+-- Remove numbers by default (minimal ui)
+vim.opt.number = false
+vim.opt.relativenumber = false
 
 -- Enable mouse mode
 vim.opt.mouse = "a"
@@ -72,20 +70,6 @@ vim.o.background = "dark" -- "dark" or "light"
 vim.opt.title = true
 vim.opt.titlelen = 0 -- do not shorten title
 vim.opt.titlestring = 'nvim %{expand("%:p:t")}'
-
--- Folds
-vim.o.foldmethod = "expr"
-vim.wo.foldexpr = "nvim_treesitter#foldexpr()"
-vim.opt.foldenable = false
-vim.opt.foldlevel = 99
-
--- set the text shown when a fold is closed
-vim.opt.foldtext = "v:lua.FoldText()"
-function FoldText()
-	local lines_folded = (vim.v.foldend - vim.v.foldstart) + 1
-	local line = vim.fn.getline(vim.v.foldstart)
-	return string.format("%s (%d lines)", string.sub(line, 1, 60), lines_folded)
-end
 
 -- Tabs
 vim.opt.expandtab = true
