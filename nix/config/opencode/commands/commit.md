@@ -1,7 +1,7 @@
 ---
 description: Create well-formatted commits with conventional commit messages
 agent: smart
-model: firmware/gemini-3-flash-preview
+model: firmware/cerebras-gpt-oss-120b
 subtask: true
 ---
 

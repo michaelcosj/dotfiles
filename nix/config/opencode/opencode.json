@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "firmware/gemini-3-flash-preview",
-  "small_model": "opencode/gpt-5-nano",
+  "model": "firmware/cerebras-zai-glm-4.7",
+  "small_model": "firmware/gpt-5-nano",
   "disabled_providers": [
     "openrouter"
   ],
@@ -110,7 +110,7 @@
     },
     "build": {
       "mode": "all",
-      "model": "firmware/claude-sonnet-4-5-20250929",
+      "model": "firmware/claude-sonnet-4-5",
       "prompt": "{file:./prompts/build.md}",
       "permission": {
         "bash": {
@@ -182,7 +182,7 @@
     },
     "librarian": {
       "mode": "subagent",
-      "model": "firmware/gemini-3-flash-preview",
+      "model": "firmware/cerebras-gpt-oss-120b",
       "prompt": "{file:./prompts/librarian.md}",
       "permission": {
         "bash": "deny",
@@ -197,7 +197,129 @@
       }
     },
     "explore": {
-      "model": "firmware/gpt-5.2"
+      "model": "firmware/cerebras-gpt-oss-120b"
+    }
+  },
+  "provider": {
+    "llm-proxy": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Proxy",
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/v1",
+        "apiKey": "VerysecretKey",
+        "timeout": 300000
+      },
+      "models": {
+        "claude-opus-4-5-thinking": {
+          "id": "antigravity/claude-opus-4-5",
+          "name": "Claude Opus 4.5 Thinking",
+          "limit": {
+            "context": 200000,
+            "output": 32000
+          },
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "high"
+          },
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        },
+        "claude-sonnet-4-5-thinking": {
+          "id": "antigravity/claude-sonnet-4-5",
+          "name": "Claude Sonnet 4.5 Thinking",
+          "limit": {
+            "context": 200000,
+            "output": 32000
+          },
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "high"
+          },
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        },
+        "claude-sonnet-4-5": {
+          "id": "antigravity/claude-sonnet-4-5",
+          "name": "Claude Sonnet 4.5",
+          "limit": {
+            "context": 200000,
+            "output": 8000
+          },
+          "reasoning": false,
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        },
+        "ant_gemini-3-pro-high": {
+          "id": "antigravity/gemini-3-pro-preview",
+          "name": "ANT Gemini 3 Pro High",
+          "limit": {
+            "context": 1048576,
+            "output": 64000
+          },
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "high"
+          },
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        },
+        "cli_gemini-3-pro-high": {
+          "id": "gemini_cli/gemini-3-pro-preview",
+          "name": "CLI Gemini 3 Pro High",
+          "limit": {
+            "context": 1048576,
+            "output": 64000
+          },
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "high"
+          },
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        },
+        "ant_gemini-3-pro-low": {
+          "id": "antigravity/gemini-3-pro-preview",
+          "name": "ANT Gemini 3 Pro Low",
+          "limit": {
+            "context": 1048576,
+            "output": 64000
+          },
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "low"
+          },
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        },
+        "cli_gemini-3-pro-low": {
+          "id": "gemini_cli/gemini-3-pro-preview",
+          "name": "CLI Gemini 3 Pro Low",
+          "limit": {
+            "context": 1048576,
+            "output": 64000
+          },
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "low"
+          },
+          "modalities": {
+            "input": ["image", "text"],
+            "output": ["text"]
+          }
+        }
+      }
     }
   }
 }

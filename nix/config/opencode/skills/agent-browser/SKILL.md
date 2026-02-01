@@ -27,6 +27,8 @@ agent-browser close             # Close browser
 3. Interact using refs from the snapshot
 4. Re-snapshot after navigation or significant DOM changes
 
+NOTE: set AGENT_BROWSER_EXECUTABLE_PATH=~/Library/Caches/ms-playwright/chromium-1179/chrome-mac/Chromium.app/Contents/MacOS/Chromium
+
 ## Commands
 
 ### Navigation
