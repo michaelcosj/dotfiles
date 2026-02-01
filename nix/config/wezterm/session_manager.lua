@@ -18,12 +18,6 @@ M.config = {
 		home_dir .. "/.dotfiles",
 		home_dir .. "/.dotfiles/nix/config",
 	},
-	cache_ttl = 60 * 60, -- 1 hour,
-}
-
-M.cache = {
-	dirs = {},
-	timestamp = 0,
 }
 
 M.list_active_workspaces = function(window, pane)
@@ -67,12 +61,6 @@ M.set_workspace_data = function(key, value)
 end
 
 M.get_directories = function()
-	local current_time = os.time()
-	local cache_valid = (current_time - M.cache.timestamp) < M.config.cache_ttl
-	if cache_valid and #M.cache.dirs > 0 then
-		return M.cache.dirs
-	end
-
 	local dirs = {}
 	local seen = {}
 
@@ -98,9 +86,6 @@ M.get_directories = function()
 			end
 		end
 	end
-
-	M.cache.dirs = dirs
-	M.cache.timestamp = current_time
 
 	return dirs
 end
@@ -146,16 +131,6 @@ M.goto_last_active_workspace = function(window, pane)
 	else
 		wezterm.log_info("No other workspace to switch to")
 	end
-end
-
-M.clear_cache = function()
-	M.cache.dirs = {}
-	M.cache.timestamp = 0
-end
-
-M.refresh_directories = function()
-	M.clear_cache()
-	return M.get_directories()
 end
 
 -- Private helpers
