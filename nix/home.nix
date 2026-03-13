@@ -23,6 +23,7 @@
         fnm
         gh
         htop
+        imagemagick
         intelephense
         jetbrains-mono
         jq
@@ -33,10 +34,12 @@
         nixfmt-rfc-style
         ngrok
         oxlint
+        pngpaste
         prettierd
         ripgrep
         stylua
         tree
+        ueberzugpp
         uv
         vtsls
         yt-dlp
@@ -59,6 +62,10 @@
       # Opencode config
       home.file.".config/opencode".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/opencode";
+
+      # btca config (https://docs.btca.dev/guides/configuration)
+      home.file.".config/btca".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/btca";
 
       fonts.fontconfig.enable = true;
 
@@ -94,33 +101,35 @@
 
         git = {
           enable = true;
-          userName = "Michael";
-          userEmail = "michaelcosj@proton.me";
-          aliases = {
-            sw = "switch";
-            ci = "commit";
-            st = "status";
-            br = "branch";
-            df = "diff";
-            lg = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
-          };
-          extraConfig = {
+          settings = {
+            user.name = "Michael";
+            user.email = "michaelcosj@proton.me";
             core.editor = "nvim";
             color.ui = true;
             pull.ff = "only";
             init.defaultBranch = "main";
+            aliases = {
+              sw = "switch";
+              ci = "commit";
+              st = "status";
+              br = "branch";
+              df = "diff";
+              lg = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
+            };
           };
           ignores = [
             ".DS_Store"
             "node_modules"
             "*.pyc"
           ];
-          delta = {
-            enable = true;
-            options = {
-              navigate = true;
-              line-numbers = true;
-            };
+        };
+
+        delta = {
+          enable = true;
+          enableGitIntegration = true;
+          options = {
+            navigate = true;
+            line-numbers = true;
           };
         };
 
