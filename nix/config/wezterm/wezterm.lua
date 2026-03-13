@@ -31,8 +31,8 @@ config.window_padding = {
 -- config.macos_force_square_corners = true
 
 config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
-config.window_background_opacity = 0.9
-config.macos_window_background_blur = 100
+config.window_background_opacity = 1
+-- config.macos_window_background_blur = 100
 
 config.skip_close_confirmation_for_processes_named = {
 	"bash",

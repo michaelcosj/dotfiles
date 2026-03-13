@@ -13,6 +13,7 @@ M.config = {
 		home_dir .. "/Projects/work",
 		home_dir .. "/Projects/work/Valutech",
 		home_dir .. "/Projects/work/Synthally",
+		home_dir .. "/Projects/work/Synthally/ally-api",
 		home_dir .. "/Projects/work/Synthally/tests",
 		home_dir .. "/Projects/personal",
 		home_dir .. "/.dotfiles",
