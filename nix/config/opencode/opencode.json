@@ -1,13 +1,16 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "firmware/cerebras-zai-glm-4.7",
-  "small_model": "firmware/gpt-5-nano",
+  "model": "opencode-go/kimi-k2.5",
+  "small_model": "opencode/gpt-5-nano",
   "disabled_providers": [
     "openrouter"
   ],
   "instructions": [
     "~/.config/opencode/instructions/shell_strategy.md",
     "./instructions/tool_preference.md"
+  ],
+  "plugin": [
+    "opencode-mystatus"
   ],
   "mcp": {
     "context7": {
@@ -24,114 +27,16 @@
   },
   "agent": {
     "plan": {
-      "model": "firmware/gpt-5.2",
-      "prompt": "{file:./prompts/plan.md}",
-      "permission": {
-        "edit": {
-          "*.md": "ask",
-          "*": "deny"
-        }
-      }
-    },
-    "smart": {
-      "model": "firmware/claude-opus-4-5",
-      "prompt": "{file:./prompts/smart.md}",
-      "permission": {
-        "question": "allow",
-        "edit": {
-          "*": "allow"
-        },
-        "bash": {
-          "*": "ask",
-          "cd *": "allow",
-          "ls*": "allow",
-          "eza*": "allow",
-          "grep*": "allow",
-          "rg *": "allow",
-          "cat *": "allow",
-          "bat *": "allow",
-          "head *": "allow",
-          "tail *": "allow",
-          "find *": "allow",
-          "fd *": "allow",
-          "tree*": "allow",
-          "pwd": "allow",
-          "which *": "allow",
-          "whereis *": "allow",
-          "echo *": "allow",
-          "printf *": "allow",
-          "git *": "ask",
-          "git status*": "allow",
-          "git log*": "allow",
-          "git diff*": "allow",
-          "git show*": "allow",
-          "git branch": "allow",
-          "git branch -?": "allow",
-          "git branch --list*": "allow",
-          "git branch --all": "allow",
-          "git branch --remote": "allow",
-          "git remote": "allow",
-          "git remote -v": "allow",
-          "git remote show *": "allow",
-          "git remote get-url *": "allow",
-          "git fetch*": "allow",
-          "git --no-pager *": "allow",
-          "git ls-files*": "allow",
-          "npm test*": "allow",
-          "npm run test*": "allow",
-          "npm run build*": "allow",
-          "npm run lint*": "allow",
-          "npm run check*": "allow",
-          "npm run dev*": "ask",
-          "npm install*": "ask",
-          "npm ci*": "ask",
-          "bun test*": "allow",
-          "bun run test*": "allow",
-          "bun run build*": "allow",
-          "bun run lint*": "allow",
-          "bun run check*": "allow",
-          "bun run dev*": "ask",
-          "bun install*": "ask",
-          "bunx*": "ask",
-          "npx*": "ask",
-          "node*": "allow",
-          "python*": "allow",
-          "go test*": "allow",
-          "go build*": "allow",
-          "docker ps*": "allow",
-          "docker images*": "allow",
-          "docker inspect*": "allow",
-          "docker logs*": "allow",
-          "rm *": "ask",
-          "mv *": "ask",
-          "cp *": "ask"
-        }
-      }
+      "model": "openai/gpt-5.4",
+      "prompt": "{file:./prompts/plan.md}"
     },
     "build": {
       "mode": "all",
-      "model": "firmware/claude-sonnet-4-5",
+      "model": "opencode-go/kimi-k2.5",
       "prompt": "{file:./prompts/build.md}",
       "permission": {
         "bash": {
           "*": "ask",
-          "cd *": "allow",
-          "ls*": "allow",
-          "eza*": "allow",
-          "grep*": "allow",
-          "rg *": "allow",
-          "cat *": "allow",
-          "bat *": "allow",
-          "head *": "allow",
-          "tail *": "allow",
-          "find *": "allow",
-          "fd *": "allow",
-          "tree*": "allow",
-          "pwd": "allow",
-          "which *": "allow",
-          "whereis *": "allow",
-          "echo *": "allow",
-          "printf *": "allow",
           "git *": "ask",
           "git status*": "allow",
           "git log*": "allow",
@@ -176,13 +81,31 @@
           "docker logs*": "allow",
           "rm *": "ask",
           "mv *": "ask",
-          "cp *": "ask"
+          "cp *": "ask",
+          "cd *": "allow",
+          "ls*": "allow",
+          "wc*": "allow",
+          "eza*": "allow",
+          "grep*": "allow",
+          "rg *": "allow",
+          "cat *": "allow",
+          "bat *": "allow",
+          "head *": "allow",
+          "tail *": "allow",
+          "find *": "allow",
+          "fd *": "allow",
+          "tree*": "allow",
+          "pwd": "allow",
+          "which *": "allow",
+          "whereis *": "allow",
+          "echo *": "allow",
+          "printf *": "allow"
         }
       }
     },
     "librarian": {
       "mode": "subagent",
-      "model": "firmware/cerebras-gpt-oss-120b",
+      "model": "opencode-go/minimax-m2.5",
       "prompt": "{file:./prompts/librarian.md}",
       "permission": {
         "bash": "deny",
@@ -197,129 +120,13 @@
       }
     },
     "explore": {
-      "model": "firmware/cerebras-gpt-oss-120b"
+      "model": "opencode-go/minimax-m2.5"
     }
   },
-  "provider": {
-    "llm-proxy": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Proxy",
-      "options": {
-        "baseURL": "http://127.0.0.1:8000/v1",
-        "apiKey": "VerysecretKey",
-        "timeout": 300000
-      },
-      "models": {
-        "claude-opus-4-5-thinking": {
-          "id": "antigravity/claude-opus-4-5",
-          "name": "Claude Opus 4.5 Thinking",
-          "limit": {
-            "context": 200000,
-            "output": 32000
-          },
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "high"
-          },
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        },
-        "claude-sonnet-4-5-thinking": {
-          "id": "antigravity/claude-sonnet-4-5",
-          "name": "Claude Sonnet 4.5 Thinking",
-          "limit": {
-            "context": 200000,
-            "output": 32000
-          },
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "high"
-          },
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        },
-        "claude-sonnet-4-5": {
-          "id": "antigravity/claude-sonnet-4-5",
-          "name": "Claude Sonnet 4.5",
-          "limit": {
-            "context": 200000,
-            "output": 8000
-          },
-          "reasoning": false,
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        },
-        "ant_gemini-3-pro-high": {
-          "id": "antigravity/gemini-3-pro-preview",
-          "name": "ANT Gemini 3 Pro High",
-          "limit": {
-            "context": 1048576,
-            "output": 64000
-          },
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "high"
-          },
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        },
-        "cli_gemini-3-pro-high": {
-          "id": "gemini_cli/gemini-3-pro-preview",
-          "name": "CLI Gemini 3 Pro High",
-          "limit": {
-            "context": 1048576,
-            "output": 64000
-          },
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "high"
-          },
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        },
-        "ant_gemini-3-pro-low": {
-          "id": "antigravity/gemini-3-pro-preview",
-          "name": "ANT Gemini 3 Pro Low",
-          "limit": {
-            "context": 1048576,
-            "output": 64000
-          },
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "low"
-          },
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        },
-        "cli_gemini-3-pro-low": {
-          "id": "gemini_cli/gemini-3-pro-preview",
-          "name": "CLI Gemini 3 Pro Low",
-          "limit": {
-            "context": 1048576,
-            "output": 64000
-          },
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "low"
-          },
-          "modalities": {
-            "input": ["image", "text"],
-            "output": ["text"]
-          }
-        }
-      }
+  "command": {
+    "mystatus": {
+      "description": "Query quota usage for all AI accounts",
+      "template": "Use the mystatus tool to query quota usage. Return the result as-is without modification."
     }
-  }
+  },
 }

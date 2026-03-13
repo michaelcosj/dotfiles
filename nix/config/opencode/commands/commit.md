@@ -1,7 +1,7 @@
 ---
 description: Create well-formatted commits with conventional commit messages
 agent: smart
-model: firmware/cerebras-gpt-oss-120b
+model: firmware/claude-haiku-4-5
 subtask: true
 ---
 
