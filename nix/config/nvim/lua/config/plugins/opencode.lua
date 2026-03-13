@@ -11,6 +11,7 @@ return {
 					["<leader>af"] = { "toggle_focus" },
 				},
 				input_window = {
+					["<S-cr>"] = false,
 					["<cr>"] = { "submit_input_prompt", mode = { "n" } },
 					["<C-cr>"] = { "submit_input_prompt", mode = { "i" } },
 					["<leader>am"] = { "switch_mode" }, -- Switch between modes (build/plan)
@@ -112,6 +113,13 @@ return {
 		vim.keymap.set("n", "<leader>aCc", function()
 			require("opencode.api").run_user_command("commit")
 		end, { desc = "Generate commit" })
+
+		vim.api.nvim_create_autocmd("FileType", {
+			pattern = "opencode",
+			callback = function()
+				vim.keymap.set("i", "<S-CR>", "<CR>", { buffer = true })
+			end,
+		})
 	end,
 	dependencies = {
 		"nvim-lua/plenary.nvim",

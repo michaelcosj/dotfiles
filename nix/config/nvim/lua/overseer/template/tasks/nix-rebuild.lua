@@ -6,8 +6,8 @@ return {
 	desc = "Rebuild nix flake config",
 	builder = function()
 		return {
-			cmd = { "darwin-rebuild" },
-			args = { "switch", "--flake", "./nix#macbook" },
+			cmd = { "sudo" },
+			args = { "darwin-rebuild", "switch", "--flake", "./nix#macbook" },
 			cwd = "/Users/synth/.dotfiles/",
 			components = {
 				"default",

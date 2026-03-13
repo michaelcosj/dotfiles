@@ -14,7 +14,18 @@ return {
 				cursorline = true,
 			},
 		},
-		indent = { enabled = true },
+		image = {
+			enabled = false,
+			convert = {
+				notify = true,
+			},
+		},
+		indent = {
+			enabled = true,
+			indent = { only_scope = false }, -- only show indent where cursor is
+			chunk = { enabled = true }, -- indents are rendered as chunks
+			animate = { enabled = true }, -- do not animate -- feels slow for me
+		},
 		input = {
 			enabled = true,
 			win = {
@@ -99,13 +110,23 @@ return {
 			enabled = true,
 			preset = {
 				keys = {
+					{ icon = "", key = "f", desc = "find file", action = ":lua Snacks.dashboard.pick('files')" },
+					{ icon = "", key = "n", desc = "new file", action = ":ene | startinsert" },
+					{ icon = "", key = "g", desc = "grep text", action = ":lua Snacks.dashboard.pick('live_grep')" },
 					{
-						icon = "󰦛 ",
-						key = "s",
-						desc = "Sessions",
-						action = ":SessionSearch",
+						icon = "",
+						key = "r",
+						desc = "recent file",
+						action = ":lua Snacks.dashboard.pick('oldfiles')",
 					},
-					{ icon = " ", key = "q", desc = "Quit", action = ":qa" },
+					{
+						icon = "",
+						key = "c",
+						desc = "config",
+						action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
+					},
+					{ icon = "󰒲", key = "L", desc = "lazy", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
+					{ icon = "󰈆", key = "q", desc = "quit", action = ":qa" },
 				},
 				header = [[
   ⣇⣿⠘⣿⣿⣿⡿⡿⣟⣟⢟⢟⢝⠵⡝⣿⡿⢂⣼⣿⣷⣌⠩⡫⡻⣝⠹⢿⣿⣷
@@ -124,23 +145,29 @@ return {
   ⡝⡵⡕⡀⠑⠳⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⢉⡠⡲⡫⡪⡪⡣ 
 			]],
 			},
-			sections = {
-				{ section = "header" },
-				{
-					text = { { "Ad Astra Per Aspera", hl = "special" } },
-					align = "center",
+			formats = {
+				header = {
+					align = "left",
 				},
-				{
-					text = { { os.date("%A %B, %Y") .. "", hl = "key" } },
-					align = "center",
-					padding = 1,
-				},
-				{ section = "projects", title = " Projects", padding = 2, indent = 2 },
-				{ section = "recent_files", title = " Recent Files", padding = 1, indent = 2 },
-				{ section = "keys", padding = 2 },
-				{ section = "startup" },
 			},
-			pane_gap = 10,
+			sections = {
+				{
+					section = "header",
+					padding = 6,
+				},
+				{
+					pane = 2,
+					padding = 1,
+					{
+						{ section = "keys", gap = 1, padding = 1 },
+						{ section = "startup", icon = "󱐌 ", gap = 1, padding = 1 },
+					},
+				},
+			},
+		},
+		dim = { enabled = true },
+		win = {
+			backdrop = { transparent = true, blend = 100 },
 		},
 	},
 	keys = {
@@ -490,6 +517,7 @@ return {
 						if vim.bo.filetype == "snacks_explorer" then
 							-- Force immediate cleanup to prevent hanging
 							vim.schedule(function()
+								---@diagnostic disable-next-line: param-type-mismatch
 								pcall(vim.cmd, "redraw!")
 							end)
 						end
@@ -510,17 +538,19 @@ return {
 				vim.print = _G.dd -- Override print to use snacks for `:=` command
 
 				-- Create some toggle mappings
-				Snacks.toggle.line_number():map("<leader>ul")
 				Snacks.toggle.diagnostics():map("<leader>ud")
 				Snacks.toggle.treesitter():map("<leader>uT")
-				Snacks.toggle.inlay_hints():map("<leader>uh")
+
 				Snacks.toggle.indent():map("<leader>ug")
 				Snacks.toggle.dim():map("<leader>uD")
+
 				Snacks.toggle.option("spell", { name = "Spelling" }):map("<leader>us")
 				Snacks.toggle.option("wrap", { name = "Wrap" }):map("<leader>uw")
 
+				Snacks.toggle.line_number():map("<leader>ul")
 				Snacks.toggle.option("relativenumber", { name = "Relative Number" }):map("<leader>uL")
 
+				Snacks.toggle.inlay_hints():map("<leader>uh")
 				Snacks.toggle
 					.option("conceallevel", { off = 0, on = vim.o.conceallevel > 0 and vim.o.conceallevel or 2 })
 					:map("<leader>uc")
