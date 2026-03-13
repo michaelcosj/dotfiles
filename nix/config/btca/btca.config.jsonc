@@ -1,0 +1,31 @@
+{
+  "$schema": "https://btca.dev/btca.schema.json",
+  "resources": [
+    {
+      "type": "git",
+      "name": "svelte-dev",
+      "url": "https://github.com/sveltejs/svelte.dev",
+      "branch": "main"
+    },
+    {
+      "type": "git",
+      "name": "overseer",
+      "url": "https://github.com/stevearc/overseer.nvim",
+      "branch": "master"
+    },
+    {
+      "type": "git",
+      "name": "overseer-nvim-master",
+      "url": "https://github.com/stevearc/overseer.nvim",
+      "branch": "master"
+    },
+    {
+      "type": "git",
+      "name": "overseer.nvim",
+      "url": "https://github.com/stevearc/overseer.nvim",
+      "branch": "master"
+    }
+  ],
+  "model": "gpt-5.3-codex",
+  "provider": "openai"
+}
