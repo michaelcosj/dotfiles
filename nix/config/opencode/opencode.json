@@ -29,13 +29,11 @@
   "agent": {
     "plan": {
       "model": "openai/gpt-5.4",
-      "variant": "medium",
-      "prompt": "{file:./prompts/plan.md}"
+      "variant": "medium"
     },
     "build": {
       "model": "openai/gpt-5.4",
       "variant": "medium",
-      "prompt": "{file:./prompts/build.md}",
       "permission": {
         "bash": {
           "*": "ask",
@@ -189,6 +187,21 @@
         "bash": true,
         "edit": false,
         "webfetch": false,
+        "task": false
+      }
+    },
+    "chat": {
+      "description": "Conversational Read-only Q&A agent for direct user queries. Provides clear explanations, general guidance, and quick answers like ChatGPT/Gemini.",
+      "prompt": "{file:./prompts/chat.md}",
+      "tools": {
+        "bash": false,
+        "edit": false,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "list": true,
+        "websearch": true,
+        "webfetch": true,
         "task": false
       }
     },
