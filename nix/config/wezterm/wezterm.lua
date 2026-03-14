@@ -1,8 +1,9 @@
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
-config.font_size = 15
-config.color_scheme = "Tokyo Night"
+config.font = wezterm.font('GeistMono Nerd Font')
+config.font_size = 14
+config.color_scheme = "OC"
 config.force_reverse_video_cursor = true
 config.use_dead_keys = false
 

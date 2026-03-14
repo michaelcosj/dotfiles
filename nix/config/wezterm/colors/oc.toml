@@ -1,0 +1,48 @@
+# OC Color Scheme - Based on original palette
+[colors]
+ansi = [
+  "#232323",  # Black (bg4)
+  "#f65a42",  # Red
+  "#29c121",  # Green
+  "#FCD53B",  # Yellow
+  "#8CB0FF",  # Blue
+  "#EDB2F1",  # Magenta (purple)
+  "#00ceb9",  # Cyan (teal)
+  "#f0f0f0"   # White
+]
+brights = [
+  "#545454",  # Bright Black (grey1)
+  "#fab283",  # Bright Red (orange)
+  "#29c121",  # Bright Green
+  "#FCD53B",  # Bright Yellow
+  "#8CB0FF",  # Bright Blue
+  "#FF9AE2",  # Bright Magenta (pink)
+  "#93e9f6",  # Bright Cyan
+  "#a4a4a4"   # Bright White (grey3)
+]
+background = "#101010"
+foreground = "#f0f0f0"
+cursor_bg = "#f0f0f0"
+cursor_border = "#f0f0f0"
+cursor_fg = "#101010"
+selection_bg = "#1e1e1e"
+selection_fg = "#EDB2F1"
+scrollbar_thumb = "#3f3f3f"
+split = "#3f3f3f"
+
+[colors.tab_bar]
+background = "#101010"
+
+[colors.tab_bar.active_tab]
+bg_color = "#1e1e1e"
+fg_color = "#f0f0f0"
+
+[colors.tab_bar.inactive_tab]
+bg_color = "#101010"
+fg_color = "#757575"
+
+[colors.indexed]
+
+[metadata]
+aliases = []
+name = "OC"
