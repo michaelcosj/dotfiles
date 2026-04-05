@@ -109,11 +109,11 @@ return {
 					enabled = false,
 				},
 				prompt_guard = nil,
-				server = {
-					url = "localhost",
-					port = "auto",
-					timeout = 5,
-				},
+				-- server = {
+				-- 	url = "localhost",
+				-- 	port = "auto",
+				-- 	timeout = 5,
+				-- },
 			})
 
 			vim.keymap.set("n", "<leader>aCc", function()
@@ -158,6 +158,8 @@ return {
 					end)
 				end,
 			})
+
+			require("config.extensions.opencode_three_state_layout")
 		end,
 		dependencies = {
 			"nvim-lua/plenary.nvim",
@@ -229,6 +231,9 @@ return {
 					new_session_result
 						:and_then(function()
 							return require("opencode.core").switch_to_mode("build")
+						end)
+						:and_then(function()
+							require("opencode.state").current_model = "openai/gpt-5.4"
 						end)
 						:and_then(function()
 							input_window.set_content(fullPrompt)
