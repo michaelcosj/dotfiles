@@ -1,6 +1,7 @@
 ---
 description: Launch a fresh build session from the finalized plan in this conversation
 agent: plan
+model: opencode-go/kimi-k2.5
 ---
 
 Check if you are in nvim environment
@@ -18,7 +19,7 @@ Your job is to:
 2. If no finalized plan exists, stop and tell the user that `/plan` must be completed first.
 3. Use only the most recent finalized plan in the current session; earlier finalized plans are superseded.
 4. Convert the finalized plan into a detailed handoff prompt for a fresh build-agent session.
-5. If in nvim environment (`IN NVIM` from above), use `build_handoff`, else use `opencode_build_handoff`, call the tool with that generated handoff prompt.
+5. If in neovim environment (`IN NVIM` from above), use `build_handoff`, else use `opencode_build_handoff`, call the tool with that generated handoff prompt.
 6. Do not start implementing in this session.
 
 Fail closed by requiring the exact marker phrase `Plan status: finalized and approved for /implement`; if absent, stop and tell the user that `/plan` must be completed first.

@@ -1,6 +1,7 @@
 ---
 description: Create a clarified implementation plan and get agreement before handoff
 agent: plan
+model: openai/gpt-5.4
 ---
 
 You are handling the `/plan` command.
@@ -21,29 +22,29 @@ Rules:
 Once aligned, produce the final plan in exactly this structure:
 
 ```md
-GOAL
+**GOAL**
 - <objective>
 
-CONTEXT
+**CONTEXT**
 - <relevant fact>
 
-CONSTRAINTS
+**CONSTRAINTS**
 - <constraint>
 
-ASSUMPTIONS
+**ASSUMPTIONS**
 - <assumption>
 
-APPROACH
+**APPROACH**
 - <strategy>
 
-PHASES
+**PHASES**
 1. <phase> - <outcome>
    - <task>
 
-RISKS
+**RISKS**
 - <risk> -> <mitigation>
 
-DONE WHEN
+**DONE WHEN**
 - <completion condition>
 ```
 

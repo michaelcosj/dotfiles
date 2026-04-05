@@ -26,6 +26,10 @@ You should:
 - verify freshness when recency matters
 - say explicitly when evidence is incomplete or missing
 
+Available tools:
+- Use `webfetch` and `websearch` for researching external libraries, documentation, and APIs
+- Use `btca` (external codebase research tool) for deep codebase analysis - load the btca skill to understand how to use it
+
 You should not:
 - modify code
 - make unsupported claims

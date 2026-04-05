@@ -1,8 +1,8 @@
 ---
 description: Create well-formatted commits with conventional commit messages
-agent: smart
-model: firmware/claude-haiku-4-5
-subtask: true
+agent: general
+model: fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo
+subtask: false
 ---
 
 # Commit Command
@@ -11,14 +11,16 @@ Create well-formatted git commits using conventional commit format. Always ask f
 
 ## Workflow
 
-1. **Analyze**: Review conversation context, `git status --porcelain`, and **always run `git diff`** to get full context of all changes.
+1. **Analyze**: Review conversation context, use @general agent to always run `git status --porcelain` and `git diff` and read relevant files to get full context of all changes.
 2. **Plan**: Group related changes into logical commits. Draft message(s) using `<type>(scope): <description>` format (scope is optional).
-3. **Confirm**: Present your plan (files + messages) in a well formated summary using markdown syntax and ask the user to confirm.
-4. **Execute**: Stage specific files (never `git add -A` or `.`), commit, then show `git log --oneline -n <N>`.
+3. **Confirm**: Present your plan (files + messages) in a well formatted summary, then **MUST use the question tool** to ask for confirmation. **Never ask for confirmation in chat text - only use the question tool.** The question should:
+   - Offer "Approve commit" as an option
+   - Apply any refinements given by the user to the commit message before proceeding
+4. **Execute** (only after explicit approval): Stage specific files (never `git add -A` or `.`), commit, then show `git log --oneline -n <N>`.
 
 ## Commit Format
 
-**Format:** `<type>(scope): <description>` (imperative mood, under 72 chars, scopre is optional)
+**Format:** `<type>(scope): <description>` (imperative mood, under 72 chars, scope is optional but recommended)
 
 **Types:**
 - `feat` - New feature
@@ -31,4 +33,5 @@ Create well-formatted git commits using conventional commit format. Always ask f
 **Examples:**
 - `feat(auth): add user authentication flow`
 - `fix(tui): resolve memory leak in renderer`
+- `chore(api/inventory): run format on file`
 - `refactor: simplify error handling in parser`
