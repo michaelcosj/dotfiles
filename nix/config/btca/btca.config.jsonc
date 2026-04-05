@@ -24,8 +24,20 @@
       "name": "overseer.nvim",
       "url": "https://github.com/stevearc/overseer.nvim",
       "branch": "master"
+    },
+    {
+      "type": "git",
+      "name": "mongoose",
+      "url": "https://github.com/Automattic/mongoose",
+      "branch": "master"
     }
   ],
-  "model": "gpt-5.3-codex",
-  "provider": "openai"
+  "model": "accounts/fireworks/routers/kimi-k2p5-turbo",
+  "provider": "openai-compat",
+  "providerOptions": {
+    "openai-compat": {
+      "baseURL": "https://api.fireworks.ai/inference/v1",
+      "name": "fireworks-ai"
+    }
+  }
 }
