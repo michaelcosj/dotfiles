@@ -1,6 +1,7 @@
 return {
-	"0xleodevv/oc-2.nvim",
-	enabled = false,
+	"ellisonleao/gruvbox.nvim",
+	priority = 1000,
+	config = true,
 	opts = {
 		overrides = {
 			NormalFloat = { bg = "none" },
@@ -10,6 +11,6 @@ return {
 		},
 	},
 	init = function()
-		vim.cmd([[colorscheme oc-2]])
+		vim.cmd([[colorscheme gruvbox]])
 	end,
 }

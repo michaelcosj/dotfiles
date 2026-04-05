@@ -3,7 +3,7 @@ local config = wezterm.config_builder()
 
 config.font = wezterm.font('GeistMono Nerd Font')
 config.font_size = 14
-config.color_scheme = "OC"
+config.color_scheme = "Gruvbox Material (Gogh)"
 config.force_reverse_video_cursor = true
 config.use_dead_keys = false
 
