@@ -1,7 +1,7 @@
 ---
 description: Launch a fresh build session from the finalized plan in this conversation
 agent: plan
-model: opencode-go/kimi-k2.5
+model: fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo
 ---
 
 Check if you are in nvim environment
