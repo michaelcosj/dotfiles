@@ -1,16 +1,10 @@
-return {
-	"ellisonleao/gruvbox.nvim",
-	priority = 1000,
-	config = true,
-	opts = {
-		overrides = {
-			NormalFloat = { bg = "none" },
-			FloatBorder = { bg = "none" },
-			FloatTitle = { bg = "none" },
-			OpencodeBorder = { bg = "none", fg = "none" },
-		},
+require("config.helpers").safeSetup("gruvbox", {
+	overrides = {
+		NormalFloat = { bg = "none" },
+		FloatBorder = { bg = "none" },
+		FloatTitle = { bg = "none" },
+		OpencodeBorder = { bg = "none", fg = "none" },
 	},
-	init = function()
-		vim.cmd([[colorscheme gruvbox]])
-	end,
-}
+})
+
+vim.cmd([[colorscheme gruvbox]])

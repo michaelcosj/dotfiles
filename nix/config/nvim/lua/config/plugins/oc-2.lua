@@ -1,15 +1,10 @@
-return {
-	"0xleodevv/oc-2.nvim",
-	enabled = false,
-	opts = {
-		overrides = {
-			NormalFloat = { bg = "none" },
-			FloatBorder = { bg = "none" },
-			FloatTitle = { bg = "none" },
-			OpencodeBorder = { bg = "none", fg = "none" },
-		},
-	},
-	init = function()
-		vim.cmd([[colorscheme oc-2]])
-	end,
-}
+-- require("config.helpers").safeSetup("oc-2", {
+-- 	overrides = {
+-- 		NormalFloat = { bg = "none" },
+-- 		FloatBorder = { bg = "none" },
+-- 		FloatTitle = { bg = "none" },
+-- 		OpencodeBorder = { bg = "none", fg = "none" },
+-- 	},
+-- })
+--
+-- vim.cmd([[colorscheme oc-2]])

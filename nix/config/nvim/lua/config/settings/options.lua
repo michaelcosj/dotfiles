@@ -1,10 +1,13 @@
 ------------------=[[Options]]=----------------------------
 -- Remove numbers by default (minimal ui)
-vim.opt.number = false
-vim.opt.relativenumber = false
+vim.opt.number = true
+vim.opt.relativenumber = true
 
 -- Enable mouse mode
 vim.opt.mouse = "a"
+
+-- set cmd height
+vim.opt.cmdheight = 0
 
 -- Don't show the mode
 vim.opt.showmode = false

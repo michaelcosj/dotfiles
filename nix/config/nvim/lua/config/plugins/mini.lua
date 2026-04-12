@@ -1,33 +1,6 @@
-return {
-	-- Comments
-	{
-		"echasnovski/mini.comment",
-		version = "*",
-		opts = {},
-	},
+require("config.helpers").safeSetup("mini.comment", {})
+require("config.helpers").safeSetup("mini.pairs", {})
+require("config.helpers").safeSetup("mini.surround", { n_lines = 100 })
 
-	-- Auto pairs
-	{
-		"echasnovski/mini.pairs",
-		version = "*",
-		opts = {},
-	},
-
-	-- Surround
-	{
-		"echasnovski/mini.surround",
-		version = "*",
-		opts = { n_lines = 100 },
-	},
-
-	-- mini icons
-	{
-		"echasnovski/mini.icons",
-		version = false,
-		opts = {},
-		config = function(_, opts)
-			require("mini.icons").setup(opts)
-			require("mini.icons").mock_nvim_web_devicons()
-		end,
-	},
-}
+require("config.helpers").safeSetup("mini.icons", {})
+require("mini.icons").mock_nvim_web_devicons()

@@ -19,12 +19,13 @@ vim.api.nvim_create_autocmd("LspAttach", {
 			vim.lsp.buf.rename()
 		end, { desc = "Rename item under the cusor" })
 
-		vim.keymap.set("n", "g.", function()
-			vim.lsp.buf.code_action()
-		end, { desc = "Code Actions" })
+		-- Using rachartier/tiny-code-action.nvim for code actions
+		-- vim.keymap.set("n", "g.", function()
+		-- 	vim.lsp.buf.code_action()
+		-- end, { desc = "Code Actions" })
 
 		vim.keymap.set("n", "K", function()
-			vim.lsp.buf.hover()
+			vim.lsp.buf.hover({ border = "rounded" })
 		end, { desc = "Documentation hover floating window" })
 
 		vim.keymap.set("n", "gl", function()

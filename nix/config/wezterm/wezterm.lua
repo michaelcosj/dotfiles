@@ -1,6 +1,11 @@
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
+-- Use wezterm's own terminfo so neovim sets scroll regions correctly
+-- (works around a wezterm bug exposed by xterm-256color's smglr capability).
+-- See https://github.com/neovim/neovim/issues/35133
+config.term = 'wezterm'
+
 config.font = wezterm.font('GeistMono Nerd Font')
 config.font_size = 14
 config.color_scheme = "Gruvbox Material (Gogh)"

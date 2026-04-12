@@ -39,6 +39,7 @@
         ripgrep
         stylua
         tree
+        tree-sitter
         ueberzugpp
         uv
         vtsls
