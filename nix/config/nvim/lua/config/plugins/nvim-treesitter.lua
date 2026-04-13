@@ -14,7 +14,9 @@ require("nvim-treesitter").install({
   "regex",
 	"rust",
 	"sql",
+  "svelte",
 	"typescript",
+  "tsx",
 	"yaml",
 })
 
