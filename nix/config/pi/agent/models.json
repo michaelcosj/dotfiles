@@ -1,0 +1,32 @@
+{
+  "providers": {
+    "fireworks-ai": {
+      "baseUrl": "https://api.fireworks.ai/inference/v1",
+      "apiKey": "FIREWORKS_AI_API_KEY",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "accounts/fireworks/routers/glm-5-fast",
+          "name": "GLM 5 (fast)",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 262144,
+          "maxTokens": 262144
+        },
+        {
+          "id": "accounts/fireworks/routers/kimi-k2p5-turbo",
+          "name": "Kimi K2.5 (Turbo)",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 262144,
+          "maxTokens": 262144
+        }
+      ]
+    }
+  }
+}

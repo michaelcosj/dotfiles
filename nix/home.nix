@@ -68,6 +68,10 @@
       home.file.".config/btca".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/btca";
 
+      # pi config (https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)
+      home.file.".pi".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/pi";
+
       fonts.fontconfig.enable = true;
 
       programs = {

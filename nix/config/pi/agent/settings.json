@@ -1,0 +1,5 @@
+{
+  "lastChangelogVersion": "0.52.9",
+  "defaultProvider": "fireworks-ai",
+  "defaultModel": "accounts/fireworks/routers/kimi-k2p5-turbo"
+}
