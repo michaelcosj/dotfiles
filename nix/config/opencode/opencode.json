@@ -6,6 +6,7 @@
     "fireworks-ai",
     "anthropic",
     "github-copilot",
+    "opencode-go"
   ],
   "instructions": [
     "./instructions/agent_etiquette.md"

@@ -1,3 +1,7 @@
 .api_key.*
 .env
 .opencode/
+
+/nix/config/pi/agent/auth.json
+/nix/config/pi/agent/sessions/
+/nix/config/pi/agent/sessions/--Users-synth-.dotfiles-nix--
