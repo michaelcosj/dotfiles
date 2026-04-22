@@ -1,0 +1,148 @@
+{
+  "default": "pi",
+  "presets": {
+    "pi": {
+      "provider": "opencode-go",
+      "model": "kimi-k2.6",
+      "thinkingLevel": "high",
+      "description": "Main agent with full permissions for general tasks",
+      "permission": {
+        "defaultMode": "allow"
+      }
+    },
+    "plan": {
+      "provider": "github-copilot",
+      "model": "gpt-5.4",
+      "thinkingLevel": "high",
+      "instructions": "{file:./instructions/planning.md}",
+      "description": "Planning agent - creates detailed implementation plans without making changes",
+      "permission": {
+        "defaultMode": "ask",
+        "allow": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "edit(.agent/*.md)",
+          "write(.agent/*.md)",
+          "bash"
+        ],
+        "deny": [
+          "edit",
+          "write",
+          "todo"
+        ],
+        "ask": []
+      }
+    },
+    "build": {
+      "provider": "github-copilot",
+      "model": "gpt-5.3-codex",
+      "thinkingLevel": "high",
+      "instructions": "{file:./instructions/build.md}",
+      "description": "Build agent - implements changes, runs build/test commands with bash and todo tools",
+      "type": "all",
+      "permission": {
+        "defaultMode": "ask",
+        "allow": [
+          "read",
+          "edit",
+          "write",
+          "grep",
+          "find",
+          "ls",
+          "bash",
+          "todo"
+        ],
+        "deny": [
+          "search_text",
+          "extract_content"
+        ],
+        "ask": []
+      }
+    },
+    "research": {
+      "provider": "github-copilot",
+      "model": "gpt-5.4-mini",
+      "thinkingLevel": "xhigh",
+      "instructions": "{file:./instructions/research.md}",
+      "description": "Research agent - use this to research and gather information using search and external content extraction",
+      "type": "all",
+      "permission": {
+        "defaultMode": "allow",
+        "allow": [
+          "search_text",
+          "extract_content",
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash(curl*)",
+          "bash(wget*)"
+        ],
+        "deny": [
+          "bash",
+          "edit",
+          "write",
+          "todo",
+          "subagent"
+        ],
+        "ask": []
+      }
+    },
+    "code-review": {
+      "provider": "github-copilot",
+      "model": "gpt-5.4",
+      "thinkingLevel": "xhigh",
+      "instructions": "{file:./instructions/code-review.md}",
+      "description": "Code review agent - use this to analyze code for issues, bugs, and quality concerns without making changes",
+      "type": "all",
+      "permission": {
+        "defaultMode": "allow",
+        "allow": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash"
+        ],
+        "deny": [
+          "edit",
+          "write",
+          "todo",
+          "search_text",
+          "extract_content",
+          "subagent"
+        ],
+        "ask": []
+      }
+    },
+    "explore": {
+      "provider": "github-copilot",
+      "model": "gpt-5.4-mini",
+      "thinkingLevel": "high",
+      "instructions": "{file:./instructions/explore.md}",
+      "description": "Explore agent - use this to gather context and map codebase structure using readonly tools",
+      "type": "all",
+      "permission": {
+        "defaultMode": "allow",
+        "allow": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash"
+        ],
+        "deny": [
+          "edit",
+          "write",
+          "todo",
+          "search_text",
+          "extract_content",
+          "subagent"
+        ],
+        "ask": []
+      }
+    }
+  }
+}

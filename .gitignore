@@ -5,3 +5,6 @@
 /nix/config/pi/agent/auth.json
 /nix/config/pi/agent/sessions/
 /nix/config/pi/agent/sessions/--Users-synth-.dotfiles-nix--
+/nix/config/pi/agent/plans
+/nix/config/pi/agent/extensions/pizza/node_modules/
+/nix/config/pi/.agent

@@ -1,5 +1,8 @@
 {
-  "lastChangelogVersion": "0.52.9",
-  "defaultProvider": "fireworks-ai",
-  "defaultModel": "accounts/fireworks/routers/kimi-k2p5-turbo"
+  "lastChangelogVersion": "0.68.1",
+  "defaultProvider": "opencode-go",
+  "defaultModel": "kimi-k2.6",
+  "defaultThinkingLevel": "high",
+  "hideThinkingBlock": false,
+  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep -E '^[[:space:]]+alias[[:space:]]+' ~/.config/fish/config.fish | sed -E \"s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+'([^']*)'[[:space:]]*$/alias \\\\1='\\\\2'/;s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+([^ ]+)[[:space:]]*$/alias \\\\1='\\\\2'/\")\""
 }

@@ -36,6 +36,7 @@
         oxlint
         pngpaste
         prettierd
+        python313Packages.ddgs
         ripgrep
         stylua
         tree

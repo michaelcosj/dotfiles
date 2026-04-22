@@ -44,12 +44,6 @@
       "branch": "main"
     }
   ],
-  "model": "accounts/fireworks/routers/kimi-k2p5-turbo",
-  "provider": "openai-compat",
-  "providerOptions": {
-    "openai-compat": {
-      "baseURL": "https://api.fireworks.ai/inference/v1",
-      "name": "fireworks-ai"
-    }
-  }
+  "model": "gpt-5-mini",
+  "provider": "github-copilot"
 }
