@@ -8,7 +8,7 @@ import {
   truncateToWidth,
 } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import type { QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireUiResult } from "./types.js";
+import type { QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireUiResult } from "./preset-types.js";
 
 interface NormalizedQuestion extends QuestionnaireQuestion {
   label: string;
@@ -444,6 +444,3 @@ export function registerQuestionnaireTool(pi: ExtensionAPI): void {
     },
   });
 }
-
-// Prevent accidental auto-registration if this helper module is discovered directly.
-export default function (): void {}

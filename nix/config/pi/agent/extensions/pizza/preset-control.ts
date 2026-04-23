@@ -7,6 +7,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Container, Key, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
+import { Type } from "@sinclair/typebox";
 import {
   DEFAULT_PERMISSION_SETTINGS,
   findPresetSourcePath,
@@ -18,23 +19,26 @@ import {
   normalizePermissionSettings,
   resolveInstructions,
   resolveMode,
-} from "./permissions.js";
-import { registerQuestionnaireTool } from "./questionnaire.js";
-import {
-  captureOriginalState,
-  clearPermissionState,
-  type OriginalAgentState,
-  restoreOriginalState,
-  writePermissionState,
-} from "./state.js";
-import { registerSubagentFeatures } from "./subagents.js";
-import type { Mode, PermissionSettings, Preset, PresetsConfig } from "./types.js";
+} from "./preset-permissions.js";
+import type { LoadedPresets, Mode, PermissionSettings, Preset, PresetsConfig } from "./preset-types.js";
 
 const STATUS_ACCEPTED = "[accepted]";
-const SUBAGENT_ENV = "PI_SUBAGENT";
 
-const approvedToolCalls = new Set<string>();
-const sessionModeOverrides = new Map<string, Mode>();
+interface OriginalAgentState {
+  model: ExtensionContext["model"];
+  thinkingLevel: ReturnType<ExtensionAPI["getThinkingLevel"]>;
+  tools: string[];
+}
+
+const PRESET_ALIASES: Record<string, string> = {
+  build: "implement",
+  "code-review": "review",
+};
+
+function mapPresetAlias(name: string | undefined): string | undefined {
+  if (!name) return undefined;
+  return PRESET_ALIASES[name] ?? name;
+}
 
 async function getAllTools(pi: ExtensionAPI): Promise<string[]> {
   return pi
@@ -46,6 +50,7 @@ async function getAllTools(pi: ExtensionAPI): Promise<string[]> {
 async function toggleAutoAccept(
   ctx: ExtensionContext,
   pi: ExtensionAPI,
+  sessionModeOverrides: Map<string, Mode>,
   onApply: () => void,
 ): Promise<void> {
   const tools = await getAllTools(pi);
@@ -195,28 +200,16 @@ async function toggleAutoAccept(
   ctx.ui.notify(count === 0 ? "All overrides cleared" : `Auto-accept: ${count} tools`, "info");
 }
 
-export default function agentsExtension(pi: ExtensionAPI) {
-  // Register preset flag in both parent and child mode.
-  // Child process receives --preset from parent spawn args.
+export function registerPresetControlExtension(pi: ExtensionAPI): void {
   pi.registerFlag("preset", {
     description: "Preset configuration to use",
     type: "string",
   });
 
-  const isSubagent = process.env[SUBAGENT_ENV] === "1";
-
-  // Child mode only needs subagent hooks (permissions + forwarded questionnaire).
-  if (isSubagent) {
-    registerSubagentFeatures(pi);
-    return;
-  }
-
-  registerQuestionnaireTool(pi);
-  registerSubagentFeatures(pi);
-
   let presets: PresetsConfig = {};
-  let loadedDefaultName: string | undefined;
+  let loaded: LoadedPresets = { presets: {}, defaultPreset: undefined, defaultMode: "ask" };
 
+  let rootDefaultMode: Mode = "ask";
   let activePresetName: string | undefined;
   let activePermissionSettings: PermissionSettings = { ...DEFAULT_PERMISSION_SETTINGS };
   let activeInstructionsResolved: string | undefined;
@@ -224,43 +217,72 @@ export default function agentsExtension(pi: ExtensionAPI) {
   let originalState: OriginalAgentState | undefined;
   let originalStateCaptured = false;
 
-  const persistPermissionState = () => {
-    writePermissionState({
-      presetName: activePresetName,
-      permission: activePermissionSettings,
-      sessionOverrides: sessionModeOverrides,
-    });
+  const approvedToolCalls = new Set<string>();
+  const sessionModeOverrides = new Map<string, Mode>();
+
+  const ensureOriginalState = (ctx: ExtensionContext) => {
+    if (originalStateCaptured) return;
+    originalState = {
+      model: ctx.model,
+      thinkingLevel: pi.getThinkingLevel(),
+      tools: pi.getActiveTools(),
+    };
+    originalStateCaptured = true;
+  };
+
+  const restoreOriginalState = async () => {
+    if (originalState) {
+      if (originalState.model) await pi.setModel(originalState.model);
+      pi.setThinkingLevel(originalState.thinkingLevel);
+      pi.setActiveTools(originalState.tools);
+      return;
+    }
+    pi.setActiveTools(["read", "bash", "edit", "write"]);
+  };
+
+  const setPermissionFromPreset = (preset: Preset | undefined) => {
+    activePermissionSettings = normalizePermissionSettings(preset?.permission, rootDefaultMode);
   };
 
   const updateStatus = (ctx: ExtensionContext) => {
     if (!ctx.hasUI) return;
 
-    const widget = [];
+    const widget: (string | undefined)[] = [];
     if (activePresetName) {
       widget.push(ctx.ui.theme.fg("accent", `preset:${activePresetName}`));
     } else {
-      widget.push(undefined);
+      widget.push(ctx.ui.theme.fg("dim", "preset:(none)"));
     }
 
     const modeLabel = getPermissionModeLabel(activePermissionSettings, sessionModeOverrides);
     ctx.ui.setWidget("preset-permission", [...widget, ctx.ui.theme.fg("dim", `perm:${modeLabel}`)]);
   };
 
-  const ensureOriginalState = (ctx: ExtensionContext) => {
-    if (originalStateCaptured) return;
-    originalState = captureOriginalState(pi, ctx);
-    originalStateCaptured = true;
-  };
+  const buildPresetContext = (): string => {
+    const allTools = pi
+      .getAllTools()
+      .map((tool) => tool.name)
+      .sort();
 
-  const setPermissionFromPreset = (preset: Preset | undefined) => {
-    activePermissionSettings = normalizePermissionSettings(preset?.permission);
+    const parts: string[] = [];
+    parts.push(`Preset: ${activePresetName ?? "(none)"}`);
+    if (activeInstructionsResolved) {
+      parts.push("\n## Preset Instructions\n" + activeInstructionsResolved);
+    }
+    parts.push("\n" + generatePermissionSummary(activePermissionSettings, allTools));
+    if (sessionModeOverrides.size > 0) {
+      parts.push(`\nSession overrides: ${JSON.stringify(Object.fromEntries(sessionModeOverrides))}`);
+    }
+
+    return parts.join("\n");
   };
 
   const applyPreset = async (
     name: string,
     preset: Preset,
     ctx: ExtensionContext,
-  ): Promise<boolean> => {
+    options?: { clearOverrides?: boolean },
+  ): Promise<{ context: string }> => {
     ensureOriginalState(ctx);
 
     if (preset.provider && preset.model) {
@@ -274,10 +296,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
           );
         }
       } else {
-        ctx.ui.notify(
-          `Preset "${name}": Model ${preset.provider}/${preset.model} not found`,
-          "warning",
-        );
+        ctx.ui.notify(`Preset "${name}": Model ${preset.provider}/${preset.model} not found`, "warning");
       }
     }
 
@@ -308,26 +327,24 @@ export default function agentsExtension(pi: ExtensionAPI) {
       }
     }
 
-    sessionModeOverrides.clear();
+    if (options?.clearOverrides !== false) sessionModeOverrides.clear();
     activePresetName = name;
     setPermissionFromPreset(preset);
-
-    persistPermissionState();
     updateStatus(ctx);
-    return true;
+
+    return { context: buildPresetContext() };
   };
 
-  const clearPreset = async (ctx: ExtensionContext) => {
+  const clearPreset = async (ctx: ExtensionContext): Promise<{ context: string }> => {
     sessionModeOverrides.clear();
     activePresetName = undefined;
     activeInstructionsResolved = undefined;
     setPermissionFromPreset(undefined);
 
-    await restoreOriginalState(pi, originalState);
-
-    persistPermissionState();
+    await restoreOriginalState();
     updateStatus(ctx);
-    ctx.ui.notify("Preset cleared, defaults restored", "info");
+
+    return { context: buildPresetContext() };
   };
 
   const buildPresetDescription = (preset: Preset): string => {
@@ -347,7 +364,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
     }
 
     if (preset.permission) {
-      const permission = normalizePermissionSettings(preset.permission);
+      const permission = normalizePermissionSettings(preset.permission, rootDefaultMode);
       const permissionBits: string[] = [];
       if (permission.allow?.length) permissionBits.push(`allow=${permission.allow.join(",")}`);
       if (permission.deny?.length) permissionBits.push(`deny=${permission.deny.join(",")}`);
@@ -359,7 +376,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
   };
 
   const showPresetSelector = async (ctx: ExtensionContext) => {
-    const presetNames = Object.keys(presets).filter((name) => presets[name].type !== "subagent");
+    const presetNames = Object.keys(presets).sort();
     if (presetNames.length === 0) {
       ctx.ui.notify(
         "No presets defined. Add presets to ~/.pi/agent/presets.json or .pi/presets.json",
@@ -385,9 +402,9 @@ export default function agentsExtension(pi: ExtensionAPI) {
 
     const selected = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
       const container = new Container();
-      container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-      container.addChild(new Text(theme.fg("accent", theme.bold("Select Preset"))));
+      const border = (str: string) => theme.fg("accent", str);
 
+      let search = "";
       const selectList = new SelectList(items, Math.min(items.length, 10), {
         selectedPrefix: (text) => theme.fg("accent", text),
         selectedText: (text) => theme.fg("accent", text),
@@ -396,12 +413,25 @@ export default function agentsExtension(pi: ExtensionAPI) {
         noMatch: (text) => theme.fg("warning", text),
       });
 
+      const rerender = () => {
+        container.clear();
+        container.addChild(new DynamicBorder(border));
+        container.addChild(new Text(theme.fg("accent", theme.bold("Select Preset"))));
+        container.addChild(new Text(theme.fg("muted", `Search (prefix): ${search || ""}`)));
+        container.addChild(new Text(theme.fg("dim", "Type to filter • backspace delete")));
+        container.addChild(new Text(""));
+        container.addChild(selectList);
+        container.addChild(new Text(""));
+        container.addChild(
+          new Text(theme.fg("dim", "↑↓ navigate • enter select • esc cancel")),
+        );
+        container.addChild(new DynamicBorder(border));
+      };
+
       selectList.onSelect = (item) => done(item.value as string);
       selectList.onCancel = () => done(null);
 
-      container.addChild(selectList);
-      container.addChild(new Text(theme.fg("dim", "↑↓ navigate • enter select • esc cancel")));
-      container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
+      rerender();
 
       return {
         render(width: number) {
@@ -411,7 +441,27 @@ export default function agentsExtension(pi: ExtensionAPI) {
           container.invalidate();
         },
         handleInput(data: string) {
+          const isBackspace = data === "\u007f" || data === "\b" || data === "\x08";
+          if (isBackspace) {
+            if (search.length > 0) {
+              search = search.slice(0, -1);
+              selectList.setFilter(search);
+              rerender();
+              tui.requestRender();
+              return;
+            }
+          }
+
+          if (data.length === 1 && data.charCodeAt(0) >= 32) {
+            search += data;
+            selectList.setFilter(search);
+            rerender();
+            tui.requestRender();
+            return;
+          }
+
           selectList.handleInput(data);
+          rerender();
           tui.requestRender();
         },
       };
@@ -420,6 +470,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
     if (!selected) return;
     if (selected === "(none)") {
       await clearPreset(ctx);
+      ctx.ui.notify("Preset cleared, defaults restored", "info");
       return;
     }
 
@@ -431,9 +482,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
   };
 
   const cyclePreset = async (ctx: ExtensionContext) => {
-    const presetNames = Object.keys(presets)
-      .filter((name) => presets[name].type !== "subagent")
-      .sort();
+    const presetNames = Object.keys(presets).sort();
     if (presetNames.length === 0) {
       ctx.ui.notify("No presets defined", "warning");
       return;
@@ -446,6 +495,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
 
     if (nextName === "(none)") {
       await clearPreset(ctx);
+      ctx.ui.notify("Preset cleared, defaults restored", "info");
       return;
     }
 
@@ -466,24 +516,17 @@ export default function agentsExtension(pi: ExtensionAPI) {
   pi.registerCommand("preset", {
     description: "Switch preset configuration",
     handler: async (args, ctx) => {
-      const requested = args?.trim();
-      if (!requested) {
+      const requestedRaw = args?.trim();
+      if (!requestedRaw) {
         await showPresetSelector(ctx);
         return;
       }
 
-      const preset = presets[requested];
-      if (!preset) {
+      const requested = mapPresetAlias(requestedRaw);
+      const preset = requested ? presets[requested] : undefined;
+      if (!preset || !requested) {
         const available = Object.keys(presets).join(", ") || "(none defined)";
-        ctx.ui.notify(`Unknown preset "${requested}". Available: ${available}`, "error");
-        return;
-      }
-
-      if (preset.type === "subagent") {
-        ctx.ui.notify(
-          `Preset "${requested}" is subagent-only and cannot be used in regular sessions.`,
-          "error",
-        );
+        ctx.ui.notify(`Unknown preset "${requestedRaw}". Available: ${available}`, "error");
         return;
       }
 
@@ -495,8 +538,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
   pi.registerCommand("permission-toggle-auto-accept", {
     description: "Toggle permissions to auto-accept (per-tool or all)",
     handler: async (_args, ctx) => {
-      await toggleAutoAccept(ctx, pi, () => {
-        persistPermissionState();
+      await toggleAutoAccept(ctx, pi, sessionModeOverrides, () => {
         updateStatus(ctx);
       });
     },
@@ -511,7 +553,6 @@ export default function agentsExtension(pi: ExtensionAPI) {
       if (!mode) return;
 
       sessionModeOverrides.set(tool, mode as Mode);
-      persistPermissionState();
       updateStatus(ctx);
 
       ctx.ui.notify(`Permission mode for "${tool}" set to "${mode}" (session only)`, "info");
@@ -524,7 +565,8 @@ export default function agentsExtension(pi: ExtensionAPI) {
       const output = JSON.stringify(
         {
           preset: activePresetName ?? "(none)",
-          permission: normalizePermissionSettings(activePermissionSettings),
+          permission: normalizePermissionSettings(activePermissionSettings, rootDefaultMode),
+          rootFallbackDefaultMode: rootDefaultMode,
           sessionOverrides: Object.fromEntries(sessionModeOverrides),
         },
         null,
@@ -534,20 +576,61 @@ export default function agentsExtension(pi: ExtensionAPI) {
     },
   });
 
-  const buildSubagentPresetList = (): string => {
-    const lines = Object.entries(presets)
-      .filter(([, preset]) => preset.type === "subagent" || preset.type === "all")
-      .map(([name, preset]) => `- **${name}**: ${preset.description ?? "No description"}`);
-    if (lines.length === 0) return "";
-    return [
-      "## Available Subagent Presets",
-      "You can delegate tasks to specialized subagents using the `subagent` tool. Available presets:",
-      "",
-      ...lines,
-      "",
-      "Use the preset name when calling the subagent tool.",
-    ].join("\n");
-  };
+  pi.registerTool({
+    name: "switch_preset",
+    label: "Switch Preset",
+    description:
+      "Switch to another preset. Requires target preset name and reason. Permission can be scoped per target like switch_preset(plan).",
+    parameters: Type.Object({
+      preset: Type.String({ description: "Target preset name to switch to" }),
+      reason: Type.String({ description: "Why switching preset is needed now" }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const requested = mapPresetAlias(params.preset?.trim());
+      if (!requested || !presets[requested]) {
+        const available = Object.keys(presets).sort().join(", ") || "(none defined)";
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: unknown preset \"${params.preset}\". Available: ${available}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const preset = presets[requested];
+      const result = await applyPreset(requested, preset, ctx);
+
+      const lines = [
+        `Preset switched to \"${requested}\".`,
+        `Reason: ${params.reason}`,
+        "",
+        "--- Active Preset Context ---",
+        result.context,
+      ];
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+        details: {
+          preset: requested,
+          reason: params.reason,
+          context: result.context,
+        },
+      };
+    },
+    renderCall(args, theme) {
+      const preset = (args.preset as string) || "...";
+      const reason = (args.reason as string) || "";
+      const preview = reason.length > 60 ? `${reason.slice(0, 60)}...` : reason;
+      const text =
+        theme.fg("toolTitle", theme.bold("switch_preset ")) +
+        theme.fg("accent", preset) +
+        (preview ? `\n  ${theme.fg("dim", preview)}` : "");
+      return new Text(text, 0, 0);
+    },
+  });
 
   pi.on("message_end", async (event) => {
     const msg = event.message as unknown as Record<string, unknown>;
@@ -565,21 +648,12 @@ export default function agentsExtension(pi: ExtensionAPI) {
       ctx: ExtensionContext,
     ): Promise<ToolCallEventResult | undefined> => {
       const argValue = getMatchValue(event.toolName, event.input as Record<string, unknown>);
-      const mode = resolveMode(
-        normalizePermissionSettings(activePermissionSettings),
-        event.toolName,
-        argValue ?? "",
-        ctx.cwd,
-        sessionModeOverrides,
-      );
+      const mode = resolveMode(activePermissionSettings, event.toolName, argValue ?? "", ctx.cwd, sessionModeOverrides);
 
       if (mode === "allow") return undefined;
       if (mode === "deny") {
         let reason = `Permission denied: Tool "${event.toolName}" is blocked by permission settings.`;
-        const patterns = getAllowedArgPatterns(
-          normalizePermissionSettings(activePermissionSettings),
-          event.toolName,
-        );
+        const patterns = getAllowedArgPatterns(activePermissionSettings, event.toolName);
         if (patterns.length > 0) {
           reason += ` Allowed: ${patterns.join(", ")}.`;
         }
@@ -680,12 +754,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
 
     if (activeInstructionsResolved) parts.push(activeInstructionsResolved);
 
-    const subagentPresetList = buildSubagentPresetList();
-    if (subagentPresetList) parts.push(subagentPresetList);
-
-    parts.push(
-      generatePermissionSummary(normalizePermissionSettings(activePermissionSettings), allTools),
-    );
+    parts.push(generatePermissionSummary(activePermissionSettings, allTools));
 
     return {
       systemPrompt: `${event.systemPrompt ?? ""}\n\n${parts.join("\n\n")}`,
@@ -696,25 +765,22 @@ export default function agentsExtension(pi: ExtensionAPI) {
     sessionModeOverrides.clear();
     approvedToolCalls.clear();
 
-    const loaded = loadPresets(ctx.cwd);
+    loaded = loadPresets(ctx.cwd);
     presets = loaded.presets;
-    loadedDefaultName = loaded.defaultName;
+    rootDefaultMode = loaded.defaultMode;
 
     ensureOriginalState(ctx);
+    setPermissionFromPreset(undefined);
 
     const presetFlag = pi.getFlag("preset");
-    const requestedFromFlag = typeof presetFlag === "string" && presetFlag ? presetFlag : undefined;
+    const requestedFromFlag =
+      typeof presetFlag === "string" && presetFlag ? mapPresetAlias(presetFlag) : undefined;
 
     if (requestedFromFlag) {
       const preset = presets[requestedFromFlag];
       if (!preset) {
         const available = Object.keys(presets).join(", ") || "(none defined)";
         ctx.ui.notify(`Unknown preset "${requestedFromFlag}". Available: ${available}`, "warning");
-      } else if (preset.type === "subagent") {
-        ctx.ui.notify(
-          `Preset "${requestedFromFlag}" is subagent-only. Skipping auto-apply.`,
-          "warning",
-        );
       } else {
         await applyPreset(requestedFromFlag, preset, ctx);
         ctx.ui.notify(`Preset "${requestedFromFlag}" activated`, "info");
@@ -730,18 +796,24 @@ export default function agentsExtension(pi: ExtensionAPI) {
       .pop() as { data?: { name: string } } | undefined;
 
     if (!requestedFromFlag && presetEntry?.data?.name) {
-      const restored = presets[presetEntry.data.name];
-      if (restored && restored.type !== "subagent") {
-        await applyPreset(presetEntry.data.name, restored, ctx);
+      const restoredName = mapPresetAlias(presetEntry.data.name);
+      const restored = restoredName ? presets[restoredName] : undefined;
+      if (restored && restoredName) {
+        await applyPreset(restoredName, restored, ctx);
       }
-    } else if (!requestedFromFlag && loadedDefaultName) {
-      const defaultPreset = presets[loadedDefaultName];
-      if (defaultPreset && defaultPreset.type !== "subagent") {
-        await applyPreset(loadedDefaultName, defaultPreset, ctx);
+    } else if (!requestedFromFlag && loaded.defaultPreset) {
+      const defaultPresetName = mapPresetAlias(loaded.defaultPreset);
+      const defaultPreset = defaultPresetName ? presets[defaultPresetName] : undefined;
+      if (defaultPreset && defaultPresetName) {
+        await applyPreset(defaultPresetName, defaultPreset, ctx);
+      } else {
+        ctx.ui.notify(
+          `Default preset \"${loaded.defaultPreset}\" not found. Using fallback permission mode ${rootDefaultMode}.`,
+          "warning",
+        );
       }
     }
 
-    persistPermissionState();
     updateStatus(ctx);
   });
 
@@ -752,6 +824,7 @@ export default function agentsExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async () => {
-    clearPermissionState();
+    sessionModeOverrides.clear();
+    approvedToolCalls.clear();
   });
 }

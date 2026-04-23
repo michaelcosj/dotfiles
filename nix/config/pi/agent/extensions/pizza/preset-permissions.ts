@@ -1,20 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { getAgentDir } from "@mariozechner/pi-coding-agent";
-import type {
-  Mode,
-  PermissionSettings,
-  PermissionSnapshot,
-  Preset,
-  PresetsConfig,
-} from "./types.js";
+import type { LoadedPresets, Mode, PermissionSettings, Preset, PresetsConfig } from "./preset-types.js";
 
 export const DEFAULT_PERMISSION_SETTINGS: PermissionSettings = { defaultMode: "ask" };
 
 interface PresetsFile {
+  defaultPreset?: string;
+  defaultMode?: string;
   default?: string;
   presets?: PresetsConfig;
-  [key: string]: string | PresetsConfig | undefined;
+  [key: string]: unknown;
 }
 
 interface ParsedRule {
@@ -22,26 +18,31 @@ interface ParsedRule {
   argPattern?: string;
 }
 
-export interface LoadedPresets {
-  presets: PresetsConfig;
-  defaultName: string | undefined;
+function parseMode(value: unknown): Mode | undefined {
+  return value === "allow" || value === "ask" || value === "deny" ? value : undefined;
 }
 
 export function loadPresets(cwd: string): LoadedPresets {
   const globalPath = join(getAgentDir(), "presets.json");
   const projectPath = join(cwd, ".pi", "presets.json");
-  const reservedKeys = new Set(["default", "presets"]);
+  const reservedKeys = new Set(["default", "defaultPreset", "defaultMode", "presets"]);
 
-  function parseFile(filePath: string): LoadedPresets {
+  function parseFile(filePath: string): {
+    presets: PresetsConfig;
+    defaultPreset: string | undefined;
+    defaultMode: Mode | undefined;
+  } {
     let presets: PresetsConfig = {};
-    let defaultName: string | undefined;
-    if (!existsSync(filePath)) return { presets, defaultName };
+    let defaultPreset: string | undefined;
+    let defaultMode: Mode | undefined;
+
+    if (!existsSync(filePath)) return { presets, defaultPreset, defaultMode };
 
     try {
-      const raw: PresetsFile = JSON.parse(readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(readFileSync(filePath, "utf-8")) as PresetsFile;
+
       if (raw.presets && typeof raw.presets === "object") {
         presets = raw.presets as PresetsConfig;
-        if (typeof raw.default === "string" && raw.default) defaultName = raw.default;
       } else {
         for (const key of Object.keys(raw)) {
           if (reservedKeys.has(key)) continue;
@@ -51,23 +52,29 @@ export function loadPresets(cwd: string): LoadedPresets {
           }
         }
       }
+
+      if (typeof raw.defaultPreset === "string" && raw.defaultPreset.trim()) {
+        defaultPreset = raw.defaultPreset.trim();
+      } else if (typeof raw.default === "string" && raw.default.trim()) {
+        defaultPreset = raw.default.trim();
+      }
+
+      defaultMode = parseMode(raw.defaultMode);
     } catch (err) {
       console.error(`Failed to load presets from ${filePath}: ${err}`);
     }
 
-    return { presets, defaultName };
+    return { presets, defaultPreset, defaultMode };
   }
 
   const globalResult = parseFile(globalPath);
   const projectResult = parseFile(projectPath);
+
   return {
     presets: { ...globalResult.presets, ...projectResult.presets },
-    defaultName: projectResult.defaultName ?? globalResult.defaultName,
+    defaultPreset: projectResult.defaultPreset ?? globalResult.defaultPreset,
+    defaultMode: projectResult.defaultMode ?? globalResult.defaultMode ?? "ask",
   };
-}
-
-export function loadPresetsConfig(cwd: string): PresetsConfig {
-  return loadPresets(cwd).presets;
 }
 
 export function findPresetSourcePath(cwd: string, presetName: string): string {
@@ -75,8 +82,8 @@ export function findPresetSourcePath(cwd: string, presetName: string): string {
   if (existsSync(projectPath)) {
     try {
       const content = readFileSync(projectPath, "utf-8");
-      const parsed = JSON.parse(content);
-      const presetsObj = parsed.presets || parsed;
+      const parsed = JSON.parse(content) as PresetsFile;
+      const presetsObj = (parsed.presets || parsed) as Record<string, unknown>;
       if (presetsObj[presetName]) return projectPath;
     } catch {
       // ignore malformed project presets
@@ -110,47 +117,14 @@ export function resolveInstructions(
 
 export function normalizePermissionSettings(
   settings: PermissionSettings | undefined,
+  fallbackMode: Mode = "ask",
 ): PermissionSettings {
   return {
-    defaultMode: settings?.defaultMode ?? "ask",
+    defaultMode: settings?.defaultMode ?? fallbackMode,
     allow: settings?.allow ? [...settings.allow] : [],
     deny: settings?.deny ? [...settings.deny] : [],
     ask: settings?.ask ? [...settings.ask] : [],
   };
-}
-
-export function createPermissionSnapshot(input: {
-  presetName?: string;
-  permission: PermissionSettings | undefined;
-  sessionOverrides: ReadonlyMap<string, Mode>;
-}): PermissionSnapshot {
-  return {
-    presetName: input.presetName,
-    permission: normalizePermissionSettings(input.permission),
-    sessionOverrides: Object.fromEntries(input.sessionOverrides),
-  };
-}
-
-export function serializePermissionSnapshot(snapshot: PermissionSnapshot): string {
-  return JSON.stringify(snapshot);
-}
-
-export function parsePermissionSnapshot(raw: string | undefined): PermissionSnapshot | undefined {
-  if (!raw) return undefined;
-
-  try {
-    const data = JSON.parse(raw) as Partial<PermissionSnapshot>;
-    return {
-      presetName: typeof data.presetName === "string" ? data.presetName : undefined,
-      permission: normalizePermissionSettings(data.permission),
-      sessionOverrides:
-        data.sessionOverrides && typeof data.sessionOverrides === "object"
-          ? (data.sessionOverrides as Record<string, Mode>)
-          : {},
-    };
-  } catch {
-    return undefined;
-  }
 }
 
 export function parseRule(rule: string): ParsedRule {
@@ -161,10 +135,7 @@ export function parseRule(rule: string): ParsedRule {
   return { toolPattern: rule };
 }
 
-export function getAllowedArgPatterns(
-  settings: PermissionSettings,
-  toolName: string,
-): string[] {
+export function getAllowedArgPatterns(settings: PermissionSettings, toolName: string): string[] {
   return (settings.allow ?? [])
     .filter((rule) => {
       const parsed = parseRule(rule);
@@ -250,6 +221,8 @@ export function getMatchValue(tool: string, input: Record<string, unknown>): str
     case "find":
     case "ls":
       return (input.path as string | undefined) ?? "";
+    case "switch_preset":
+      return input.preset as string | undefined;
     default:
       return undefined;
   }
@@ -491,40 +464,6 @@ export function resolveMode(
   return worst;
 }
 
-export function resolveModeWithParent(input: {
-  toolName: string;
-  toolInput: Record<string, unknown>;
-  cwd: string;
-  childPermission: PermissionSettings | undefined;
-  childSessionOverrides?: ReadonlyMap<string, Mode>;
-  parentSnapshot?: PermissionSnapshot;
-}): Mode {
-  const { toolName, toolInput, cwd, parentSnapshot } = input;
-  const argValue = getMatchValue(toolName, toolInput) ?? "";
-
-  const childMode = resolveMode(
-    normalizePermissionSettings(input.childPermission),
-    toolName,
-    argValue,
-    cwd,
-    input.childSessionOverrides ?? new Map<string, Mode>(),
-  );
-
-  if (!parentSnapshot) return childMode;
-
-  const parentMode = resolveMode(
-    normalizePermissionSettings(parentSnapshot.permission),
-    toolName,
-    argValue,
-    cwd,
-    new Map(Object.entries(parentSnapshot.sessionOverrides ?? {})),
-  );
-
-  if (parentMode === "deny") return "deny";
-  if (parentMode === "ask") return "ask";
-  return childMode;
-}
-
 export function generatePermissionSummary(
   settings: PermissionSettings,
   allTools: string[],
@@ -535,9 +474,7 @@ export function generatePermissionSummary(
   const conditional: string[] = [];
 
   for (const tool of allTools) {
-    const allowRules = (settings.allow ?? []).filter(
-      (rule) => parseRule(rule).toolPattern === tool,
-    );
+    const allowRules = (settings.allow ?? []).filter((rule) => parseRule(rule).toolPattern === tool);
     const denyRules = (settings.deny ?? []).filter((rule) => parseRule(rule).toolPattern === tool);
     const askRules = (settings.ask ?? []).filter((rule) => parseRule(rule).toolPattern === tool);
 
@@ -603,6 +540,3 @@ export function getPermissionModeLabel(
     ? `${base} +${overrideCount} override${overrideCount > 1 ? "s" : ""}`
     : base;
 }
-
-// Prevent accidental auto-registration if this helper module is discovered directly.
-export default function (): void {}

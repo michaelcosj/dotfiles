@@ -13,6 +13,7 @@
       home.homeDirectory = /Users/synth;
 
       home.packages = with pkgs; [
+        ast-grep
         bat
         biome
         cowsay

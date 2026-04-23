@@ -29,7 +29,8 @@ interface TodoDetails {
   error?: string;
 }
 
-function cloneTodos(input: Todo[]): Todo[] {
+function cloneTodos(input: Todo[] | undefined | null): Todo[] {
+  if (!Array.isArray(input)) return [];
   return input.map((todo) => ({ ...todo }));
 }
 
@@ -130,12 +131,12 @@ export function registerTodoExtension(pi: ExtensionAPI) {
     for (const entry of ctx.sessionManager.getBranch()) {
       if (entry.type !== "message") continue;
       const msg = entry.message;
-      if (msg.role !== "toolResult" || msg.toolName !== "todo") continue;
+      if (msg.role !== "toolResult" || msg.toolName !== "todo" || msg.isError) continue;
 
       const details = msg.details as TodoDetails | undefined;
-      if (details) {
+      if (details && Array.isArray(details.todos)) {
         todos = cloneTodos(details.todos);
-        nextId = details.nextId;
+        nextId = details.nextId ?? 1;
       }
     }
   };
@@ -308,7 +309,7 @@ export function registerTodoExtension(pi: ExtensionAPI) {
         return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
       }
 
-      const todoList = details.todos;
+      const todoList = Array.isArray(details.todos) ? details.todos : [];
 
       switch (details.action) {
         case "list": {
@@ -342,6 +343,9 @@ export function registerTodoExtension(pi: ExtensionAPI) {
 
         case "clear":
           return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared all todos"), 0, 0);
+
+        default:
+          return new Text(theme.fg("dim", "todo"), 0, 0);
       }
     },
   });

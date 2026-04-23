@@ -1,47 +1,44 @@
 # Extensions
 
-## m-agents
-
-Unified agent-control extension. Owns presets, permissions, questionnaire, and subagents.
-
-### Commands
-
-| Command | Action |
-|---------|--------|
-| `/preset` | Open preset selector |
-| `/preset <name>` | Switch to preset |
-| `/permission-toggle-auto-accept` | Toggle per-tool auto-accept overrides |
-| `/permission-mode` | Set session permission mode for one tool |
-| `/permission-settings` | Show resolved permission state |
-| `/subagents` | List subagent sessions |
-| `/subagent-view <id-prefix>` | View specific subagent session |
-
-### Shortcut
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Shift+U` | Cycle presets |
-
-### Tools
-
-| Tool | Description |
-|------|-------------|
-| `questionnaire` | Ask one or more structured questions with tab UI |
-| `subagent` | Delegate work in single / parallel / chain mode |
-
-### Features
-
-- Preset loading + switching (`~/.pi/agent/presets.json`, `.pi/presets.json`)
-- Permission policy resolution (`allow` / `ask` / `deny`) + session overrides
-- Parent→child permission inheritance for subagents
-- Parent-side forwarding for subagent permission prompts + questionnaire UI
-- Persistent subagent session files + viewers
-
----
-
 ## pizza
 
 Bundled extensions under one entry point.
+
+### preset-control
+
+Preset + permission system now lives in pizza.
+
+Config sources:
+- `~/.pi/agent/presets.json`
+- `.pi/presets.json`
+
+Root config fields:
+- `defaultPreset`: preset name to auto-apply when available
+- `defaultMode`: fallback permission mode (`allow` | `ask` | `deny`) when no preset is active
+
+Per-preset permission block:
+- `permission.defaultMode`
+- `permission.allow`
+- `permission.deny`
+- `permission.ask`
+
+Command + shortcut:
+
+| Command / Shortcut | Action |
+|--------------------|--------|
+| `/preset` | Open searchable preset selector (type prefix to filter) |
+| `/preset <name>` | Switch to preset |
+| `Ctrl+Shift+U` | Cycle presets |
+| `/permission-toggle-auto-accept` | Toggle per-tool session auto-accept overrides |
+| `/permission-mode` | Set session permission mode for one tool |
+| `/permission-settings` | Show resolved active permission state |
+
+Tools:
+
+| Tool | Description |
+|------|-------------|
+| `switch_preset` | Switch to target preset with required reason. Supports permission guards like `switch_preset(plan)` |
+| `questionnaire` | Ask one or more structured questions with tab UI |
 
 ### caveman
 
