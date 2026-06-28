@@ -1,8 +1,12 @@
 {
   "plugins": {
     "ale": {
-      "rev": "051d12c72d3a2ecfc61b0a52c8f6fd89307e5b6c",
+      "rev": "d0ea94323207abcdee717d76bb57b38d46055664",
       "src": "https://www.github.com/dense-analysis/ale"
+    },
+    "baleia.nvim": {
+      "rev": "710537ff5cd669c5a76c5f5b6a9169fd9b913d18",
+      "src": "https://www.github.com/m00qek/baleia.nvim"
     },
     "blink.cmp": {
       "rev": "78336bc89ee5365633bcf754d93df01678b5c08f",
@@ -10,15 +14,15 @@
       "version": "1.0.0 - 2.0.0"
     },
     "codediff.nvim": {
-      "rev": "832f1ecc5f8b15a44cf7537e31d3266d657775b1",
+      "rev": "7608f3b436ce1f84a4888f75e53079caa981a2e9",
       "src": "https://www.github.com/esmuellert/codediff.nvim"
     },
     "colorful-menu.nvim": {
-      "rev": "b51a659459df8d078201aefc995db8175ed55e84",
+      "rev": "13f9b7eaa9cd2901b4f8915cfb2483c3be4c8c20",
       "src": "https://www.github.com/xzbdmw/colorful-menu.nvim"
     },
     "conform.nvim": {
-      "rev": "086a40dc7ed8242c03be9f47fbcee68699cc2395",
+      "rev": "619363c30309d29ffa631e67c8183f2a72caa373",
       "src": "https://www.github.com/stevearc/conform.nvim"
     },
     "friendly-snippets": {
@@ -26,15 +30,15 @@
       "src": "https://www.github.com/rafamadriz/friendly-snippets"
     },
     "gitsigns.nvim": {
-      "rev": "8d82c240f190fc33723d48c308ccc1ed8baad69d",
+      "rev": "2038c666bd9d8a0b7349a0b6ee00dc83104b9ecf",
       "src": "https://www.github.com/lewis6991/gitsigns.nvim"
     },
     "gruvbox.nvim": {
-      "rev": "334d5fd49fc8033f26408425366c66c6390c57bb",
+      "rev": "154eb5ff5b96d0641307113fa385eaf0d36d9796",
       "src": "https://www.github.com/ellisonleao/gruvbox.nvim"
     },
     "image.nvim": {
-      "rev": "da2be65c153ba15a14a342b05591652a6df70d58",
+      "rev": "88351f1f7d9dbae286e671ce3690a49660dd8a5c",
       "src": "https://www.github.com/3rd/image.nvim"
     },
     "img-clip.nvim": {
@@ -46,7 +50,7 @@
       "src": "https://www.github.com/folke/lazydev.nvim"
     },
     "lualine.nvim": {
-      "rev": "f5d2a8570f8b736ddb9bb4be504355bcd6e15ec8",
+      "rev": "221ce6b2d999187044529f49da6554a92f740a96",
       "src": "https://www.github.com/nvim-lualine/lualine.nvim"
     },
     "mcp-tools.nvim": {
@@ -54,21 +58,21 @@
       "src": "https://www.github.com/guill/mcp-tools.nvim"
     },
     "mini.comment": {
-      "rev": "a0c721115faff8d05505c0a12dab410084d9e536",
+      "rev": "4677392f091e8b5c18d4b535130220a6d1da4aca",
       "src": "https://www.github.com/echasnovski/mini.comment",
       "version": ">=0.0.0"
     },
     "mini.icons": {
-      "rev": "7fdae2443a0e2910015ca39ad74b50524ee682d3",
+      "rev": "e56797f90192d81f1fda02e662fc3e8e3d775027",
       "src": "https://www.github.com/echasnovski/mini.icons"
     },
     "mini.pairs": {
-      "rev": "d5a29b6254dad07757832db505ea5aeab9aad43a",
+      "rev": "4a014143fcb4e9df26198ccb3ecff3b9e77a048c",
       "src": "https://www.github.com/echasnovski/mini.pairs",
       "version": ">=0.0.0"
     },
     "mini.surround": {
-      "rev": "88c52297ed3e69ecf9f8652837888ecc727a28ee",
+      "rev": "580e4cb98c5900d9fe743865fb5a5b2178b4ab18",
       "src": "https://www.github.com/echasnovski/mini.surround",
       "version": ">=0.0.0"
     },
@@ -85,11 +89,11 @@
       "src": "https://www.github.com/MunifTanjim/nui.nvim"
     },
     "nvim-lspconfig": {
-      "rev": "cb5bc0b2b35a6d513e3298d285db81453e791f4f",
+      "rev": "3371bf298c1f56efc26771ee961f461176958fb5",
       "src": "https://www.github.com/neovim/nvim-lspconfig"
     },
     "nvim-origami": {
-      "rev": "67c15fd14037778644371487fc68855b530ccd7d",
+      "rev": "f15aad8c58ef24b98ffe241ff52f9dfd74cff591",
       "src": "https://www.github.com/chrisgrieser/nvim-origami"
     },
     "nvim-treesitter": {
@@ -97,19 +101,19 @@
       "src": "https://www.github.com/nvim-treesitter/nvim-treesitter"
     },
     "nvim-treesitter-context": {
-      "rev": "b0c45cefe2c8f7b55fc46f34e563bc428ef99636",
+      "rev": "b311b30818951d01f7b4bf650521b868b3fece16",
       "src": "https://www.github.com/nvim-treesitter/nvim-treesitter-context"
     },
     "nvim-web-devicons": {
-      "rev": "c72328a5494b4502947a022fe69c0c47e53b6aa6",
+      "rev": "dfbfaa967a6f7ec50789bead7ef87e336c1fa63c",
       "src": "https://www.github.com/nvim-tree/nvim-web-devicons"
     },
     "opencode.nvim": {
-      "rev": "d2a963a24013a7adc73b03494cb58a1d24a57c29",
+      "rev": "a677af6b3613c4753e126d06e57fa10b6d813be6",
       "src": "https://www.github.com/sudo-tee/opencode.nvim"
     },
     "overseer.nvim": {
-      "rev": "f818eefff81f4b12fb7cf236f1b6c16768a2fcbc",
+      "rev": "a93d9f6d6defdac4bcd6d2c8ba988650e42e0a0e",
       "src": "https://www.github.com/stevearc/overseer.nvim"
     },
     "plenary.nvim": {
@@ -117,27 +121,27 @@
       "src": "https://www.github.com/nvim-lua/plenary.nvim"
     },
     "quicker.nvim": {
-      "rev": "063cc44da1eef8681bbd653b29d3bc961780886a",
+      "rev": "4a6883cb13fe097a20a046eb55f6dffd239276e3",
       "src": "https://www.github.com/stevearc/quicker.nvim"
     },
     "render-markdown.nvim": {
-      "rev": "54d4b5431e9634ee3d8d30784e017239b5b89d41",
+      "rev": "f422cb5c6855f150e2ddcfaf44e7157b98b34f6a",
       "src": "https://www.github.com/MeanderingProgrammer/render-markdown.nvim"
     },
     "resession.nvim": {
-      "rev": "05adc14db5c2d0eae064765101dd5e9c594c7851",
+      "rev": "0983fbdd3fe938c80fb7dd33817f08f428426ac8",
       "src": "https://www.github.com/stevearc/resession.nvim"
     },
     "snacks.nvim": {
-      "rev": "ad9ede6a9cddf16cedbd31b8932d6dcdee9b716e",
+      "rev": "882c996cf28183f4d63640de0b4c02ec886d01f2",
       "src": "https://www.github.com/folke/snacks.nvim"
     },
     "tiny-cmdline.nvim": {
-      "rev": "ad58747b955d0743ccfd56e97da1a4c1fac89f58",
+      "rev": "e247d9ee4c980734f8f8bf616d31e0ab7c27485d",
       "src": "https://www.github.com/rachartier/tiny-cmdline.nvim"
     },
     "tiny-code-action.nvim": {
-      "rev": "1c75d7e121ea38bf362d939ddb9064ca9bb6884f",
+      "rev": "0d040ed81f7953118b81cd12681fcdfcac069803",
       "src": "https://www.github.com/rachartier/tiny-code-action.nvim"
     },
     "todo-comments.nvim": {

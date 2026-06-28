@@ -32,6 +32,7 @@ return {
 		},
 	},
 	lazygit = {
+		enabled = false,
 		configure = true,
 		config = {
 			os = {

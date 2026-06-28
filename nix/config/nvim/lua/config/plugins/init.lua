@@ -17,7 +17,11 @@ vim.pack.add({
 	gh("nvim-treesitter/nvim-treesitter"),
 	gh("nvim-treesitter/nvim-treesitter-context"),
 
+	-- Snacks (Finder/Pickers and other things)
+	gh("folke/snacks.nvim"),
+
 	-- Git
+	gh("m00qek/baleia.nvim"),
 	gh("esmuellert/codediff.nvim"), -- diff viewer
 	gh("lewis6991/gitsigns.nvim"),
 	gh("NeogitOrg/neogit"),
@@ -27,9 +31,6 @@ vim.pack.add({
 	{ src = gh("echasnovski/mini.comment"), version = vim.version.range("*") },
 	{ src = gh("echasnovski/mini.pairs"), version = vim.version.range("*") },
 	{ src = gh("echasnovski/mini.surround"), version = vim.version.range("*") },
-
-	-- Snacks (Finder/Pickers and other things)
-	gh("folke/snacks.nvim"),
 
 	-- Coding
 	gh("folke/lazydev.nvim"),
@@ -92,3 +93,4 @@ require("config.plugins.quicker")
 require("config.plugins.opencode")
 require("config.plugins.ale")
 require("config.plugins.undotree")
+require("config.plugins.neogit")
