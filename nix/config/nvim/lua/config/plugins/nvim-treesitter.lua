@@ -11,12 +11,12 @@ require("nvim-treesitter").install({
 	"lua",
 	"markdown",
 	"python",
-  "regex",
+	"regex",
 	"rust",
 	"sql",
-  "svelte",
+	"svelte",
 	"typescript",
-  "tsx",
+	"tsx",
 	"yaml",
 })
 
@@ -26,6 +26,9 @@ vim.api.nvim_create_autocmd("FileType", {
 	callback = function(args)
 		local ft = vim.bo[args.buf].filetype
 		local lang = vim.treesitter.language.get_lang(ft)
+		if not lang then
+			return
+		end
 
 		if not vim.treesitter.language.add(lang) then
 			-- this stupid tracking is here only because

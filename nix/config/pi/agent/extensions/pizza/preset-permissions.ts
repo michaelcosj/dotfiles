@@ -9,6 +9,7 @@ interface PresetsFile {
   defaultPreset?: string;
   defaultMode?: string;
   default?: string;
+  permission?: PermissionSettings;
   presets?: PresetsConfig;
   [key: string]: unknown;
 }
@@ -22,21 +23,27 @@ function parseMode(value: unknown): Mode | undefined {
   return value === "allow" || value === "ask" || value === "deny" ? value : undefined;
 }
 
+export function canonicalPermissionToolName(toolName: string): string {
+  return toolName === "write" ? "edit" : toolName;
+}
+
 export function loadPresets(cwd: string): LoadedPresets {
   const globalPath = join(getAgentDir(), "presets.json");
   const projectPath = join(cwd, ".pi", "presets.json");
-  const reservedKeys = new Set(["default", "defaultPreset", "defaultMode", "presets"]);
+  const reservedKeys = new Set(["default", "defaultPreset", "defaultMode", "permission", "presets"]);
 
   function parseFile(filePath: string): {
     presets: PresetsConfig;
     defaultPreset: string | undefined;
     defaultMode: Mode | undefined;
+    globalPermission: PermissionSettings | undefined;
   } {
     let presets: PresetsConfig = {};
     let defaultPreset: string | undefined;
     let defaultMode: Mode | undefined;
+    let globalPermission: PermissionSettings | undefined;
 
-    if (!existsSync(filePath)) return { presets, defaultPreset, defaultMode };
+    if (!existsSync(filePath)) return { presets, defaultPreset, defaultMode, globalPermission };
 
     try {
       const raw = JSON.parse(readFileSync(filePath, "utf-8")) as PresetsFile;
@@ -60,11 +67,14 @@ export function loadPresets(cwd: string): LoadedPresets {
       }
 
       defaultMode = parseMode(raw.defaultMode);
+      if (raw.permission && typeof raw.permission === "object" && !Array.isArray(raw.permission)) {
+        globalPermission = raw.permission;
+      }
     } catch (err) {
       console.error(`Failed to load presets from ${filePath}: ${err}`);
     }
 
-    return { presets, defaultPreset, defaultMode };
+    return { presets, defaultPreset, defaultMode, globalPermission };
   }
 
   const globalResult = parseFile(globalPath);
@@ -74,6 +84,7 @@ export function loadPresets(cwd: string): LoadedPresets {
     presets: { ...globalResult.presets, ...projectResult.presets },
     defaultPreset: projectResult.defaultPreset ?? globalResult.defaultPreset,
     defaultMode: projectResult.defaultMode ?? globalResult.defaultMode ?? "ask",
+    globalPermission: projectResult.globalPermission ?? globalResult.globalPermission,
   };
 }
 
@@ -127,6 +138,42 @@ export function normalizePermissionSettings(
   };
 }
 
+function getRuleToolPattern(rule: string): string {
+  return canonicalPermissionToolName(parseRule(rule).toolPattern);
+}
+
+function mergeRuleList(
+  presetRules: string[] | undefined,
+  globalRules: string[] | undefined,
+  presetCoveredTools: ReadonlySet<string>,
+): string[] {
+  const merged = [...(presetRules ?? [])];
+  for (const rule of globalRules ?? []) {
+    if (presetCoveredTools.has(getRuleToolPattern(rule))) continue;
+    merged.push(rule);
+  }
+  return merged;
+}
+
+export function mergePermissionSettings(
+  preset: PermissionSettings | undefined,
+  global: PermissionSettings | undefined,
+  rootDefaultMode: Mode = "ask",
+): PermissionSettings {
+  const presetCoveredTools = new Set<string>([
+    ...(preset?.allow ?? []).map(getRuleToolPattern),
+    ...(preset?.deny ?? []).map(getRuleToolPattern),
+    ...(preset?.ask ?? []).map(getRuleToolPattern),
+  ]);
+
+  return {
+    defaultMode: preset?.defaultMode ?? global?.defaultMode ?? rootDefaultMode,
+    allow: mergeRuleList(preset?.allow, global?.allow, presetCoveredTools),
+    deny: mergeRuleList(preset?.deny, global?.deny, presetCoveredTools),
+    ask: mergeRuleList(preset?.ask, global?.ask, presetCoveredTools),
+  };
+}
+
 export function parseRule(rule: string): ParsedRule {
   const match = rule.match(/^([^(]+)\((.+)\)$/);
   if (match) {
@@ -136,14 +183,15 @@ export function parseRule(rule: string): ParsedRule {
 }
 
 export function getAllowedArgPatterns(settings: PermissionSettings, toolName: string): string[] {
+  const canonicalTool = canonicalPermissionToolName(toolName);
   return (settings.allow ?? [])
     .filter((rule) => {
       const parsed = parseRule(rule);
-      return parsed.toolPattern === toolName && parsed.argPattern;
+      return parsed.toolPattern === canonicalTool && parsed.argPattern;
     })
     .map((rule) => {
       const parsed = parseRule(rule);
-      return `${toolName}(${parsed.argPattern!})`;
+      return `${canonicalTool}(${parsed.argPattern!})`;
     });
 }
 
@@ -177,7 +225,7 @@ function getArgCandidates(toolName: string, argValue: string, cwd: string): stri
 
   add(argValue);
 
-  if (["read", "edit", "write"].includes(toolName)) {
+  if (["read", "edit"].includes(toolName)) {
     const absolute = normalizePathValue(resolve(cwd, argValue));
     const rel = normalizePathValue(relative(cwd, absolute));
 
@@ -403,6 +451,47 @@ function hasShellOutputRedirection(command: string): boolean {
   return false;
 }
 
+function matchRules(
+  settings: PermissionSettings,
+  toolName: string,
+  argValue: string,
+  cwd: string,
+): Mode | undefined {
+  const canonicalToolName = canonicalPermissionToolName(toolName);
+  const allowRules = settings.allow ?? [];
+  const denyRules = settings.deny ?? [];
+  const argCandidates = getArgCandidates(canonicalToolName, argValue, cwd);
+
+  const hasSpecificAllow = allowRules.some((rule) => {
+    const parsed = parseRule(rule);
+    return parsed.argPattern && matchPattern(parsed.toolPattern, canonicalToolName);
+  });
+
+  if (hasSpecificAllow) {
+    const matchesSpecificAllow = allowRules.some((rule) => {
+      const parsed = parseRule(rule);
+      if (!parsed.argPattern) return false;
+      if (!matchPattern(parsed.toolPattern, canonicalToolName)) return false;
+      const argPattern = parsed.argPattern;
+      return argCandidates.some((candidate) => matchPattern(argPattern, candidate));
+    });
+    if (matchesSpecificAllow) return "allow";
+  }
+
+  if (matchesAnyRuleForCandidates(denyRules, canonicalToolName, argCandidates)) return "deny";
+  if (matchesAnyRuleForCandidates(settings.ask ?? [], canonicalToolName, argCandidates)) return "ask";
+  if (matchesAnyRuleForCandidates(allowRules, canonicalToolName, argCandidates)) return "allow";
+  return undefined;
+}
+
+function resolveDefaultMode(
+  presetSettings: PermissionSettings | undefined,
+  globalSettings: PermissionSettings | undefined,
+  rootDefaultMode: Mode,
+): Mode {
+  return presetSettings?.defaultMode ?? globalSettings?.defaultMode ?? rootDefaultMode;
+}
+
 function resolveSingleMode(
   settings: PermissionSettings,
   toolName: string,
@@ -410,33 +499,32 @@ function resolveSingleMode(
   cwd: string,
   sessionOverrides: ReadonlyMap<string, Mode>,
 ): Mode {
-  const override = sessionOverrides.get(toolName);
+  const canonicalToolName = canonicalPermissionToolName(toolName);
+  const override = sessionOverrides.get(canonicalToolName);
+  if (override) return override;
+  return matchRules(settings, canonicalToolName, argValue, cwd) ?? (settings.defaultMode ?? "ask");
+}
+
+function resolveEffectiveSingleMode(
+  presetSettings: PermissionSettings | undefined,
+  globalSettings: PermissionSettings | undefined,
+  toolName: string,
+  argValue: string,
+  cwd: string,
+  sessionOverrides: ReadonlyMap<string, Mode>,
+  rootDefaultMode: Mode,
+): Mode {
+  const canonicalToolName = canonicalPermissionToolName(toolName);
+  const override = sessionOverrides.get(canonicalToolName);
   if (override) return override;
 
-  const allowRules = settings.allow ?? [];
-  const denyRules = settings.deny ?? [];
-  const argCandidates = getArgCandidates(toolName, argValue, cwd);
+  const presetMode = presetSettings ? matchRules(presetSettings, canonicalToolName, argValue, cwd) : undefined;
+  if (presetMode) return presetMode;
 
-  const hasSpecificAllow = allowRules.some((rule) => {
-    const parsed = parseRule(rule);
-    return parsed.argPattern && matchPattern(parsed.toolPattern, toolName);
-  });
+  const globalMode = globalSettings ? matchRules(globalSettings, canonicalToolName, argValue, cwd) : undefined;
+  if (globalMode) return globalMode;
 
-  if (hasSpecificAllow) {
-    const matchesSpecificAllow = allowRules.some((rule) => {
-      const parsed = parseRule(rule);
-      if (!parsed.argPattern) return false;
-      if (!matchPattern(parsed.toolPattern, toolName)) return false;
-      const argPattern = parsed.argPattern;
-      return argCandidates.some((candidate) => matchPattern(argPattern, candidate));
-    });
-    if (matchesSpecificAllow) return "allow";
-  }
-
-  if (matchesAnyRuleForCandidates(denyRules, toolName, argCandidates)) return "deny";
-  if (matchesAnyRuleForCandidates(settings.ask ?? [], toolName, argCandidates)) return "ask";
-  if (matchesAnyRuleForCandidates(allowRules, toolName, argCandidates)) return "allow";
-  return settings.defaultMode ?? "ask";
+  return resolveDefaultMode(presetSettings, globalSettings, rootDefaultMode);
 }
 
 export function resolveMode(
@@ -445,9 +533,11 @@ export function resolveMode(
   argValue: string,
   cwd: string,
   sessionOverrides: ReadonlyMap<string, Mode>,
+  sessionBashAllowPatterns: readonly string[] = [],
 ): Mode {
-  if (toolName !== "bash" || !argValue) {
-    return resolveSingleMode(settings, toolName, argValue, cwd, sessionOverrides);
+  const canonicalToolName = canonicalPermissionToolName(toolName);
+  if (canonicalToolName !== "bash" || !argValue) {
+    return resolveSingleMode(settings, canonicalToolName, argValue, cwd, sessionOverrides);
   }
 
   const normalized = normalizeBashForPermission(argValue, cwd);
@@ -455,12 +545,79 @@ export function resolveMode(
   let worst: Mode = "allow";
 
   for (const segment of segments) {
-    const mode = resolveSingleMode(settings, toolName, segment, cwd, sessionOverrides);
+    const hasSessionAllow = sessionBashAllowPatterns.some((pattern) => matchPattern(pattern, segment));
+    const mode = hasSessionAllow
+      ? "allow"
+      : resolveSingleMode(settings, canonicalToolName, segment, cwd, sessionOverrides);
     if (mode === "deny") return "deny";
     if (mode === "ask") worst = "ask";
   }
 
-  if (worst === "allow" && hasShellOutputRedirection(normalized)) return "ask";
+  if (worst === "allow" && hasShellOutputRedirection(normalized)) {
+    return resolveSingleMode(settings, "edit", "", cwd, sessionOverrides) === "allow" ? "allow" : "ask";
+  }
+
+  return worst;
+}
+
+export function resolveEffectiveMode(
+  presetSettings: PermissionSettings | undefined,
+  globalSettings: PermissionSettings | undefined,
+  toolName: string,
+  argValue: string,
+  cwd: string,
+  sessionOverrides: ReadonlyMap<string, Mode>,
+  rootDefaultMode: Mode,
+  sessionBashAllowPatterns: readonly string[] = [],
+): Mode {
+  const canonicalToolName = canonicalPermissionToolName(toolName);
+  if (canonicalToolName !== "bash" || !argValue) {
+    return resolveEffectiveSingleMode(
+      presetSettings,
+      globalSettings,
+      canonicalToolName,
+      argValue,
+      cwd,
+      sessionOverrides,
+      rootDefaultMode,
+    );
+  }
+
+  const normalized = normalizeBashForPermission(argValue, cwd);
+  const segments = splitShellCommand(normalized);
+  let worst: Mode = "allow";
+
+  for (const segment of segments) {
+    const hasSessionAllow = sessionBashAllowPatterns.some((pattern) => matchPattern(pattern, segment));
+    const mode = hasSessionAllow
+      ? "allow"
+      : resolveEffectiveSingleMode(
+          presetSettings,
+          globalSettings,
+          canonicalToolName,
+          segment,
+          cwd,
+          sessionOverrides,
+          rootDefaultMode,
+        );
+    if (mode === "deny") return "deny";
+    if (mode === "ask") worst = "ask";
+  }
+
+  if (worst === "allow" && hasShellOutputRedirection(normalized)) {
+    return resolveEffectiveSingleMode(
+      presetSettings,
+      globalSettings,
+      "edit",
+      "",
+      cwd,
+      sessionOverrides,
+      rootDefaultMode,
+    ) === "allow"
+      ? "allow"
+      : "ask";
+  }
+
   return worst;
 }
 
@@ -472,11 +629,16 @@ export function generatePermissionSummary(
   const ask: string[] = [];
   const denied: string[] = [];
   const conditional: string[] = [];
+  const seenTools = new Set<string>();
 
   for (const tool of allTools) {
-    const allowRules = (settings.allow ?? []).filter((rule) => parseRule(rule).toolPattern === tool);
-    const denyRules = (settings.deny ?? []).filter((rule) => parseRule(rule).toolPattern === tool);
-    const askRules = (settings.ask ?? []).filter((rule) => parseRule(rule).toolPattern === tool);
+    const canonicalTool = canonicalPermissionToolName(tool);
+    if (seenTools.has(canonicalTool)) continue;
+    seenTools.add(canonicalTool);
+
+    const allowRules = (settings.allow ?? []).filter((rule) => parseRule(rule).toolPattern === canonicalTool);
+    const denyRules = (settings.deny ?? []).filter((rule) => parseRule(rule).toolPattern === canonicalTool);
+    const askRules = (settings.ask ?? []).filter((rule) => parseRule(rule).toolPattern === canonicalTool);
 
     const hasArgRules = [...allowRules, ...denyRules, ...askRules].some(
       (rule) => parseRule(rule).argPattern,
@@ -487,32 +649,32 @@ export function generatePermissionSummary(
       if (allowRules.length) rules.push(`allow: ${allowRules.join(", ")}`);
       if (denyRules.length) rules.push(`deny: ${denyRules.join(", ")}`);
       if (askRules.length) rules.push(`ask: ${askRules.join(", ")}`);
-      conditional.push(`${tool} (${rules.join(" | ")})`);
+      conditional.push(`${canonicalTool} (${rules.join(" | ")})`);
       continue;
     }
 
     if (denyRules.length > 0) {
-      denied.push(tool);
+      denied.push(canonicalTool);
       continue;
     }
     if (askRules.length > 0) {
-      ask.push(tool);
+      ask.push(canonicalTool);
       continue;
     }
     if (allowRules.length > 0) {
-      allowed.push(tool);
+      allowed.push(canonicalTool);
       continue;
     }
 
     switch (settings.defaultMode) {
       case "allow":
-        allowed.push(tool);
+        allowed.push(canonicalTool);
         break;
       case "deny":
-        denied.push(tool);
+        denied.push(canonicalTool);
         break;
       default:
-        ask.push(tool);
+        ask.push(canonicalTool);
         break;
     }
   }
@@ -532,9 +694,10 @@ export function generatePermissionSummary(
 export function getPermissionModeLabel(
   settings: PermissionSettings | undefined,
   sessionOverrides: ReadonlyMap<string, Mode>,
+  extraOverrideCount = 0,
 ): string {
   const normalized = normalizePermissionSettings(settings);
-  const overrideCount = sessionOverrides.size;
+  const overrideCount = sessionOverrides.size + extraOverrideCount;
   const base = normalized.defaultMode ?? "ask";
   return overrideCount > 0
     ? `${base} +${overrideCount} override${overrideCount > 1 ? "s" : ""}`

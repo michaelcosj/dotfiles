@@ -1,91 +1,113 @@
 ---
 name: ast-grep
-description: Structural code search and replace using ast-grep. Use for finding code patterns, refactoring, and AST-based analysis across multiple languages.
+description: Structural code search using ast-grep (sg). Use for AST-based pattern matching — finding code structures that text search can't capture. Load this skill when asked to find code patterns, locate language constructs, or search code by structure.
 ---
 
-# ast-grep Usage
+# ast-grep: Structural Code Search
 
-ast-grep is a CLI tool for structural code search and replace using AST patterns.
+ast-grep (CLI: `sg`) matches code by AST structure, not text. Use it when you need to find patterns like "all functions that call X" or "classes without error handling" — things `rg`/`grep` can't do reliably.
 
-## Basic Commands
+## When to Use sg vs rg
 
+| Tool | Best for |
+|------|----------|
+| `sg` | Structural queries: "find functions with/without X", "find Y inside Z" |
+| `rg` | Simple text: string literals, comments, imports, file paths |
+
+## Workflow
+
+### 1. Clarify the Search
+What pattern? What language? Any exclusions? Narrow scope early.
+
+### 2. Write a Test Snippet
+Create a small temp file with example code that SHOULD match. This validates your rule.
+
+### 3. Start Simple, Then Add Complexity
+```
+pattern first → add kind → add relational rules (has/inside) → add composite (all/any/not)
+```
+
+### 4. Test the Rule
 ```bash
-# Search with pattern
-sg -p "console.log($$$)" -l ts
+# Quick inline test (stdin, no files needed)
+echo 'async function f() { await x(); }' | sg scan \
+  --inline-rules "id: test language: javascript rule: {pattern: await \$EXPR}" --stdin
 
-# Search with rule file
-sg -r rule.yml
-
-# Apply fixes (rewrite code)
-sg -p "await $EXPR" -l ts --rewrite "($EXPR)"
-
-# Scan entire project
-sg scan
-
-# Check specific files
-sg scan --filter "src/**/*.ts"
+# Test with a rule file against example code
+sg scan -r test_rule.yml test_example.js
 ```
 
-## Rule File Format
+### 5. Run Against the Codebase
+```bash
+# Inline rule (no file needed — escapes required in double quotes)
+sg scan --inline-rules \
+  "id: find-async language: typescript rule: {kind: function_declaration, has: {pattern: await \$EXPR, stopBy: end}}" \
+  src/
 
-Create `rule.yml`:
+# Rule file (for complex/reusable rules)
+sg scan -r my_rule.yml src/
 
-```yaml
-id: my-rule
-language: typescript
-rule:
-  pattern: console.$METHOD($$$ARGS)
-fix: 'logger.$METHOD($$$ARGS)'
+# Scan with file filter
+sg scan -r my_rule.yml --filter "src/**/*.ts"
 ```
 
-Run: `sg -r rule.yml`
+## CLI Patterns
 
-## Rule Syntax Reference
-
-### Atomic Rules
-```yaml
-pattern: console.log($ARG)           # Match code pattern
-kind: call_expression                # Match node type
-regex: '^[a-z]+$'                    # Match text with regex
+### Search with Simple Patterns (`-p`)
+```bash
+sg -p 'console.log($ARG)' -l ts src/          # Find all console.log calls
+sg -p 'class $NAME { $$$ }' -l ts .            # Find all class declarations
+sg -p '$OBJ.$METHOD($$$)' -l ts --json .       # JSON output
 ```
 
-### Relational Rules
-```yaml
-inside: { pattern: class $C { $$$ }, stopBy: end }  # Inside context
-has: { pattern: await $EXPR, stopBy: end }          # Has descendant
-precedes: { pattern: return $VAL }                  # Appears before
-follows: { pattern: import $M }                       # Appears after
+### Search with Inline Rules (no temp files)
+```bash
+# Find functions containing await
+sg scan --inline-rules \
+  "id: a language: ts rule: {kind: function_declaration, has: {pattern: await \$EXPR, stopBy: end}}" .
+
+# Find X inside Y
+sg scan --inline-rules \
+  "id: b language: ts rule: {pattern: console.log(\$\$\$), inside: {kind: method_definition, stopBy: end}}" src/
 ```
 
-### Composite Rules
-```yaml
-all: [ { kind: call }, { pattern: foo($A) } ]  # AND
-any: [ { pattern: foo() }, { pattern: bar() } ] # OR
-not: { pattern: console.log($ARG) }             # NOT
+### Inspect AST Structure (`--debug-query`)
+```bash
+# See how code is parsed into AST nodes (use to find correct `kind` values)
+sg -p 'async function f() { await x(); }' -l ts --debug-query=ast
+
+# See how ast-grep interprets your pattern
+sg -p 'class $NAME { $$$BODY }' -l ts --debug-query=pattern
 ```
 
-### Metavariables
-| Syntax | Purpose | Example |
-|--------|---------|---------|
-| `$VAR` | Single named node | `console.log($ARG)` |
-| `$$VAR` | Single unnamed (operator) | `$$OP` in `a + b` |
-| `$$$VAR` | Multiple nodes | `function $F($$$ARGS)` |
-| `$_VAR` | Non-capturing | `$_FUNC($_FUNC)` |
+### Rewrite (Code Transform)
+```bash
+# Replace pattern
+sg -p 'console.log($MSG)' -l ts --rewrite 'logger.info($MSG)' src/
 
-## Examples
+# Interactive (confirm each change)
+sg -p 'var $X = $Y' -l ts --rewrite 'const $X = $Y' -i src/
+```
 
+## Debugging Rules That Don't Match
+
+1. **Inspect the AST** — `--debug-query=ast` to see actual node kinds
+2. **Add `stopBy: end`** — required for `has`/`inside` relational rules
+3. **Simplify** — remove sub-rules, test each part independently
+4. **Check `kind`** — verify node type names against AST output
+5. **Check metavariable escaping** — in `--inline-rules` double quotes, use `\$VAR` (shell eats bare `$`)
+
+## Common Patterns
+
+### Find functions with a specific call
 ```yaml
-# Find functions with await
 rule:
   kind: function_declaration
-  has: { pattern: await $EXPR, stopBy: end }
+  has: { pattern: useMemo($$$), stopBy: end }
+```
 
-# Find console.* inside class methods
-rule:
-  pattern: console.$METHOD($$$)
-  inside: { kind: method_definition, stopBy: end }
-
-# Find async functions without try-catch
+### Find code missing error handling
+```yaml
 rule:
   all:
     - kind: function_declaration
@@ -94,13 +116,36 @@ rule:
         has: { pattern: try { $$$ } catch { $$$ }, stopBy: end }
 ```
 
-## Common Options
+### Find patterns inside a specific context
+```yaml
+rule:
+  pattern: useState($INIT)
+  inside: { kind: function_declaration, stopBy: end }
+```
 
-| Flag | Description |
-|------|-------------|
-| `-p, --pattern` | Search pattern |
-| `-r, --rule` | Rule file path |
-| `-l, --lang` | Language (ts, js, py, etc.) |
+### Find duplicate logic patterns across files
+```yaml
+rule:
+  pattern: |
+    if ($COND) {
+      return $A;
+    }
+    return $B;
+```
+
+## Quick Reference
+
+| Flag | Purpose |
+|------|---------|
+| `-p, --pattern` | Match AST pattern |
+| `-r, --rule` | YAML rule file |
+| `-l, --lang` | Language (ts, js, py, rs, etc.) |
+| `--inline-rules` | Inline YAML string (no file) |
 | `--rewrite` | Replacement string |
 | `-i, --interactive` | Confirm each change |
-| `--filter` | File filter pattern |
+| `--debug-query` | Dump AST (ast, cst, pattern) |
+| `--stdin` | Read source from stdin |
+| `--json` | JSON output |
+| `--filter` | Glob pattern for files |
+
+**Key rule:** Always use `stopBy: end` on `has` and `inside` relational rules.

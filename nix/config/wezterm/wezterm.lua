@@ -8,7 +8,7 @@ config.term = 'wezterm'
 
 config.font = wezterm.font('GeistMono Nerd Font')
 config.font_size = 14
-config.color_scheme = "Gruvbox Material (Gogh)"
+config.color_scheme = "GruvboxDark"
 config.force_reverse_video_cursor = true
 config.use_dead_keys = false
 
@@ -37,8 +37,8 @@ config.window_padding = {
 -- config.macos_force_square_corners = true
 
 config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
-config.window_background_opacity = 1
--- config.macos_window_background_blur = 100
+config.window_background_opacity = 0.8
+config.macos_window_background_blur = 25
 
 config.skip_close_confirmation_for_processes_named = {
 	"bash",

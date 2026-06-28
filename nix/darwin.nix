@@ -41,6 +41,7 @@
       "font-zed-mono-nerd-font"
       # "slack"
       "wezterm"
+      # "codexbar"
     ];
 
     brews = [

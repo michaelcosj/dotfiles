@@ -4,7 +4,12 @@ local M = {}
 ---@param opts table?
 M.safeSetup = function(module, opts)
 	local ok, plugin = pcall(require, module)
-	if ok and plugin.setup then
+	if not ok then
+		vim.notify(("Failed to require %s: %s"):format(module, plugin), vim.log.levels.WARN)
+		return
+	end
+
+	if plugin.setup then
 		plugin.setup(opts)
 	end
 end

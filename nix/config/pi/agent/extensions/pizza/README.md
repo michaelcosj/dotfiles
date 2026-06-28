@@ -22,6 +22,14 @@ Per-preset permission block:
 - `permission.deny`
 - `permission.ask`
 
+Permission model:
+- **`edit` controls both `edit` and `write` tools** — there is no separate `write` permission rule. Internally, `write` is canonicalized to `edit` for rule matching and session overrides.
+- **Bash redirection** (`>>`, `>`) upgrades bash mode to `ask` unless `edit` is `allow`. Rationale: redirection mutates files, so it should follow file-modification policy.
+- **`Always` option** — permission prompts offer Accept / Always / Reject. Choosing Always:
+  - For **bash**: extracts command pattern (e.g. `grep foo file` → `grep *`), confirms with user, stores as session-level bash allow override.
+  - For **other tools** (including `edit`/`write`): confirms with user, stores as session-level tool override (`edit → allow`).
+  - All session overrides clear on session start / shutdown.
+
 Command + shortcut:
 
 | Command / Shortcut | Action |

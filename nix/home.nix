@@ -16,6 +16,7 @@
         ast-grep
         bat
         biome
+        cloudflared
         cowsay
         # docker
         eza
@@ -30,6 +31,7 @@
         jq
         lazygit
         lua-language-server
+        mongodb-tools
         neovim
         nixd
         nixfmt-rfc-style
@@ -44,6 +46,7 @@
         tree-sitter
         ueberzugpp
         uv
+        vi-mongo
         vtsls
         yt-dlp
       ];
@@ -98,11 +101,11 @@
           package = null;
           settings = {
             # theme = "Gruvbox Dark";
-            theme = "Kanagawa Dragon";
+            theme = "TokyoNight Night";
             font-family = "JetBrains Mono";
             maximize = true;
             macos-option-as-alt = true;
-            custom-shader = "/Users/synth/.dotfiles/nix/config/ghostty/shaders/cursor_smear.glsl";
+            custom-shader = "/Users/synth/.dotfiles/nix/config/ghostty/shaders/cursor_tail.glsl";
           };
         };
 
@@ -154,15 +157,15 @@
             }
           ];
           shellAliases = {
+            nv = "nvim";
             rm = "rm -i";
             cp = "cp -i";
             mv = "mv -i";
             cat = "bat";
             ls = "eza --hyperlink";
-            grep = "rg";
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
-            nv = "nvim";
             reload-env = "load_env";
+            sg = "ast-grep";
           };
           interactiveShellInit = ''
             # vi keybindings
@@ -236,14 +239,14 @@
                     # Split line into key and value
                     set key (string split -m 1 '=' "$line")[1]
                     set value (string split -m 1 '=' "$line")[2]
-                    
+
                     # Remove surrounding quotes from value if present
                     if string match -q '"*"' "$value"
                       set value (string sub -s 2 -e -1 "$value")
                     else if string match -q "'*'" "$value"
                       set value (string sub -s 2 -e -1 "$value")
                     end
-                    
+
                     # Set the environment variable
                     if test -n "$key" -a -n "$value"
                       set -gx "$key" "$value"

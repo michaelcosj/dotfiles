@@ -67,7 +67,7 @@ vim.opt.scrolloff = 10
 vim.opt.confirm = true
 
 -- Dark mode
-vim.o.background = "dark" -- "dark" or "light" 
+-- vim.o.background = "dark" -- "dark" or "light" 
 
 -- Titles
 vim.opt.title = true

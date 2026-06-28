@@ -26,6 +26,7 @@ export interface LoadedPresets {
   presets: PresetsConfig;
   defaultPreset: string | undefined;
   defaultMode: Mode;
+  globalPermission: PermissionSettings | undefined;
 }
 
 export interface QuestionnaireOption {

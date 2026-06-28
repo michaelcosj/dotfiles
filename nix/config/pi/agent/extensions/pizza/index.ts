@@ -6,6 +6,8 @@ import { registerQuestionnaireTool } from "./questionnaire.js";
 import { registerRtkExtension } from "./rtk.js";
 import { registerTodoExtension } from "./todo.js";
 import { registerTpsExtension } from "./tps.js";
+import { registerVccCompactExtension } from "./vcc-compact.js";
+import { registerVccRecallExtension } from "./vcc-recall.js";
 
 export {
   registerCavemanExtension,
@@ -15,6 +17,8 @@ export {
   registerRtkExtension,
   registerTodoExtension,
   registerTpsExtension,
+  registerVccCompactExtension,
+  registerVccRecallExtension,
 };
 
 export default function (pi: ExtensionAPI) {
@@ -25,4 +29,6 @@ export default function (pi: ExtensionAPI) {
   registerTpsExtension(pi);
   registerQuestionnaireTool(pi);
   registerPresetControlExtension(pi);
+  registerVccCompactExtension(pi);
+  registerVccRecallExtension(pi);
 }

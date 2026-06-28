@@ -1,0 +1,12 @@
+{
+  "defaultPreset": "implement",
+  "defaultMode": "ask",
+  "presets": {
+    "implement": {
+      "description": "Test implement preset"
+    },
+    "review": {
+      "description": "Test review preset"
+    }
+  }
+}

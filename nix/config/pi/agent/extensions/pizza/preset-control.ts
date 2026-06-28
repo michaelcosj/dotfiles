@@ -10,15 +10,17 @@ import { Container, Key, type SelectItem, SelectList, Text } from "@mariozechner
 import { Type } from "@sinclair/typebox";
 import {
   DEFAULT_PERMISSION_SETTINGS,
+  canonicalPermissionToolName,
   findPresetSourcePath,
   generatePermissionSummary,
   getAllowedArgPatterns,
   getMatchValue,
   getPermissionModeLabel,
   loadPresets,
+  mergePermissionSettings,
   normalizePermissionSettings,
+  resolveEffectiveMode,
   resolveInstructions,
-  resolveMode,
 } from "./preset-permissions.js";
 import type { LoadedPresets, Mode, PermissionSettings, Preset, PresetsConfig } from "./preset-types.js";
 
@@ -28,16 +30,6 @@ interface OriginalAgentState {
   model: ExtensionContext["model"];
   thinkingLevel: ReturnType<ExtensionAPI["getThinkingLevel"]>;
   tools: string[];
-}
-
-const PRESET_ALIASES: Record<string, string> = {
-  build: "implement",
-  "code-review": "review",
-};
-
-function mapPresetAlias(name: string | undefined): string | undefined {
-  if (!name) return undefined;
-  return PRESET_ALIASES[name] ?? name;
 }
 
 async function getAllTools(pi: ExtensionAPI): Promise<string[]> {
@@ -51,6 +43,7 @@ async function toggleAutoAccept(
   ctx: ExtensionContext,
   pi: ExtensionAPI,
   sessionModeOverrides: Map<string, Mode>,
+  sessionBashAllowOverrides: Set<string>,
   onApply: () => void,
 ): Promise<void> {
   const tools = await getAllTools(pi);
@@ -59,8 +52,9 @@ async function toggleAutoAccept(
     return;
   }
 
+  const selectableTools = [...new Set(tools.map((tool) => canonicalPermissionToolName(tool)))];
   const allowSet = new Set<string>();
-  for (const tool of tools) {
+  for (const tool of selectableTools) {
     if (sessionModeOverrides.get(tool) === "allow") allowSet.add(tool);
   }
 
@@ -82,17 +76,17 @@ async function toggleAutoAccept(
 
       const allowedCount = allowSet.size;
       const statusText =
-        allowedCount === tools.length
+        allowedCount === selectableTools.length
           ? "All auto-accepted"
           : allowedCount === 0
             ? "None (use preset rules)"
-            : `${allowedCount}/${tools.length} tools`;
+            : `${allowedCount}/${selectableTools.length} tools`;
 
       container.addChild(new Text(theme.fg("accent", theme.bold("Permission Overrides")), 0, 0));
       container.addChild(new Text(theme.fg("dim", statusText), 0, 0));
       container.addChild(new Text("", 0, 0));
 
-      const selectAllActive = allowSet.size === tools.length;
+      const selectAllActive = allowSet.size === selectableTools.length;
       const selectAllPrefix = selectedIndex === selectAllIndex ? theme.fg("accent", "▸ ") : "  ";
       const selectAllIcon = selectAllActive ? "[✓]" : "[ ]";
       container.addChild(
@@ -105,10 +99,11 @@ async function toggleAutoAccept(
 
       for (let i = 0; i < tools.length; i++) {
         const tool = tools[i];
+        const canonicalTool = canonicalPermissionToolName(tool);
         const isSelected = selectedIndex === toolOffset + i;
         const prefix = isSelected ? theme.fg("accent", "▸ ") : "  ";
-        const icon = allowSet.has(tool) ? "[✓]" : "[ ]";
-        const state = allowSet.has(tool)
+        const icon = allowSet.has(canonicalTool) ? "[✓]" : "[ ]";
+        const state = allowSet.has(canonicalTool)
           ? theme.fg("success", "allow")
           : theme.fg("muted", "preset");
         container.addChild(
@@ -158,14 +153,15 @@ async function toggleAutoAccept(
         const isActivate = data === " " || data === "\n" || data === "\r";
         if (isActivate) {
           if (selectedIndex === selectAllIndex) {
-            if (allowSet.size === tools.length) allowSet.clear();
-            else for (const tool of tools) allowSet.add(tool);
+            if (allowSet.size === selectableTools.length) allowSet.clear();
+            else for (const tool of selectableTools) allowSet.add(tool);
           } else if (selectedIndex === clearAllIndex) {
             allowSet.clear();
           } else if (selectedIndex >= toolOffset && selectedIndex < applyIndex) {
             const tool = tools[selectedIndex - toolOffset];
-            if (allowSet.has(tool)) allowSet.delete(tool);
-            else allowSet.add(tool);
+            const canonicalTool = canonicalPermissionToolName(tool);
+            if (allowSet.has(canonicalTool)) allowSet.delete(canonicalTool);
+            else allowSet.add(canonicalTool);
           } else if (selectedIndex === applyIndex) {
             done(allowSet);
             return true;
@@ -193,7 +189,10 @@ async function toggleAutoAccept(
   }
 
   sessionModeOverrides.clear();
-  for (const tool of result) sessionModeOverrides.set(tool, "allow");
+  sessionBashAllowOverrides.clear();
+  for (const tool of result) {
+    sessionModeOverrides.set(canonicalPermissionToolName(tool), "allow");
+  }
   onApply();
 
   const count = result.size;
@@ -207,10 +206,17 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
   });
 
   let presets: PresetsConfig = {};
-  let loaded: LoadedPresets = { presets: {}, defaultPreset: undefined, defaultMode: "ask" };
+  let loaded: LoadedPresets = {
+    presets: {},
+    defaultPreset: undefined,
+    defaultMode: "ask",
+    globalPermission: undefined,
+  };
 
   let rootDefaultMode: Mode = "ask";
+  let globalPermissionSettings: PermissionSettings | undefined;
   let activePresetName: string | undefined;
+  let activePresetPermissionSettings: PermissionSettings | undefined;
   let activePermissionSettings: PermissionSettings = { ...DEFAULT_PERMISSION_SETTINGS };
   let activeInstructionsResolved: string | undefined;
 
@@ -219,6 +225,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
 
   const approvedToolCalls = new Set<string>();
   const sessionModeOverrides = new Map<string, Mode>();
+  const sessionBashAllowOverrides = new Set<string>();
 
   const ensureOriginalState = (ctx: ExtensionContext) => {
     if (originalStateCaptured) return;
@@ -241,7 +248,12 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
   };
 
   const setPermissionFromPreset = (preset: Preset | undefined) => {
-    activePermissionSettings = normalizePermissionSettings(preset?.permission, rootDefaultMode);
+    activePresetPermissionSettings = preset?.permission;
+    activePermissionSettings = mergePermissionSettings(
+      activePresetPermissionSettings,
+      globalPermissionSettings,
+      rootDefaultMode,
+    );
   };
 
   const updateStatus = (ctx: ExtensionContext) => {
@@ -254,7 +266,11 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       widget.push(ctx.ui.theme.fg("dim", "preset:(none)"));
     }
 
-    const modeLabel = getPermissionModeLabel(activePermissionSettings, sessionModeOverrides);
+    const modeLabel = getPermissionModeLabel(
+      activePermissionSettings,
+      sessionModeOverrides,
+      sessionBashAllowOverrides.size,
+    );
     ctx.ui.setWidget("preset-permission", [...widget, ctx.ui.theme.fg("dim", `perm:${modeLabel}`)]);
   };
 
@@ -270,11 +286,69 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       parts.push("\n## Preset Instructions\n" + activeInstructionsResolved);
     }
     parts.push("\n" + generatePermissionSummary(activePermissionSettings, allTools));
-    if (sessionModeOverrides.size > 0) {
-      parts.push(`\nSession overrides: ${JSON.stringify(Object.fromEntries(sessionModeOverrides))}`);
+    if (sessionModeOverrides.size > 0 || sessionBashAllowOverrides.size > 0) {
+      parts.push(`\nSession overrides: ${JSON.stringify({
+        tools: Object.fromEntries(sessionModeOverrides),
+        bashAllow: [...sessionBashAllowOverrides],
+      })}`);
     }
 
     return parts.join("\n");
+  };
+
+  const buildBashOverridePattern = (command: string): string | undefined => {
+    const trimmed = command.trim();
+    if (!trimmed) return undefined;
+
+    const withoutCdPrefix = trimmed.replace(/^cd\s+[^;&|]+\s*&&\s*/, "");
+    const firstSegment = withoutCdPrefix.split(/(?:\|\||&&|[|;])/)[0]?.trim() ?? "";
+    if (!firstSegment) return undefined;
+
+    const tokens = firstSegment.match(/\S+/g) ?? [];
+    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) {
+      tokens.shift();
+    }
+    if (tokens[0] === "sudo") tokens.shift();
+
+    const commandName = tokens[0];
+    if (!commandName) return undefined;
+    return `${commandName} *`;
+  };
+
+  const confirmAndApplyAlwaysOverride = async (
+    toolName: string,
+    argValue: string,
+    ctx: ExtensionContext,
+  ): Promise<boolean> => {
+    if (toolName === "bash") {
+      const pattern = buildBashOverridePattern(argValue);
+      if (!pattern) return false;
+      const confirmed = await ctx.ui.confirm(
+        "Always allow this bash command pattern for this session?",
+        `bash(${pattern})`,
+      );
+      if (!confirmed) return false;
+      sessionBashAllowOverrides.add(pattern);
+      updateStatus(ctx);
+      if (ctx.hasUI) {
+        ctx.ui.notify(`Session override set: bash(${pattern}) -> allow`, "info");
+      }
+      return true;
+    }
+
+    const canonicalTool = canonicalPermissionToolName(toolName);
+    const confirmed = await ctx.ui.confirm(
+      `Always allow ${canonicalTool} for this session?`,
+      `${canonicalTool} -> allow`,
+    );
+    if (!confirmed) return false;
+
+    sessionModeOverrides.set(canonicalTool, "allow");
+    updateStatus(ctx);
+    if (ctx.hasUI) {
+      ctx.ui.notify(`Session override set: ${canonicalTool} -> allow`, "info");
+    }
+    return true;
   };
 
   const applyPreset = async (
@@ -327,7 +401,10 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       }
     }
 
-    if (options?.clearOverrides !== false) sessionModeOverrides.clear();
+    if (options?.clearOverrides !== false) {
+      sessionModeOverrides.clear();
+      sessionBashAllowOverrides.clear();
+    }
     activePresetName = name;
     setPermissionFromPreset(preset);
     updateStatus(ctx);
@@ -337,6 +414,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
 
   const clearPreset = async (ctx: ExtensionContext): Promise<{ context: string }> => {
     sessionModeOverrides.clear();
+    sessionBashAllowOverrides.clear();
     activePresetName = undefined;
     activeInstructionsResolved = undefined;
     setPermissionFromPreset(undefined);
@@ -522,8 +600,8 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
         return;
       }
 
-      const requested = mapPresetAlias(requestedRaw);
-      const preset = requested ? presets[requested] : undefined;
+      const requested = requestedRaw;
+      const preset = presets[requested];
       if (!preset || !requested) {
         const available = Object.keys(presets).join(", ") || "(none defined)";
         ctx.ui.notify(`Unknown preset "${requestedRaw}". Available: ${available}`, "error");
@@ -538,7 +616,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
   pi.registerCommand("permission-toggle-auto-accept", {
     description: "Toggle permissions to auto-accept (per-tool or all)",
     handler: async (_args, ctx) => {
-      await toggleAutoAccept(ctx, pi, sessionModeOverrides, () => {
+      await toggleAutoAccept(ctx, pi, sessionModeOverrides, sessionBashAllowOverrides, () => {
         updateStatus(ctx);
       });
     },
@@ -552,10 +630,11 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       const mode = await ctx.ui.select("Mode", ["allow", "ask", "deny"]);
       if (!mode) return;
 
-      sessionModeOverrides.set(tool, mode as Mode);
+      const canonicalTool = canonicalPermissionToolName(tool);
+      sessionModeOverrides.set(canonicalTool, mode as Mode);
       updateStatus(ctx);
 
-      ctx.ui.notify(`Permission mode for "${tool}" set to "${mode}" (session only)`, "info");
+      ctx.ui.notify(`Permission mode for "${canonicalTool}" set to "${mode}" (session only)`, "info");
     },
   });
 
@@ -565,9 +644,18 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       const output = JSON.stringify(
         {
           preset: activePresetName ?? "(none)",
+          presetPermission: activePresetPermissionSettings
+            ? normalizePermissionSettings(activePresetPermissionSettings, rootDefaultMode)
+            : undefined,
+          globalPermission: globalPermissionSettings
+            ? normalizePermissionSettings(globalPermissionSettings, rootDefaultMode)
+            : undefined,
           permission: normalizePermissionSettings(activePermissionSettings, rootDefaultMode),
           rootFallbackDefaultMode: rootDefaultMode,
-          sessionOverrides: Object.fromEntries(sessionModeOverrides),
+          sessionOverrides: {
+            tools: Object.fromEntries(sessionModeOverrides),
+            bashAllow: [...sessionBashAllowOverrides],
+          },
         },
         null,
         2,
@@ -579,6 +667,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "switch_preset",
     label: "Switch Preset",
+    executionMode: "sequential",
     description:
       "Switch to another preset. Requires target preset name and reason. Permission can be scoped per target like switch_preset(plan).",
     parameters: Type.Object({
@@ -586,7 +675,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       reason: Type.String({ description: "Why switching preset is needed now" }),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const requested = mapPresetAlias(params.preset?.trim());
+      const requested = params.preset?.trim();
       if (!requested || !presets[requested]) {
         const available = Object.keys(presets).sort().join(", ") || "(none defined)";
         return {
@@ -648,7 +737,16 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       ctx: ExtensionContext,
     ): Promise<ToolCallEventResult | undefined> => {
       const argValue = getMatchValue(event.toolName, event.input as Record<string, unknown>);
-      const mode = resolveMode(activePermissionSettings, event.toolName, argValue ?? "", ctx.cwd, sessionModeOverrides);
+      const mode = resolveEffectiveMode(
+        activePresetPermissionSettings,
+        globalPermissionSettings,
+        event.toolName,
+        argValue ?? "",
+        ctx.cwd,
+        sessionModeOverrides,
+        rootDefaultMode,
+        [...sessionBashAllowOverrides],
+      );
 
       if (mode === "allow") return undefined;
       if (mode === "deny") {
@@ -678,8 +776,13 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
           toolName: event.toolName,
           toolInput: event.input,
         });
-        const choice = await ctx.ui.select(title, ["Accept", "Reject"]);
+        const choice = await ctx.ui.select(title, ["Accept", "Always", "Reject"]);
         if (choice === "Accept") return undefined;
+
+        if (choice === "Always") {
+          const applied = await confirmAndApplyAlwaysOverride(event.toolName, argValue, ctx);
+          if (applied) return undefined;
+        }
 
         if (choice?.startsWith("{")) {
           const parsed = JSON.parse(choice) as { result?: string };
@@ -713,8 +816,16 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
 
       if (event.toolName === "bash") {
         if (!argValue) return { block: true, reason: "No command provided" };
-        const allowed = await ctx.ui.confirm("Agent wants to run shell command. Allow?", argValue);
-        if (allowed) return undefined;
+
+        const choice = await ctx.ui.select(
+          `bash: ${argValue}`,
+          ["Accept", "Always", "Reject"],
+        );
+        if (choice === "Accept") return undefined;
+        if (choice === "Always") {
+          const applied = await confirmAndApplyAlwaysOverride("bash", argValue, ctx);
+          if (applied) return undefined;
+        }
 
         const notes = await ctx.ui.input(
           "Command rejected. Provide instructions for agent",
@@ -729,8 +840,15 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       }
 
       const message = argValue ?? JSON.stringify(event.input, null, 2);
-      const allowed = await ctx.ui.confirm(event.toolName, message);
-      if (allowed) return undefined;
+      const choice = await ctx.ui.select(
+        `${event.toolName}: ${message}`,
+        ["Accept", "Always", "Reject"],
+      );
+      if (choice === "Accept") return undefined;
+      if (choice === "Always") {
+        const applied = await confirmAndApplyAlwaysOverride(event.toolName, message, ctx);
+        if (applied) return undefined;
+      }
 
       const notes = await ctx.ui.input(
         "Tool call rejected. Provide instructions for agent",
@@ -763,18 +881,20 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
 
   pi.on("session_start", async (_event, ctx) => {
     sessionModeOverrides.clear();
+    sessionBashAllowOverrides.clear();
     approvedToolCalls.clear();
 
     loaded = loadPresets(ctx.cwd);
     presets = loaded.presets;
     rootDefaultMode = loaded.defaultMode;
+    globalPermissionSettings = loaded.globalPermission;
 
     ensureOriginalState(ctx);
     setPermissionFromPreset(undefined);
 
     const presetFlag = pi.getFlag("preset");
     const requestedFromFlag =
-      typeof presetFlag === "string" && presetFlag ? mapPresetAlias(presetFlag) : undefined;
+      typeof presetFlag === "string" && presetFlag ? presetFlag : undefined;
 
     if (requestedFromFlag) {
       const preset = presets[requestedFromFlag];
@@ -788,6 +908,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
     }
 
     const entries = ctx.sessionManager.getEntries();
+
     const presetEntry = entries
       .filter(
         (entry: { type: string; customType?: string }) =>
@@ -796,15 +917,27 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
       .pop() as { data?: { name: string } } | undefined;
 
     if (!requestedFromFlag && presetEntry?.data?.name) {
-      const restoredName = mapPresetAlias(presetEntry.data.name);
-      const restored = restoredName ? presets[restoredName] : undefined;
-      if (restored && restoredName) {
+      const restoredName = presetEntry.data.name;
+      const restored = presets[restoredName];
+      if (restored) {
         await applyPreset(restoredName, restored, ctx);
+      } else if (loaded.defaultPreset) {
+        // Saved preset no longer exists; fall back to default
+        const defaultPresetName = loaded.defaultPreset;
+        const defaultPreset = presets[defaultPresetName];
+        if (defaultPreset) {
+          await applyPreset(defaultPresetName, defaultPreset, ctx);
+        } else {
+          ctx.ui.notify(
+            `Default preset "${loaded.defaultPreset}" not found. Using fallback permission mode ${rootDefaultMode}.`,
+            "warning",
+          );
+        }
       }
     } else if (!requestedFromFlag && loaded.defaultPreset) {
-      const defaultPresetName = mapPresetAlias(loaded.defaultPreset);
-      const defaultPreset = defaultPresetName ? presets[defaultPresetName] : undefined;
-      if (defaultPreset && defaultPresetName) {
+      const defaultPresetName = loaded.defaultPreset;
+      const defaultPreset = presets[defaultPresetName];
+      if (defaultPreset) {
         await applyPreset(defaultPresetName, defaultPreset, ctx);
       } else {
         ctx.ui.notify(
@@ -825,6 +958,7 @@ export function registerPresetControlExtension(pi: ExtensionAPI): void {
 
   pi.on("session_shutdown", async () => {
     sessionModeOverrides.clear();
+    sessionBashAllowOverrides.clear();
     approvedToolCalls.clear();
   });
 }

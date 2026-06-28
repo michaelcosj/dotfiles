@@ -7,7 +7,8 @@ end
 --
 vim.pack.add({
 	-- Colorscheme
-	gh("ellisonleao/gruvbox.nvim"),
+	-- gh("ellisonleao/gruvbox.nvim"),
+	gh("folke/tokyonight.nvim"),
 
 	-- Utils
 	gh("nvim-lua/plenary.nvim"),
@@ -43,6 +44,7 @@ vim.pack.add({
 	gh("folke/which-key.nvim"),
 	gh("MeanderingProgrammer/render-markdown.nvim"),
 	gh("rachartier/tiny-cmdline.nvim"),
+	gh("rachartier/tiny-code-action.nvim"),
 
 	-- Folding
 	gh("chrisgrieser/nvim-origami"),
@@ -72,7 +74,8 @@ vim.pack.add({
 --
 -- [[ Configuration ]]
 --
-require("config.plugins.gruvbox")
+-- require("config.plugins.gruvbox")
+require("config.plugins.tokyonight")
 require("config.plugins.nvim-treesitter")
 require("config.plugins.git-signs")
 require("config.plugins.mini")
@@ -80,7 +83,7 @@ require("config.plugins.snacks")
 require("config.plugins.blink-nvim")
 require("config.plugins.lualine")
 -- require("config.plugins.noice")
-require("config.plugins.whick-key")
+require("config.plugins.which-key")
 require("config.plugins.render-markdown")
 require("config.plugins.nvim-origami")
 require("config.plugins.img-clip-nvim")
@@ -138,21 +141,14 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 
--- Code actions on lsp attach
-vim.api.nvim_create_autocmd("LspAttach", {
-	callback = function()
-		vim.pack.add({ gh("rachartier/tiny-code-action.nvim") })
-
-		require("tiny-code-action").setup({
-			backend = "vim",
-			picker = "snacks",
-		})
-
-		vim.keymap.set({ "n", "x" }, "g.", function()
-			require("tiny-code-action").code_action({})
-		end, { desc = "Code Actions", noremap = true, silent = true })
-	end,
+require("config.helpers").safeSetup("tiny-code-action", {
+	backend = "vim",
+	picker = "snacks",
 })
+
+vim.keymap.set({ "n", "x" }, "g.", function()
+	require("tiny-code-action").code_action({})
+end, { desc = "Code Actions", noremap = true, silent = true })
 
 -- [[ Undo tree ]]
 vim.cmd.packadd("nvim.undotree")

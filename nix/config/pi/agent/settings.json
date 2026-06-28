@@ -1,8 +1,13 @@
 {
-  "lastChangelogVersion": "0.68.1",
-  "defaultProvider": "github-copilot",
-  "defaultModel": "gpt-5.4",
+  "lastChangelogVersion": "0.70.5",
+  "defaultProvider": "opencode-go",
+  "defaultModel": "deepseek-v4-pro",
   "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
-  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep -E '^[[:space:]]+alias[[:space:]]+' ~/.config/fish/config.fish | sed -E \"s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+'([^']*)'[[:space:]]*$/alias \\\\1='\\\\2'/;s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+([^ ]+)[[:space:]]*$/alias \\\\1='\\\\2'/\")\""
+  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep -E '^[[:space:]]+alias[[:space:]]+' ~/.config/fish/config.fish | sed -E \"s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+'([^']*)'[[:space:]]*$/alias \\\\1='\\\\2'/;s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+([^ ]+)[[:space:]]*$/alias \\\\1='\\\\2'/\")\"",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 65536,
+    "keepRecentTokens": 20000
+  }
 }
