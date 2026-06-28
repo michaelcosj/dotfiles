@@ -72,6 +72,10 @@
       "src": "https://www.github.com/echasnovski/mini.surround",
       "version": ">=0.0.0"
     },
+    "neogit": {
+      "rev": "43ea1a0854052e583f647e0b35879f0158a70a78",
+      "src": "https://www.github.com/NeogitOrg/neogit"
+    },
     "noice.nvim": {
       "rev": "7bfd942445fb63089b59f97ca487d605e715f155",
       "src": "https://www.github.com/folke/noice.nvim"

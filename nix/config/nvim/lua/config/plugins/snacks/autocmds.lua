@@ -1,7 +1,11 @@
 vim.api.nvim_create_autocmd("User", {
 	pattern = "VeryLazy",
 	callback = function()
-		local Snacks = require("snacks")
+		local ok, Snacks = pcall(require, "snacks")
+		if not ok then
+			vim.notify(("Failed to require snacks: %s"):format(Snacks), vim.log.levels.WARN)
+			return
+		end
 
 		vim.api.nvim_create_autocmd("BufWinLeave", {
 			group = vim.api.nvim_create_augroup("nvim_snacks_explorer_redraw", { clear = true }),

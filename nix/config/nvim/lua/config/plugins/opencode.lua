@@ -1,4 +1,4 @@
-require("opencode").setup({
+local opencode = require("config.helpers").safeSetup("opencode", {
 	default_global_keymaps = true,
 	default_mode = "plan",
 	keymap_prefix = "<leader>a",
@@ -109,10 +109,13 @@ require("opencode").setup({
 		default_model = "fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo",
 		default_agent = "worker",
 	},
+	server = {
+		port = "auto",
+	},
 })
 
-vim.keymap.set("n", "<leader>aCc", function()
-	require("opencode.api").run_user_command("commit")
-end, { desc = "Generate commit" })
+if not opencode then
+	return
+end
 
 require("config.extensions.opencode_three_state_layout")

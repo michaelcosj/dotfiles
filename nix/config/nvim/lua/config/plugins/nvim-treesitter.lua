@@ -1,4 +1,22 @@
-require("nvim-treesitter").install({
+local treesitter = require("config.helpers").safeSetup("nvim-treesitter", {})
+
+if not treesitter then
+	return
+end
+
+vim.api.nvim_create_autocmd("PackChanged", {
+	callback = function(ev)
+		local name, kind = ev.data.spec.name, ev.data.kind
+		if name == "nvim-treesitter" and kind == "update" then
+			if not ev.data.active then
+				vim.cmd.packadd("nvim-treesitter")
+			end
+			vim.cmd("TSUpdate")
+		end
+	end,
+})
+
+treesitter.install({
 	"bash",
 	"c",
 	"cpp",
@@ -31,28 +49,24 @@ vim.api.nvim_create_autocmd("FileType", {
 		end
 
 		if not vim.treesitter.language.add(lang) then
-			-- this stupid tracking is here only because
-			-- they have added warnings on absent parsers
-			local available = vim.g.ts_available or require("nvim-treesitter").get_available()
+			local available = vim.g.ts_available or treesitter.get_available()
 			if not vim.g.ts_available then
 				vim.g.ts_available = available
 			end
 			if vim.tbl_contains(available, lang) then
-				require("nvim-treesitter").install(lang)
+				treesitter.install(lang)
 			end
 		end
 
 		if vim.treesitter.language.add(lang) then
 			vim.treesitter.start(args.buf, lang)
-			-- this is an experimental feature
-			-- vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
 			vim.wo[0][0].foldexpr = "v:lua.vim.treesitter.foldexpr()"
 			vim.wo[0][0].foldmethod = "expr"
 		end
 	end,
 })
 
-require("config.helpers").safeSetup("treesitter-context", {
+local context = require("config.helpers").safeSetup("treesitter-context", {
 	enable = false,
 	multiwindow = false,
 	max_lines = 0,
@@ -66,6 +80,8 @@ require("config.helpers").safeSetup("treesitter-context", {
 	on_attach = nil,
 })
 
-vim.keymap.set("n", "[t", function()
-	require("treesitter-context").go_to_context(vim.v.count1)
-end, { silent = true })
+if context then
+	vim.keymap.set("n", "[t", function()
+		context.go_to_context(vim.v.count1)
+	end, { silent = true })
+end

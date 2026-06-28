@@ -110,10 +110,6 @@ vim.keymap.set({ "n", "v" }, "<leader>gB", function()
 	Snacks.gitbrowse()
 end, { desc = "Git Browse" })
 
-vim.keymap.set("n", "<leader>gg", function()
-	Snacks.lazygit()
-end, { desc = "Lazygit" })
-
 vim.keymap.set("n", "gd", function()
 	Snacks.picker.lsp_definitions()
 end, { desc = "Goto Definition" })

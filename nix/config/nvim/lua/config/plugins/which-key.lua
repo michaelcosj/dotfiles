@@ -1,6 +1,9 @@
-require("config.helpers").safeSetup("which-key", {})
+local wk = require("config.helpers").safeSetup("which-key", {})
 
-local wk = require("which-key")
+if not wk then
+	return
+end
+
 wk.add({
 	{ "<leader>f", group = "Find" },
 	{ "<leader>a", group = "AI" },
@@ -11,5 +14,5 @@ wk.add({
 })
 
 vim.keymap.set("n", "<leader>?", function()
-	require("which-key").show({ global = false })
+	wk.show({ global = false })
 end, { desc = "Buffer Local Keymaps (which-key)" })

@@ -1,4 +1,4 @@
-require("config.helpers").safeSetup("conform", {
+local conform = require("config.helpers").safeSetup("conform", {
 	formatters_by_ft = {
 		lua = { "stylua" },
 		javascript = { "biome-check" },
@@ -11,6 +11,10 @@ require("config.helpers").safeSetup("conform", {
 	},
 })
 
+if not conform then
+	return
+end
+
 vim.keymap.set({ "n", "v" }, "<leader>ff", function()
-	require("conform").format({ async = true, lsp_format = "fallback" })
+	conform.format({ async = true, lsp_format = "fallback" })
 end, { desc = "Format Code" })

@@ -1,3 +1,6 @@
+local mini_icons = require("config.helpers").safeSetup("mini.icons", {})
+local colorful_menu = require("config.helpers").safeSetup("colorful-menu", {})
+
 require("config.helpers").safeSetup("blink.cmp", {
 	appearance = {
 		use_nvim_cmp_as_default = false,
@@ -39,20 +42,36 @@ require("config.helpers").safeSetup("blink.cmp", {
 					kind_icon = {
 						ellipsis = false,
 						text = function(ctx)
-							local kind_icon, _, _ = require("mini.icons").get("lsp", ctx.kind)
+							if not mini_icons then
+								return ""
+							end
+
+							local kind_icon, _, _ = mini_icons.get("lsp", ctx.kind)
 							return kind_icon
 						end,
 						highlight = function(ctx)
-							local _, hl, _ = require("mini.icons").get("lsp", ctx.kind)
+							if not mini_icons then
+								return nil
+							end
+
+							local _, hl, _ = mini_icons.get("lsp", ctx.kind)
 							return hl
 						end,
 					},
 					label = {
 						text = function(ctx)
-							return require("colorful-menu").blink_components_text(ctx)
+							if not colorful_menu then
+								return ctx.label
+							end
+
+							return colorful_menu.blink_components_text(ctx)
 						end,
 						highlight = function(ctx)
-							return require("colorful-menu").blink_components_highlight(ctx)
+							if not colorful_menu then
+								return nil
+							end
+
+							return colorful_menu.blink_components_highlight(ctx)
 						end,
 					},
 				},

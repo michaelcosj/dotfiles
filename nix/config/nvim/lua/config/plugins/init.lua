@@ -1,13 +1,10 @@
-local function gh(str)
-	return "https://www.github.com/" .. str
-end
+local gh = require("config.helpers").gh
 
 --
 -- [[ Add plugins ]]
 --
 vim.pack.add({
 	-- Colorscheme
-	-- gh("ellisonleao/gruvbox.nvim"),
 	gh("folke/tokyonight.nvim"),
 
 	-- Utils
@@ -21,7 +18,9 @@ vim.pack.add({
 	gh("nvim-treesitter/nvim-treesitter-context"),
 
 	-- Git
+	gh("esmuellert/codediff.nvim"), -- diff viewer
 	gh("lewis6991/gitsigns.nvim"),
+	gh("NeogitOrg/neogit"),
 
 	-- Editing
 	gh("echasnovski/mini.icons"),
@@ -40,7 +39,6 @@ vim.pack.add({
 
 	-- UI
 	gh("nvim-lualine/lualine.nvim"),
-	gh("nvim-tree/nvim-web-devicons"),
 	gh("folke/which-key.nvim"),
 	gh("MeanderingProgrammer/render-markdown.nvim"),
 	gh("rachartier/tiny-cmdline.nvim"),
@@ -64,27 +62,26 @@ vim.pack.add({
 
 	-- Images
 	gh("HakonHarnes/img-clip.nvim"),
-	gh("3rd/image.nvim"),
 
 	-- AI
 	gh("sudo-tee/opencode.nvim"),
-	gh("guill/mcp-tools.nvim"),
 })
 
 --
 -- [[ Configuration ]]
 --
--- require("config.plugins.gruvbox")
 require("config.plugins.tokyonight")
 require("config.plugins.nvim-treesitter")
 require("config.plugins.git-signs")
 require("config.plugins.mini")
 require("config.plugins.snacks")
+require("config.plugins.lazydev")
 require("config.plugins.blink-nvim")
 require("config.plugins.lualine")
--- require("config.plugins.noice")
 require("config.plugins.which-key")
 require("config.plugins.render-markdown")
+require("config.plugins.tiny-cmdline")
+require("config.plugins.tiny-code-action")
 require("config.plugins.nvim-origami")
 require("config.plugins.img-clip-nvim")
 require("config.plugins.todo-comments")
@@ -92,63 +89,6 @@ require("config.plugins.conform")
 require("config.plugins.overseer")
 require("config.plugins.resession")
 require("config.plugins.quicker")
-require("config.plugins.image-nvim")
 require("config.plugins.opencode")
-
-vim.g.tiny_cmdline = {
-	position = { y = "30%" },
-}
-
-require("config.helpers").safeSetup("lazydev", {
-	library = {
-		{ path = "${3rd}/luv/library", words = { "vim%.uv" } },
-	},
-})
-
---
--- [[ Hooks ]]
---
-vim.api.nvim_create_autocmd("PackChanged", {
-	callback = function(ev)
-		local name, kind = ev.data.spec.name, ev.data.kind
-		if name == "nvim-treesitter" and kind == "update" then
-			if not ev.data.active then
-				vim.cmd.packadd("nvim-treesitter")
-			end
-			vim.cmd("TSUpdate")
-		end
-	end,
-})
-
---
--- [[ Lazy loading ]]
---
--- Only load ale in php files (only used for diagnostics in php files)
-vim.api.nvim_create_autocmd("FileType", {
-	pattern = "php",
-	callback = function()
-		vim.pack.add({ gh("dense-analysis/ale") })
-
-		local g = vim.g
-
-		g.ale_linters = {
-			php = { "phpstan" },
-		}
-
-		g.ale_linters_explicit = 1
-		g.ale_echo_cursor = 0
-		g.ale_use_neovim_diagnostics_api = 1
-	end,
-})
-
-require("config.helpers").safeSetup("tiny-code-action", {
-	backend = "vim",
-	picker = "snacks",
-})
-
-vim.keymap.set({ "n", "x" }, "g.", function()
-	require("tiny-code-action").code_action({})
-end, { desc = "Code Actions", noremap = true, silent = true })
-
--- [[ Undo tree ]]
-vim.cmd.packadd("nvim.undotree")
+require("config.plugins.ale")
+require("config.plugins.undotree")
