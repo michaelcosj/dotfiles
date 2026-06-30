@@ -13,6 +13,15 @@
       "src": "https://www.github.com/saghen/blink.cmp",
       "version": "1.0.0 - 2.0.0"
     },
+    "cc-adapter-codex.nvim": {
+      "rev": "ce565d3da357e99ecabc9db0558c8bea42158c32",
+      "src": "https://www.github.com/viespejo/cc-adapter-codex.nvim"
+    },
+    "codecompanion.nvim": {
+      "rev": "2e8865f81a0c8b5900fced953a81fe86c53416b1",
+      "src": "https://www.github.com/olimorris/codecompanion.nvim",
+      "version": "19.0.0 - 20.0.0"
+    },
     "codediff.nvim": {
       "rev": "7608f3b436ce1f84a4888f75e53079caa981a2e9",
       "src": "https://www.github.com/esmuellert/codediff.nvim"

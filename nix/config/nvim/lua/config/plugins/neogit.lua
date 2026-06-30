@@ -8,5 +8,5 @@ if not neogit then
 end
 
 vim.keymap.set("n", "<leader>gg", function()
-	neogit.open()
+	neogit.open({ kind = "floating" })
 end, { desc = "Open Neogit UI" })

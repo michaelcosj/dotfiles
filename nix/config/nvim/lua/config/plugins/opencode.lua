@@ -105,10 +105,7 @@ local opencode = require("config.helpers").safeSetup("opencode", {
 		enabled = false,
 	},
 	prompt_guard = nil,
-	quick_chat = {
-		default_model = "fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo",
-		default_agent = "worker",
-	},
+	quick_chat = {},
 	server = {
 		port = "auto",
 	},

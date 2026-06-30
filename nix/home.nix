@@ -101,7 +101,7 @@
           package = null;
           settings = {
             # theme = "Gruvbox Dark";
-            theme = "TokyoNight Night";
+            theme = "Kanagawa Wave";
             font-family = "JetBrains Mono";
             maximize = true;
             macos-option-as-alt = true;
