@@ -43,6 +43,9 @@ local kanagawa = require("config.helpers").safeSetup("kanagawa", {
 			-- Neogit
 			NeogitDiffAddHighlight = { bg = theme.diff.add, fg = theme.ui.fg_dim },
 			NeogitDiffDeleteHighlight = { bg = theme.diff.delete, fg = theme.ui.fg_dim },
+
+      -- Tiny cmdline
+			TinyCmdlineNormal = { fg = theme.ui.shade0, bg = theme.ui.bg },
 		}
 	end,
 })
