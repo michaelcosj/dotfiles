@@ -5,7 +5,8 @@ local gh = require("config.helpers").gh
 --
 vim.pack.add({
 	-- Colorscheme
-	gh("folke/tokyonight.nvim"),
+	-- gh("folke/tokyonight.nvim"),
+	gh("rebelot/kanagawa.nvim"),
 
 	-- Utils
 	gh("nvim-lua/plenary.nvim"),
@@ -71,7 +72,8 @@ vim.pack.add({
 --
 -- [[ Configuration ]]
 --
-require("config.plugins.tokyonight")
+-- require("config.plugins.tokyonight")
+require("config.plugins.kanagawa")
 require("config.plugins.nvim-treesitter")
 require("config.plugins.git-signs")
 require("config.plugins.mini")
