@@ -1,10 +1,25 @@
 .api_key.*
 .env
 .opencode/
+/config/
 
+# Generated dependency trees and root-level lockfiles
+node_modules/
+/nix/package-lock.json
+
+# Herdr runtime state and downloaded plugins
+/nix/config/herdr/.plugins.lock
+/nix/config/herdr/*.log
+/nix/config/herdr/release-notes.json
+/nix/config/herdr/session.json
+/nix/config/herdr/plugins/github/
+
+# Pi credentials, runtime state, and package cache
+/nix/config/pi/.agent/
 /nix/config/pi/agent/auth.json
+/nix/config/pi/agent/models-store.json
+/nix/config/pi/agent/npm/
+/nix/config/pi/agent/plans/
 /nix/config/pi/agent/sessions/
-/nix/config/pi/agent/sessions/--Users-synth-.dotfiles-nix--
-/nix/config/pi/agent/plans
-/nix/config/pi/agent/extensions/pizza/node_modules/
-/nix/config/pi/.agent
+/nix/config/pi/agent/state/
+/nix/config/pi/agent/trust.json
