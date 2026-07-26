@@ -1,6 +1,10 @@
 ~/Projects/
-~/Projects/Synthally/
-~/Projects/Synthally/ally-api/
-~/Projects/Synthally/heysynth-api/
-~/Projects/Valutech/
-~/.dotfiles
+~/Projects/oss/
+~/Projects/work/
+~/Projects/personal/
+~/Projects/work/Synthally/
+~/Projects/work/Synthally/ally-api/
+
+~/.dotfiles/
+~/.dotfiles/nix/
+~/.dotfiles/nix/config/

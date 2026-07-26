@@ -28,6 +28,7 @@
       "devtoys"
       "discord"
       # "ghostty"
+      "claude-code"
       "karabiner-elements"
       "linearmouse"
       "localsend"
@@ -42,9 +43,11 @@
       # "slack"
       "wezterm"
       # "codexbar"
+      "blackhole-2ch"
     ];
 
     brews = [
+      "cliproxyapi"
       "blueutil"
       "colima"
       "composer"
@@ -55,8 +58,10 @@
       "mpv"
       "rtk"
       "php"
+      "herdr"
       "turso"
       "unar"
+      "pam-reattach"
       {
         name = "colima";
         start_service = true;
@@ -97,7 +102,7 @@
         persistent-apps = [
           "/Applications/Ghostty.app"
           "/Applications/Helium.app"
-          "/Applications/Slack.app"
+          "/Users/synth/Applications/Chromium Apps.localized/Slack Activity.app"
           "/System/Applications/Mail.app"
         ];
       };

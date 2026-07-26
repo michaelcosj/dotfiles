@@ -24,6 +24,7 @@
         fortune
         fnm
         gh
+        gws
         htop
         imagemagick
         intelephense
@@ -65,6 +66,10 @@
       home.file.".config/wezterm".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/wezterm";
 
+      # Ghostty config
+      home.file.".config/ghostty".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/ghostty";
+
       # Opencode config
       home.file.".config/opencode".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/opencode";
@@ -72,6 +77,10 @@
       # btca config (https://docs.btca.dev/guides/configuration)
       home.file.".config/btca".source =
         config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/btca";
+
+      # Herdr config (https://herdr.dev/docs/configuration/)
+      home.file.".config/herdr".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/herdr";
 
       # pi config (https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)
       home.file.".pi".source =
@@ -92,21 +101,6 @@
             "reverse"
             "--border"
           ];
-        };
-
-        ghostty = {
-          enable = true;
-          # enableZshIntegration = true;
-          enableFishIntegration = true;
-          package = null;
-          settings = {
-            # theme = "Gruvbox Dark";
-            theme = "Kanagawa Wave";
-            font-family = "JetBrains Mono";
-            maximize = true;
-            macos-option-as-alt = true;
-            custom-shader = "/Users/synth/.dotfiles/nix/config/ghostty/shaders/cursor_tail.glsl";
-          };
         };
 
         git = {
@@ -145,17 +139,55 @@
 
         fish = {
           enable = true;
-          plugins = [
-            {
-              name = "pure-fish";
-              src = pkgs.fetchFromGitHub {
-                owner = "pure-fish";
-                repo = "pure";
-                rev = "b8ae744d8489b66a387ce13ae17005d510333546";
-                sha256 = "2UEIvlm8D11cMkz1GvaSBpaauZALwYZR1Q4Xd7/I4FQ=";
-              };
-            }
-          ];
+          functions = {
+            fish_prompt = ''
+              set -l last_status $status
+
+              # Reset first so prompt colors never inherit bold styling.
+              set_color normal
+              set_color brblack
+              printf '╭─'
+              set_color blue
+              printf '  '
+              set_color cyan
+              printf '%s' (string replace "$HOME" '~' "$PWD")
+
+              set -l git_branch (command git branch --show-current 2>/dev/null)
+              if test -z "$git_branch"
+                set git_branch (command git rev-parse --short HEAD 2>/dev/null)
+              end
+              if test -n "$git_branch"
+                set -l dirty
+                set -l git_status (command git status --porcelain 2>/dev/null)
+                if test -n "$git_status"
+                  set dirty '*'
+                end
+                set_color normal
+                set_color brblack
+                printf ' %s%s' "$git_branch" "$dirty"
+              end
+              printf '\n'
+
+              set_color normal
+              set_color brblack
+              printf '╰─'
+              if test $last_status -eq 0
+                set_color green
+              else
+                set_color red
+              end
+              printf '$ '
+              set_color normal
+            '';
+            fish_right_prompt = ''
+              set_color normal
+              set_color yellow
+              date '+%H:%M:%S'
+              set_color normal
+            '';
+            # Keep vi mode without adding a separate mode indicator to the prompt.
+            fish_mode_prompt = "";
+          };
           shellAliases = {
             nv = "nvim";
             rm = "rm -i";
@@ -168,6 +200,9 @@
             sg = "ast-grep";
           };
           interactiveShellInit = ''
+            # Disable the default welcome message.
+            set -g fish_greeting
+
             # vi keybindings
             set -g fish_key_bindings fish_vi_key_bindings
 
@@ -204,30 +239,13 @@
             set -g fish_pager_color_selected_completion yellow
             set -g fish_pager_color_selected_description yellow
 
-            # fnm node version manager
-            set -gx PATH \
-              "$HOME/.local/state/fnm_multishells/26685_1737249628581/bin" \
-              "$HOME/.dotfiles/nix/scripts" \
-              $PATH
+            fish_add_path "$HOME/.dotfiles/nix/scripts"
 
-            set -gx FNM_MULTISHELL_PATH "$HOME/.local/state/fnm_multishells/26685_1737249628581"
-            set -gx FNM_VERSION_FILE_STRATEGY local
-            set -gx FNM_DIR "$HOME/.local/share/fnm"
-            set -gx FNM_NODE_DIST_MIRROR https://nodejs.org/dist
-            set -gx FNM_LOGLEVEL info
-            set -gx FNM_COREPACK_ENABLED false
-            set -gx FNM_RESOLVE_ENGINES true
-            set -gx FNM_ARCH x64
-
-            # laravel valet
-            set -gx PATH "$HOME/.config/composer/vendor/bin" $PATH
-
-            # add bun to path
+            # Node tooling
+            fnm env --use-on-cd --shell fish | source
+            fish_add_path "$HOME/.config/composer/vendor/bin"
             set -gx BUN_INSTALL "$HOME/.bun"
-            set -gx PATH "$BUN_INSTALL/bin" $PATH
-
-            # pure-fish configuration
-            set -g pure_reverse_prompt_symbol_in_vimode true
+            fish_add_path "$BUN_INSTALL/bin"
 
             # load .env file if it exists
             function load_env
@@ -256,9 +274,10 @@
               end
             end
 
-            source "$HOME/.cargo/env.fish"  # For fish
+            if test -f "$HOME/.cargo/env.fish"
+              source "$HOME/.cargo/env.fish"
+            end
 
-            # Load .env file on shell startup
             load_env
           '';
         };
@@ -311,6 +330,9 @@
             bind Space last-window
             bind-key C-Space switch-client -l
 
+            bind-key S display-popup -E -w 80% -h 80% "tsm"
+            bind-key W display-popup -E -w 80% -h 80% "tsm --worktree"
+
             bind C-p previous-window
             bind C-n next-window
 
@@ -323,10 +345,20 @@
             set -g status-right-style 'fg=colour7 bold'
             set -g status-left " #W "
 
+            set -g pane-border-style fg=brightblack,bg=black
+            set -g pane-active-border-style fg=blue,bg=black
+
             setw -g window-status-current-style 'fg=colour60'
             setw -g window-status-style 'fg=colour60'
             setw -g window-status-format "  "
             setw -g window-status-current-format "  "
+
+            set-window-option -g window-active-style bg=terminal,fg=terminal
+            # Kanagawa Wave sumiInk3 + fujiGray: subtly dim inactive windows.
+            set-window-option -g window-style bg=#16161d,fg=#727169
+
+            set -g extended-keys on
+            set -g extended-keys-format csi-u
           '';
         };
 

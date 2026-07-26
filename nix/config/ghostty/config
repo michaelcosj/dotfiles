@@ -1,0 +1,38 @@
+# theme = Gruvbox Dark
+theme = dark:Catppuccin Macchiato,light:Catppuccin Latte
+font-family = JetBrains Mono
+font-size = 15
+font-thicken = true
+font-thicken-strength = 100
+adjust-cell-height = 5%
+minimum-contrast = 1.1
+background-opacity = 0.9
+background-blur = 99
+unfocused-split-opacity = 0.5
+window-colorspace = srgb
+maximize = true
+macos-option-as-alt = true
+custom-shader = /Users/synth/.dotfiles/nix/config/ghostty/shaders/cursor_tail.glsl
+
+# Mirror the tmux C-a prefix bindings.
+# keybind = ctrl+a>ctrl+a=text:\x01
+# keybind = ctrl+a>r=reload_config
+# keybind = ctrl+a>c=new_tab
+# keybind = ctrl+a>shift+backslash=new_split:right
+# keybind = ctrl+a>backslash=new_split:left
+# keybind = ctrl+a>minus=new_split:down
+# keybind = ctrl+a>shift+minus=new_split:up
+# keybind = ctrl+a>h=goto_split:left
+# keybind = ctrl+a>j=goto_split:down
+# keybind = ctrl+a>k=goto_split:up
+# keybind = ctrl+a>l=goto_split:right
+# keybind = ctrl+a>shift+h=resize_split:left,5
+# keybind = ctrl+a>shift+j=resize_split:down,5
+# keybind = ctrl+a>shift+k=resize_split:up,5
+# keybind = ctrl+a>shift+l=resize_split:right,5
+# keybind = ctrl+a>shift+comma=move_tab:-1
+# keybind = ctrl+a>shift+period=move_tab:1
+# keybind = ctrl+a>space=last_tab
+# keybind = ctrl+a>ctrl+space=last_tab
+# keybind = ctrl+a>ctrl+p=previous_tab
+# keybind = ctrl+a>ctrl+n=next_tab
