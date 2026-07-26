@@ -1,5 +1,10 @@
-local gitsigns
-gitsigns = require("config.helpers").safeSetup("gitsigns", {
+local ok, gitsigns = pcall(require, "gitsigns")
+
+if not ok then
+	return
+end
+
+gitsigns.setup({
 	on_attach = function(bufnr)
 		local function map(mode, l, r, opts)
 			opts = opts or {}

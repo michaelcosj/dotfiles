@@ -1,4 +1,10 @@
-local resession = require("config.helpers").safeSetup("resession", {
+local ok, resession = pcall(require, "resession")
+
+if not ok then
+	return
+end
+
+resession.setup({
 	options = {
 		"binary",
 		"bufhidden",
@@ -19,10 +25,6 @@ local resession = require("config.helpers").safeSetup("resession", {
 		quickfix = {},
 	},
 })
-
-if not resession then
-	return
-end
 
 vim.api.nvim_create_autocmd("VimEnter", {
 	callback = function()

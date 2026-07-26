@@ -1,8 +1,10 @@
-local treesitter = require("config.helpers").safeSetup("nvim-treesitter", {})
+local treesitter_ok, treesitter = pcall(require, "nvim-treesitter")
 
-if not treesitter then
+if not treesitter_ok then
 	return
 end
+
+treesitter.setup({})
 
 vim.api.nvim_create_autocmd("PackChanged", {
 	callback = function(ev)
@@ -66,7 +68,13 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 
-local context = require("config.helpers").safeSetup("treesitter-context", {
+local context_ok, context = pcall(require, "treesitter-context")
+
+if not context_ok then
+	return
+end
+
+context.setup({
 	enable = false,
 	multiwindow = false,
 	max_lines = 0,
@@ -80,8 +88,6 @@ local context = require("config.helpers").safeSetup("treesitter-context", {
 	on_attach = nil,
 })
 
-if context then
-	vim.keymap.set("n", "[t", function()
-		context.go_to_context(vim.v.count1)
-	end, { silent = true })
-end
+vim.keymap.set("n", "[t", function()
+	context.go_to_context(vim.v.count1)
+end, { silent = true })

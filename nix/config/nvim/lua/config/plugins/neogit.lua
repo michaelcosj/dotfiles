@@ -1,11 +1,13 @@
-local neogit = require("config.helpers").safeSetup("neogit", {
+local ok, neogit = pcall(require, "neogit")
+
+if not ok then
+	return
+end
+
+neogit.setup({
 	disable_hint = true,
 	graph_style = "kitty",
 })
-
-if not neogit then
-	return
-end
 
 vim.keymap.set("n", "<leader>gg", function()
 	neogit.open({ kind = "floating" })

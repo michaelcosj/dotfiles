@@ -1,13 +1,15 @@
-local overseer = require("config.helpers").safeSetup("overseer", {
+local ok, overseer = pcall(require, "overseer")
+
+if not ok then
+	return
+end
+
+overseer.setup({
 	output = {
 		use_terminal = true,
 		preserve_output = false,
 	},
 })
-
-if not overseer then
-	return
-end
 
 vim.cmd.cnoreabbrev("OS OverseerShell")
 

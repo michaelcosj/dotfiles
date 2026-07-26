@@ -1,11 +1,13 @@
-local tiny_code_action = require("config.helpers").safeSetup("tiny-code-action", {
+local ok, tiny_code_action = pcall(require, "tiny-code-action")
+
+if not ok then
+	return
+end
+
+tiny_code_action.setup({
 	backend = "vim",
 	picker = "snacks",
 })
-
-if not tiny_code_action then
-	return
-end
 
 vim.keymap.set({ "n", "x" }, "g.", function()
 	tiny_code_action.code_action({})

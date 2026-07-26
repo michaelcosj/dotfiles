@@ -6,7 +6,9 @@ local gh = require("config.helpers").gh
 vim.pack.add({
 	-- Colorscheme
 	-- gh("folke/tokyonight.nvim"),
-	gh("rebelot/kanagawa.nvim"),
+	-- gh("rebelot/kanagawa.nvim"),
+	{ src = gh("catppuccin/nvim"), name = "catppuccin" },
+	-- gh("nyoom-engineering/oxocarbon.nvim"),
 
 	-- Utils
 	gh("nvim-lua/plenary.nvim"),
@@ -67,13 +69,16 @@ vim.pack.add({
 
 	-- AI
 	gh("sudo-tee/opencode.nvim"),
+	gh("milanglacier/minuet-ai.nvim"),
 })
 
 --
 -- [[ Configuration ]]
 --
 -- require("config.plugins.tokyonight")
-require("config.plugins.kanagawa")
+-- require("config.plugins.kanagawa")
+require("config.plugins.catppuccin")
+-- require("config.plugins.oxocarbon")
 require("config.plugins.nvim-treesitter")
 require("config.plugins.git-signs")
 require("config.plugins.mini")
@@ -96,3 +101,4 @@ require("config.plugins.opencode")
 require("config.plugins.ale")
 require("config.plugins.undotree")
 require("config.plugins.neogit")
+require("config.plugins.minuet-ai")

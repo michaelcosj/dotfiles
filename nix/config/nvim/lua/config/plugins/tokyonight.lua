@@ -1,4 +1,10 @@
-local tokyonight = require("config.helpers").safeSetup("tokyonight", {
+local ok, tokyonight = pcall(require, "tokyonight")
+
+if not ok then
+	return
+end
+
+tokyonight.setup({
 	style = "night",
 	transparent = true,
 	on_highlights = function(hl)
@@ -9,6 +15,4 @@ local tokyonight = require("config.helpers").safeSetup("tokyonight", {
 	end,
 })
 
-if tokyonight then
-	vim.cmd([[colorscheme tokyonight]])
-end
+vim.cmd([[colorscheme tokyonight]])

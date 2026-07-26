@@ -1,7 +1,26 @@
-local mini_icons = require("config.helpers").safeSetup("mini.icons", {})
-local colorful_menu = require("config.helpers").safeSetup("colorful-menu", {})
+local mini_icons_ok, mini_icons = pcall(require, "mini.icons")
 
-require("config.helpers").safeSetup("blink.cmp", {
+if not mini_icons_ok then
+	return
+end
+
+mini_icons.setup({})
+local colorful_menu_ok, colorful_menu = pcall(require, "colorful-menu")
+
+if not colorful_menu_ok then
+	return
+end
+
+colorful_menu.setup({})
+-- add the following lines to your blink.cmp config
+
+local blink_cmp_ok, blink_cmp = pcall(require, "blink.cmp")
+
+if not blink_cmp_ok then
+	return
+end
+
+blink_cmp.setup({
 	appearance = {
 		use_nvim_cmp_as_default = false,
 		nerd_font_variant = "mono",

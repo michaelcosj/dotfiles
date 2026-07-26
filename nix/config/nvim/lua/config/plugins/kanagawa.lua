@@ -1,4 +1,15 @@
-local kanagawa = require("config.helpers").safeSetup("kanagawa", {
+local ok, kanagawa = pcall(require, "kanagawa")
+
+if not ok then
+	return
+end
+
+kanagawa.setup({
+  transparent = true,
+	background = { -- map the value of 'background' option to a theme
+		dark = "wave", -- try "dragon" !
+		light = "lotus",
+	},
 	-- Remove gutter background
 	colors = {
 		theme = {
@@ -44,12 +55,10 @@ local kanagawa = require("config.helpers").safeSetup("kanagawa", {
 			NeogitDiffAddHighlight = { bg = theme.diff.add, fg = theme.ui.fg_dim },
 			NeogitDiffDeleteHighlight = { bg = theme.diff.delete, fg = theme.ui.fg_dim },
 
-      -- Tiny cmdline
+			-- Tiny cmdline
 			TinyCmdlineNormal = { fg = theme.ui.shade0, bg = theme.ui.bg },
 		}
 	end,
 })
 
-if kanagawa then
-	vim.cmd("colorscheme kanagawa")
-end
+vim.cmd("colorscheme kanagawa")

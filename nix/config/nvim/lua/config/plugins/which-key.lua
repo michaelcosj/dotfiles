@@ -1,8 +1,10 @@
-local wk = require("config.helpers").safeSetup("which-key", {})
+local ok, wk = pcall(require, "which-key")
 
-if not wk then
+if not ok then
 	return
 end
+
+wk.setup({})
 
 wk.add({
 	{ "<leader>f", group = "Find" },

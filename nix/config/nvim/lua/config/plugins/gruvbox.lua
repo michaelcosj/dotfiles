@@ -1,4 +1,10 @@
-require("config.helpers").safeSetup("gruvbox", {
+local ok, gruvbox = pcall(require, "gruvbox")
+
+if not ok then
+	return
+end
+
+gruvbox.setup({
 	contrast = "",
 	transparent_mode = true,
 	overrides = {

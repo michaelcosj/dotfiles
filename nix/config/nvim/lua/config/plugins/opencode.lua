@@ -1,4 +1,10 @@
-local opencode = require("config.helpers").safeSetup("opencode", {
+local ok, opencode = pcall(require, "opencode")
+
+if not ok then
+	return
+end
+
+opencode.setup({
 	default_global_keymaps = true,
 	default_mode = "plan",
 	keymap_prefix = "<leader>a",
@@ -6,6 +12,7 @@ local opencode = require("config.helpers").safeSetup("opencode", {
 		editor = {
 			["<leader>aa"] = { "toggle" },
 			["<leader>af"] = { "toggle_focus" },
+			["<leader>an"] = { "open_input_new_session" },
 		},
 		input_window = {
 			["<S-cr>"] = false,
@@ -110,9 +117,5 @@ local opencode = require("config.helpers").safeSetup("opencode", {
 		port = "auto",
 	},
 })
-
-if not opencode then
-	return
-end
 
 require("config.extensions.opencode_three_state_layout")

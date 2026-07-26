@@ -6,11 +6,13 @@ local opts = vim.tbl_deep_extend(
 	require("config.plugins.snacks.dashboard")
 )
 
-local snacks = require("config.helpers").safeSetup("snacks", opts)
+local ok, snacks = pcall(require, "snacks")
 
-if not snacks then
+if not ok then
 	return
 end
+
+snacks.setup(opts)
 
 require("config.plugins.snacks.keymaps")
 require("config.plugins.snacks.autocmds")

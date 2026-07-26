@@ -1,5 +1,10 @@
-local quicker
-quicker = require("config.helpers").safeSetup("quicker", {
+local ok, quicker = pcall(require, "quicker")
+
+if not ok then
+	return
+end
+
+quicker.setup({
 	keys = {
 		{
 			">",
@@ -17,10 +22,6 @@ quicker = require("config.helpers").safeSetup("quicker", {
 		},
 	},
 })
-
-if not quicker then
-	return
-end
 
 vim.keymap.set("n", "<leader>q", function()
 	quicker.toggle()
