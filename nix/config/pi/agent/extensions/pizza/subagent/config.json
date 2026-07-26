@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "automaticResultDelivery": true,
+  "btw": true,
+  "editorNavigation": true,
+  "resultCards": true
+}

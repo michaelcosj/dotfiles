@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   Editor,
   type EditorTheme,
@@ -6,9 +6,11 @@ import {
   matchesKey,
   Text,
   truncateToWidth,
-} from "@mariozechner/pi-tui";
+  visibleWidth,
+  wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
-import type { QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireUiResult } from "./preset-types.js";
+import type { QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireUiResult } from "./questionnaire-types.js";
 
 interface NormalizedQuestion extends QuestionnaireQuestion {
   label: string;
@@ -64,13 +66,17 @@ function normalizeQuestions(questions: QuestionnaireQuestion[]): {
   }
 
   const normalized: NormalizedQuestion[] = [];
+  const ids = new Set<string>();
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
+    const id = q.id?.trim();
     const options = Array.isArray(q.options) ? q.options : [];
     const allowOther = q.allowOther !== false;
 
-    if (!q.id?.trim()) return { error: `Error: Question at index ${i} missing id` };
-    if (!q.prompt?.trim()) return { error: `Error: Question "${q.id}" missing prompt` };
+    if (!id) return { error: `Error: Question at index ${i} missing id` };
+    if (ids.has(id)) return { error: `Error: Duplicate question id "${id}"` };
+    ids.add(id);
+    if (!q.prompt?.trim()) return { error: `Error: Question "${id}" missing prompt` };
     if (options.length === 0 && !allowOther) {
       return {
         error: `Error: Question "${q.id}" has no options and allowOther is false`,
@@ -79,6 +85,7 @@ function normalizeQuestions(questions: QuestionnaireQuestion[]): {
 
     normalized.push({
       ...q,
+      id,
       label: q.label || `Q${i + 1}`,
       options,
       allowOther,
@@ -95,8 +102,8 @@ export async function askQuestionnaire(
   | { ok: true; result: QuestionnaireUiResult; values: Record<string, string> }
   | { ok: false; error: string }
 > {
-  if (!ctx.hasUI) {
-    return { ok: false, error: "Error: UI not available (running in non-interactive mode)" };
+  if (ctx.mode !== "tui") {
+    return { ok: false, error: "Error: questionnaire requires interactive TUI mode" };
   }
 
   const normalized = normalizeQuestions(inputQuestions);
@@ -157,6 +164,16 @@ export async function askQuestionnaire(
 
     const allAnswered = (): boolean => questions.every((q) => answers.has(q.id));
 
+    const syncOptionIndex = () => {
+      const q = currentQuestion();
+      if (!q) {
+        optionIndex = 0;
+        return;
+      }
+      const answer = answers.get(q.id);
+      optionIndex = answer?.wasCustom ? q.options.length : Math.max(0, (answer?.index ?? 1) - 1);
+    };
+
     const saveAnswer = (
       questionId: string,
       value: string,
@@ -180,7 +197,7 @@ export async function askQuestionnaire(
       }
       if (currentTab < questions.length - 1) currentTab++;
       else currentTab = questions.length;
-      optionIndex = 0;
+      syncOptionIndex();
       refresh();
     };
 
@@ -214,13 +231,13 @@ export async function askQuestionnaire(
       if (isMulti) {
         if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
           currentTab = (currentTab + 1) % totalTabs;
-          optionIndex = 0;
+          syncOptionIndex();
           refresh();
           return;
         }
         if (matchesKey(data, Key.shift("tab")) || matchesKey(data, Key.left)) {
           currentTab = (currentTab - 1 + totalTabs) % totalTabs;
-          optionIndex = 0;
+          syncOptionIndex();
           refresh();
           return;
         }
@@ -277,6 +294,13 @@ export async function askQuestionnaire(
       const q = currentQuestion();
       const opts = currentOptions();
       const add = (s: string) => lines.push(truncateToWidth(s, width));
+      const addWrapped = (s: string, firstPrefix = "", continuationPrefix = firstPrefix) => {
+        const prefixWidth = Math.max(visibleWidth(firstPrefix), visibleWidth(continuationPrefix));
+        const wrapped = wrapTextWithAnsi(s, Math.max(1, width - prefixWidth));
+        for (let i = 0; i < wrapped.length; i++) {
+          lines.push((i === 0 ? firstPrefix : continuationPrefix) + wrapped[i]);
+        }
+      };
 
       add(theme.fg("accent", "─".repeat(width)));
 
@@ -309,15 +333,17 @@ export async function askQuestionnaire(
           const selected = i === optionIndex;
           const prefix = selected ? theme.fg("accent", "> ") : "  ";
           const color = selected ? "accent" : "text";
-          if (opt.isOther && inputMode)
-            add(prefix + theme.fg("accent", `${i + 1}. ${opt.label} ✎`));
-          else add(prefix + theme.fg(color, `${i + 1}. ${opt.label}`));
-          if (opt.description) add(`     ${theme.fg("muted", opt.description)}`);
+          if (opt.isOther && inputMode) {
+            addWrapped(theme.fg("accent", `${i + 1}. ${opt.label} ✎`), prefix, "     ");
+          } else {
+            addWrapped(theme.fg(color, `${i + 1}. ${opt.label}`), prefix, "     ");
+          }
+          if (opt.description) addWrapped(theme.fg("muted", opt.description), "     ", "     ");
         }
       };
 
       if (inputMode && q) {
-        add(theme.fg("text", ` ${q.prompt}`));
+        addWrapped(theme.fg("text", q.prompt), " ", " ");
         lines.push("");
         renderOptions();
         lines.push("");
@@ -332,8 +358,10 @@ export async function askQuestionnaire(
           const answer = answers.get(question.id);
           if (!answer) continue;
           const prefix = answer.wasCustom ? "(wrote) " : "";
-          add(
-            `${theme.fg("muted", ` ${question.label}: `)}${theme.fg("text", prefix + answer.label)}`,
+          addWrapped(
+            `${theme.fg("muted", `${question.label}: `)}${theme.fg("text", prefix + answer.label)}`,
+            " ",
+            "   ",
           );
         }
         lines.push("");
@@ -346,7 +374,7 @@ export async function askQuestionnaire(
           add(theme.fg("warning", ` Unanswered: ${missing}`));
         }
       } else if (q) {
-        add(theme.fg("text", ` ${q.prompt}`));
+        addWrapped(theme.fg("text", q.prompt), " ", " ");
         lines.push("");
         renderOptions();
       }
@@ -356,7 +384,7 @@ export async function askQuestionnaire(
         const help = isMulti
           ? " Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel"
           : " ↑↓ navigate • Enter select • Esc cancel";
-        add(theme.fg("dim", help));
+        addWrapped(theme.fg("dim", help.trim()), " ", " ");
       }
       add(theme.fg("accent", "─".repeat(width)));
 

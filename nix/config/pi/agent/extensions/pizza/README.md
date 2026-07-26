@@ -4,6 +4,22 @@
 
 Bundled extensions under one entry point.
 
+### pizza-ui
+
+Minimal TUI: borderless padded editor, compact footer styled with the active theme's semantic colors, and default spinner. When Pi has OpenAI Codex OAuth configured, the footer also shows the current Codex usage windows.
+
+### questionnaire
+
+Interactive multi-question tool for structured user input.
+
+### copy-all
+
+Registers `/copy-all`, which copies all user and assistant messages in the current branch to the clipboard.
+
+### file-search
+
+Registers the `fd` and `rg` tools. It prefers system executables and can install verified release binaries into the agent `bin/` directory when needed. The implementation uses native Node.js promises, processes, streams, `fetch`, and cryptography; it has no Effect dependency.
+
 ### preset-control
 
 Preset + permission system now lives in pizza.
@@ -88,6 +104,16 @@ Session-persisted todo list. State lives in tool-result `details` for branch-cor
 |---------|--------|
 | `/todos` | Show todo list UI |
 
+### fusion mode
+
+User-controlled orchestrator mode. Bare `/fusion` toggles the mode. `/fusion on` removes the main agent's direct project tools and requires it to gather context, plan, implement, and verify through subagents. Active tools: `subagent_spawn`, `subagent_send`, `subagent_wait`, `subagent_check`, `subagent_list`, `subagent_cancel`, and `questionnaire`. While active, each agent run also receives the canonical `skills/subagent/SKILL.md` guidance in Pi's skill-block format. `/fusion off` restores its previous tools; `/fusion status` reports the current state. A bright-red `FUSION` badge appears beside Codex usage while active. If the skill cannot be read, fusion continues with its core prompt, warns once, and retries on later runs.
+
 ### tps
 
 Shows assistant token throughput summary at end of each agent run.
+
+## Development
+
+```sh
+bun test tests
+```

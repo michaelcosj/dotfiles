@@ -1,0 +1,18 @@
+{
+  "name": "pizza-file-search",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test index.spec.ts",
+    "typecheck": "tsc --noEmit --strict --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck index.ts index.spec.ts"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "0.82.0",
+    "@earendil-works/pi-coding-agent": "0.82.0",
+    "@earendil-works/pi-tui": "0.82.0",
+    "typebox": "^1.3.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,13 +1,46 @@
 {
-  "lastChangelogVersion": "0.70.5",
-  "defaultProvider": "opencode-go",
-  "defaultModel": "deepseek-v4-pro",
-  "defaultThinkingLevel": "high",
+  "lastChangelogVersion": "0.82.1",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "low",
   "hideThinkingBlock": false,
   "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep -E '^[[:space:]]+alias[[:space:]]+' ~/.config/fish/config.fish | sed -E \"s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+'([^']*)'[[:space:]]*$/alias \\\\1='\\\\2'/;s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+([^ ]+)[[:space:]]*$/alias \\\\1='\\\\2'/\")\"",
   "compaction": {
     "enabled": true,
     "reserveTokens": 65536,
     "keepRecentTokens": 20000
+  },
+  "theme": "pizza-ui",
+  "quietStartup": true,
+  "collapseChangelog": true,
+  "showCacheMissNotices": true,
+  "terminal": {
+    "showTerminalProgress": true,
+    "imageWidthCells": 80
+  },
+  "packages": [
+    "npm:pi-web-access"
+  ],
+  "enabledModels": [
+    "openai-codex/gpt-5.4-mini",
+    "openai-codex/gpt-5.5",
+    "openai-codex/gpt-5.6-luna",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "opencode/big-pickle",
+    "opencode/deepseek-v4-flash-free"
+  ],
+  "subagents": {
+    "agentOverrides": {
+      "scout": {
+        "model": "openai-codex/gpt-5.3-codex-spark"
+      }
+    },
+    "watchdog": {
+      "main": {
+        "enabled": true
+      },
+      "enabled": true
+    }
   }
 }

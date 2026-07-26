@@ -3,12 +3,20 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "test": "bun test tests",
+    "typecheck": "tsc --noEmit --strict --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck index.ts codex-usage.ts fusion-mode.ts pizza-ui.ts questionnaire.ts questionnaire-types.ts tps.ts tool-renderers.ts"
+  },
   "pi": {
     "extensions": [
       "./index.ts"
     ]
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "0.68.1"
+    "@earendil-works/pi-ai": "0.82.0",
+    "@earendil-works/pi-coding-agent": "0.82.0",
+    "@earendil-works/pi-tui": "0.82.0",
+    "@sinclair/typebox": "^0.34.52",
+    "typescript": "^5.9.3"
   }
 }
