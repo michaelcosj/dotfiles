@@ -1,0 +1,39 @@
+onboarding = false
+# Keybindings matching the tmux configuration in home.nix.
+[keys]
+prefix = "ctrl+a"
+reload_config = "prefix+shift+r"
+new_tab = "prefix+c"
+
+# Pane splitting and navigation.
+split_vertical = "prefix+|"
+split_horizontal = "prefix+minus"
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# Window/tab navigation.
+previous_tab = "prefix+p"
+next_tab = "prefix+n"
+
+# Session/worktree pickers.
+[[keys.command]]
+key = "prefix+s"
+type = "plugin_action"
+command = "sessionizer.open"
+description = "open project workspace"
+
+[[keys.command]]
+key = "prefix+shift+w"
+type = "plugin_action"
+command = "sessionizer.worktree-open"
+description = "open worktree workspace"
+
+[experimental]
+kitty_graphics = true
+
+[ui]
+prompt_new_tab_name = false
+pane_gaps = true
+hide_tab_bar_when_single_tab = true

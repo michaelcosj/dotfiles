@@ -1,0 +1,40 @@
+[projects]
+roots = ["~/Projects/work/Synthally/ally-api", "~/Projects/personal/"]
+git_only = true
+depth = 1
+
+[layout]
+placement = "overlay"
+focus = "editor"
+
+[tabs.main]
+label = "main"
+
+[[tabs.main.panes]]
+id = "editor"
+title = "nvim"
+command = "nvim"
+
+[[tabs.main.panes]]
+id = "terminal"
+from = "editor"
+title = "terminal"
+split = "right"
+ratio = 0.7
+command = "fish"
+
+[[tabs.main.panes]]
+id = "pi"
+from = "terminal"
+title = "pi"
+split = "down"
+ratio = 0.35
+command = "pi"
+
+[tabs.build]
+label = "build"
+
+[[tabs.build.panes]]
+id = "build"
+title = "build"
+command = "npm run build"
