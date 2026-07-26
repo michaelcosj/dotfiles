@@ -16,6 +16,7 @@ node_modules/
 
 # Pi credentials, runtime state, and package cache
 /nix/config/pi/.agent/
+/nix/config/pi/pi-acp/session-map.json
 /nix/config/pi/agent/auth.json
 /nix/config/pi/agent/models-store.json
 /nix/config/pi/agent/npm/
