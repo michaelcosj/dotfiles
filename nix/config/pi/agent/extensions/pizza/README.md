@@ -1,119 +1,81 @@
-# Extensions
+# Pizza
 
-## pizza
+Pizza bundles the following Pi extensions behind one entry point.
 
-Bundled extensions under one entry point.
+## UI
 
-### pizza-ui
+### Pizza UI
 
-Minimal TUI: borderless padded editor, compact footer styled with the active theme's semantic colors, and default spinner. When Pi has OpenAI Codex OAuth configured, the footer also shows the current Codex usage windows.
+Installs a compact themed interface with a framed editor, footer, randomized working spinner, and header status. The header displays OpenAI Codex usage windows when OAuth credentials are available and a bright-red `FUSION` badge while fusion mode is active.
 
-### questionnaire
+### Claude-style tool renderers
 
-Interactive multi-question tool for structured user input.
+Provides compact call and result rendering for Pi's built-in `bash`, `read`, `write`, and `edit` tools, including summarized output and edit diffs.
 
-### copy-all
+## Tools and commands
 
-Registers `/copy-all`, which copies all user and assistant messages in the current branch to the clipboard.
+### Background terminals
 
-### file-search
+Runs long-lived commands without blocking the agent. Output is captured and delivered when a process exits.
 
-Registers the `fd` and `rg` tools. It prefers system executables and can install verified release binaries into the agent `bin/` directory when needed. The implementation uses native Node.js promises, processes, streams, `fetch`, and cryptography; it has no Effect dependency.
+| Tool / Command | Purpose |
+|---|---|
+| `bg_start` | Start a background command |
+| `bg_status` | Inspect one terminal |
+| `bg_wait` | Wait for a terminal to exit |
+| `bg_list` | List terminals |
+| `bg_kill` | Stop terminals |
+| `/ps` | Open the terminal process viewer |
 
-### preset-control
+### Subagents
 
-Preset + permission system now lives in pizza.
+Runs independent, persisted Pi child sessions with status, result, transcript, takeover, and messaging UI.
 
-Config sources:
-- `~/.pi/agent/presets.json`
-- `.pi/presets.json`
+| Tool / Command | Purpose |
+|---|---|
+| `subagent_spawn` | Start a subagent |
+| `subagent_send` | Send or continue work |
+| `subagent_wait` | Wait for subagents |
+| `subagent_cancel` | Interrupt subagents |
+| `subagent_check` | Inspect one subagent |
+| `subagent_list` | List subagents |
+| `/subagents` | Open the subagent viewer |
+| `/btw` | Run a side task from a prompt |
 
-Root config fields:
-- `defaultPreset`: preset name to auto-apply when available
-- `defaultMode`: fallback permission mode (`allow` | `ask` | `deny`) when no preset is active
+### Fusion mode
 
-Per-preset permission block:
-- `permission.defaultMode`
-- `permission.allow`
-- `permission.deny`
-- `permission.ask`
+`/fusion` toggles an orchestrator mode that restricts the main agent to subagent and questionnaire tools. The main agent must delegate context gathering, implementation, and verification. `/fusion on`, `/fusion off`, and `/fusion status` are also supported. Fusion injects the canonical subagent skill and restores the previous tool set when disabled.
 
-Permission model:
-- **`edit` controls both `edit` and `write` tools** — there is no separate `write` permission rule. Internally, `write` is canonicalized to `edit` for rule matching and session overrides.
-- **Bash redirection** (`>>`, `>`) upgrades bash mode to `ask` unless `edit` is `allow`. Rationale: redirection mutates files, so it should follow file-modification policy.
-- **`Always` option** — permission prompts offer Accept / Always / Reject. Choosing Always:
-  - For **bash**: extracts command pattern (e.g. `grep foo file` → `grep *`), confirms with user, stores as session-level bash allow override.
-  - For **other tools** (including `edit`/`write`): confirms with user, stores as session-level tool override (`edit → allow`).
-  - All session overrides clear on session start / shutdown.
+### Questionnaire
 
-Command + shortcut:
+Registers `questionnaire`, an interactive tool for one or more structured questions with tabs, selectable options, and optional free-text answers.
 
-| Command / Shortcut | Action |
-|--------------------|--------|
-| `/preset` | Open searchable preset selector (type prefix to filter) |
-| `/preset <name>` | Switch to preset |
-| `Ctrl+Shift+U` | Cycle presets |
-| `/permission-toggle-auto-accept` | Toggle per-tool session auto-accept overrides |
-| `/permission-mode` | Set session permission mode for one tool |
-| `/permission-settings` | Show resolved active permission state |
+### File search
 
-Tools:
+Registers:
 
-| Tool | Description |
-|------|-------------|
-| `switch_preset` | Switch to target preset with required reason. Supports permission guards like `switch_preset(plan)` |
-| `questionnaire` | Ask one or more structured questions with tab UI |
+- `fd` for finding files and directories by name.
+- `rg` for searching file contents.
 
-### caveman
+The extension prefers system executables, then repository fallback binaries, and finally verified official release downloads. Search output uses Pi's standard truncation limits and preserves complete truncated output in temporary files. The implementation has no Effect dependency.
 
-Enforces terse, article-free responses. Appends caveman-mode system prompt each turn. Persists on/off state.
+### Copy all
 
-| Command | Action |
-|---------|--------|
-| `/caveman` | Toggle |
-| `/caveman on` | Enable |
-| `/caveman off` | Disable |
-| `/caveman status` | Show state |
+`/copy-all` copies all user and assistant messages in the current conversation branch to the clipboard.
 
-State file: `~/.pi/agents/caveman.json`
+## Metrics
 
-### ddgs
+### Codex usage
 
-DuckDuckGo integration via `ddgs` CLI.
+Fetches and displays the current OpenAI Codex usage windows when Codex OAuth credentials are configured. Refreshes usage after agent runs.
 
-| Tool | Description |
-|------|-------------|
-| `search_text` | DuckDuckGo text search |
-| `extract_content` | Extract markdown text from URL |
+### TPS
 
-Requires `ddgs` installed (`pip install duckduckgo-search`).
-
-### rtk
-
-Rewrites bash commands via `rtk rewrite` when available. Shows token-savings status from `rtk gain`.
-
-### todo
-
-Session-persisted todo list. State lives in tool-result `details` for branch-correct history.
-
-| Tool | Description |
-|------|-------------|
-| `todo` | `add`, `list`, `toggle`, `clear` |
-
-| Command | Action |
-|---------|--------|
-| `/todos` | Show todo list UI |
-
-### fusion mode
-
-User-controlled orchestrator mode. Bare `/fusion` toggles the mode. `/fusion on` removes the main agent's direct project tools and requires it to gather context, plan, implement, and verify through subagents. Active tools: `subagent_spawn`, `subagent_send`, `subagent_wait`, `subagent_check`, `subagent_list`, `subagent_cancel`, and `questionnaire`. While active, each agent run also receives the canonical `skills/subagent/SKILL.md` guidance in Pi's skill-block format. `/fusion off` restores its previous tools; `/fusion status` reports the current state. A bright-red `FUSION` badge appears beside Codex usage while active. If the skill cannot be read, fusion continues with its core prompt, warns once, and retries on later runs.
-
-### tps
-
-Shows assistant token throughput summary at end of each agent run.
+Displays assistant token throughput and elapsed-time statistics after each agent run.
 
 ## Development
 
 ```sh
-bun test tests
+bun test tests file-search/index.spec.ts
+npm run typecheck
 ```
