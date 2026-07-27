@@ -44,7 +44,14 @@ Runs independent, persisted Pi child sessions with status, result, transcript, t
 
 ### Fusion mode
 
-`/fusion` toggles an orchestrator mode that restricts the main agent to subagent and questionnaire tools. The main agent must delegate context gathering, implementation, and verification. `/fusion on`, `/fusion off`, and `/fusion status` are also supported. Fusion injects the canonical subagent skill and restores the previous tool set when disabled.
+`/fusion` toggles an orchestrator mode that restricts the main agent to subagent, questionnaire, and Fusion resource-loading tools. The main agent must delegate context gathering, implementation, and verification. `/fusion on`, `/fusion off`, and `/fusion status` are also supported. Fusion injects the canonical subagent skill and restores the previous tool set when disabled.
+
+| Tool | Purpose |
+|---|---|
+| `fusion_load_skill` | Load a Pi-discovered skill by exact name |
+| `fusion_load_prompt` | Load a Pi-discovered prompt template by exact name |
+
+These tools are active only in Fusion mode and can read only resources from Pi's discovered skill and prompt command registry; they do not accept arbitrary paths.
 
 ### Questionnaire
 

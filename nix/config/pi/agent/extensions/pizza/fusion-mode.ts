@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 import type {
   ExtensionAPI,
   ExtensionContext,
+  SlashCommandSource,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 export const FUSION_MODE_STATUS_KEY = "fusion-mode";
 
@@ -16,7 +18,11 @@ const ORCHESTRATOR_TOOLS = new Set([
   "subagent_list",
   "subagent_cancel",
   "questionnaire",
+  "fusion_load_skill",
+  "fusion_load_prompt",
 ]);
+
+const FUSION_RESOURCE_TOOLS = ["fusion_load_skill", "fusion_load_prompt"];
 
 interface FusionModeState {
   enabled: boolean;
@@ -38,6 +44,10 @@ const SUBAGENT_SKILL_PATH = fileURLToPath(
 
 function stripFrontmatter(content: string): string {
   return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+}
+
+function textResult(text: string, isError = false) {
+  return { content: [{ type: "text" as const, text }], details: {}, isError };
 }
 
 export async function loadCanonicalSubagentSkill(): Promise<string> {
@@ -69,8 +79,60 @@ export function registerFusionModeExtension(
   let toolsBeforeFusion: string[] | undefined;
   let subagentSkillWarningShown = false;
 
-  const fusionTools = () =>
-    pi.getActiveTools().filter((name) => ORCHESTRATOR_TOOLS.has(name));
+  const fusionTools = () => [
+    ...pi.getActiveTools().filter(
+      (name) => ORCHESTRATOR_TOOLS.has(name) && !FUSION_RESOURCE_TOOLS.includes(name),
+    ),
+    ...FUSION_RESOURCE_TOOLS,
+  ];
+
+  const loadResource = async (name: string, source: SlashCommandSource) => {
+    if (!enabled)
+      return textResult("This tool is only available while fusion mode is enabled.", true);
+
+    const command = pi.getCommands().find(
+      (candidate) => candidate.source === source && candidate.name === name,
+    );
+    if (!command)
+      return textResult(`Unknown ${source} resource: ${name}`, true);
+
+    try {
+      const content = stripFrontmatter(
+        await readFile(command.sourceInfo.path, "utf8"),
+      ).trim();
+      if (!content) return textResult(`${source} resource is empty: ${name}`, true);
+      if (source === "skill") {
+        const baseDir = command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path);
+        return textResult(
+          `<skill name="${name}" location="${command.sourceInfo.path}">\nReferences are relative to ${baseDir}.\n\n${content}\n</skill>`,
+        );
+      }
+      return textResult(content);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return textResult(`Could not load ${source} resource "${name}": ${detail}`, true);
+    }
+  };
+
+  pi.registerTool({
+    name: "fusion_load_skill",
+    label: "Load Fusion Skill",
+    description: "Load a Pi-discovered skill by name. Available only to the main agent in fusion mode.",
+    parameters: Type.Object({
+      name: Type.String({ description: "Exact discovered skill name" }),
+    }),
+    execute: async (_id, { name }) => loadResource(name, "skill"),
+  });
+
+  pi.registerTool({
+    name: "fusion_load_prompt",
+    label: "Load Fusion Prompt",
+    description: "Load a Pi-discovered prompt template by name. Available only to the main agent in fusion mode.",
+    parameters: Type.Object({
+      name: Type.String({ description: "Exact discovered prompt template name" }),
+    }),
+    execute: async (_id, { name }) => loadResource(name, "prompt"),
+  });
 
   const apply = (ctx: ExtensionContext) => {
     pi.setActiveTools(fusionTools());
@@ -129,7 +191,12 @@ export function registerFusionModeExtension(
     enabled = entry?.data?.enabled ?? false;
     toolsBeforeFusion = entry?.data?.toolsBeforeFusion;
     if (enabled) apply(ctx);
-    else ctx.ui.setStatus(FUSION_MODE_STATUS_KEY, undefined);
+    else {
+      pi.setActiveTools(
+        pi.getActiveTools().filter((name) => !FUSION_RESOURCE_TOOLS.includes(name)),
+      );
+      ctx.ui.setStatus(FUSION_MODE_STATUS_KEY, undefined);
+    }
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
