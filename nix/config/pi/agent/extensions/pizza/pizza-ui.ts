@@ -5,7 +5,7 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { CODEX_USAGE_STATUS_KEY, getLatestCodexUsage } from "./codex-usage.js";
 import { FUSION_MODE_STATUS_KEY } from "./fusion-mode.js";
 
@@ -116,30 +116,16 @@ function compactPath(path: string): string {
     : path;
 }
 
-function gitIndicators(cwd: string): string {
-  try {
-    const status = execFileSync(
-      "git",
-      ["status", "--porcelain=v2", "--branch"],
-      {
-        cwd,
-        encoding: "utf8",
-        timeout: 500,
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    );
-    const aheadBehind = status.match(/^# branch\.ab \+(\d+) -(\d+)$/m);
-    const indicators = [];
-    if (status.split("\n").some((line) => line && !line.startsWith("#")))
-      indicators.push("*");
-    if (aheadBehind && Number(aheadBehind[1]))
-      indicators.push(`↑${aheadBehind[1]}`);
-    if (aheadBehind && Number(aheadBehind[2]))
-      indicators.push(`↓${aheadBehind[2]}`);
-    return indicators.join(" ");
-  } catch {
-    return "";
-  }
+function parseGitIndicators(status: string): string {
+  const aheadBehind = status.match(/^# branch\.ab \+(\d+) -(\d+)$/m);
+  const indicators = [];
+  if (status.split("\n").some((line) => line && !line.startsWith("#")))
+    indicators.push("*");
+  if (aheadBehind && Number(aheadBehind[1]))
+    indicators.push(`↑${aheadBehind[1]}`);
+  if (aheadBehind && Number(aheadBehind[2]))
+    indicators.push(`↓${aheadBehind[2]}`);
+  return indicators.join(" ");
 }
 
 const workingPhrases = [
@@ -223,8 +209,27 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
   let codexUsageLabel = "";
   let fusionModeLabel = "";
   let lastWorkingPhrase = "";
+  let gitIndicators = "";
+  let gitRefreshTimer: ReturnType<typeof setInterval> | undefined;
+  let gitRefreshInFlight = false;
 
   const refresh = () => requestRender?.();
+  const refreshGitIndicators = (cwd: string) => {
+    if (gitRefreshInFlight) return;
+    gitRefreshInFlight = true;
+    execFile(
+      "git",
+      ["status", "--porcelain=v2", "--branch"],
+      { cwd, encoding: "utf8", timeout: 1_000 },
+      (error, stdout) => {
+        gitRefreshInFlight = false;
+        const next = error ? "" : parseGitIndicators(stdout);
+        if (next === gitIndicators) return;
+        gitIndicators = next;
+        refresh();
+      },
+    );
+  };
   const updateWorkingPhrase = (
     ctx: ExtensionContext,
     configureSpinner = false,
@@ -259,6 +264,10 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
   pi.on("model_select", refresh);
   pi.on("thinking_level_select", refresh);
   pi.on("session_shutdown", () => {
+    if (gitRefreshTimer) clearInterval(gitRefreshTimer);
+    gitRefreshTimer = undefined;
+    gitRefreshInFlight = false;
+    gitIndicators = "";
     requestRender = undefined;
     totalCost = 0;
     codexUsageLabel = "";
@@ -269,6 +278,11 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
     if (ctx.mode !== "tui") return;
 
     totalCost = 0;
+    gitIndicators = "";
+    refreshGitIndicators(ctx.cwd);
+    if (gitRefreshTimer) clearInterval(gitRefreshTimer);
+    gitRefreshTimer = setInterval(() => refreshGitIndicators(ctx.cwd), 5_000);
+    gitRefreshTimer.unref?.();
     for (const entry of ctx.sessionManager.getEntries()) {
       if (entry.type === "message" && entry.message.role === "assistant")
         totalCost += entry.message.usage.cost.total;
@@ -336,7 +350,10 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
 
     ctx.ui.setFooter((tui, theme, footerData) => {
       requestRender = () => tui.requestRender();
-      const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
+      const unsubscribe = footerData.onBranchChange(() => {
+        refreshGitIndicators(ctx.cwd);
+        tui.requestRender();
+      });
 
       return {
         dispose: unsubscribe,
@@ -365,9 +382,8 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
             .map(([, status]) => sanitizeStatus(status))
             .filter(Boolean);
           const branch = footerData.getGitBranch?.() ?? "";
-          const indicators = branch ? gitIndicators(ctx.cwd) : "";
-          const coloredIndicators = indicators
-            ? theme.fg("warning", indicators)
+          const coloredIndicators = branch && gitIndicators
+            ? theme.fg("warning", gitIndicators)
             : "";
           const branchLabel = [branch, coloredIndicators]
             .filter(Boolean)
