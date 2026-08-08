@@ -6,11 +6,19 @@ Pizza bundles the following Pi extensions behind one entry point.
 
 ### Pizza UI
 
-Installs a compact themed interface with a framed editor, footer, randomized working spinner, and header status. The header displays OpenAI Codex usage windows when OAuth credentials are available and a bright-red `FUSION` badge while fusion mode is active.
+Installs a compact themed interface with a framed editor, footer, randomized working spinner, and header status. The header displays OpenAI Codex usage windows when OAuth credentials are available.
+
+The input uses a small Vim-like modal editing layer and starts in insert mode. `Esc` enters normal mode; a second `Esc` retains Pi's interrupt behavior. Normal mode supports `i/a/I/A/o/O`, `h/j/k/l`, `w/b`, `0/$`, `x/X`, and `u`. Enter and Pi's control-key shortcuts continue to work normally. This is intentionally not a complete Vim implementation: operators, visual mode, registers, and repeat are not supported.
 
 ### Claude-style tool renderers
 
-Provides compact call and result rendering for Pi's built-in `bash`, `read`, `write`, and `edit` tools, including summarized output and edit diffs.
+Pizza provides compact call, progress, result, diff, and expanded-output rendering for Pi's built-in `read`, `bash`, `edit`, and `write` tools. Registration is deferred until `session_start`, when Pi's tool-inspection APIs are available. It replaces only definitions whose current source is still `builtin`; SDK `customTools` and tools owned by other extensions are left untouched, and registration preserves the active tool names.
+
+Execution delegates to Pi's SDK definitions on every call using the current `ctx.cwd`. Bash shell path and command-prefix settings, plus read image auto-resize settings, are loaded through `SettingsManager` with the current project-trust state. Read continues to return normal image blocks, which Pi handles through its standard terminal image pipeline.
+
+Tool expansion is global in Pi 0.83. Pizza follows that shared state and uses the configured `app.tools.expand` keybinding in its hints rather than assuming `ctrl+o`.
+
+Transient in-memory settings, including settings supplied through a custom session `SettingsManager`, and execution overrides that are neither persisted nor exposed as SDK tools cannot be recovered through the extension API.
 
 ## Tools and commands
 
@@ -42,29 +50,13 @@ Runs independent, persisted Pi child sessions with status, result, transcript, t
 | `/subagents` | Open the subagent viewer |
 | `/btw` | Run a side task from a prompt |
 
-### Fusion mode
+### Orchestration prompt
 
-`/fusion` toggles an orchestrator mode that restricts the main agent to subagent, questionnaire, and Fusion resource-loading tools. The main agent must delegate context gathering, implementation, and verification. `/fusion on`, `/fusion off`, and `/fusion status` are also supported. Fusion injects the canonical subagent skill and restores the previous tool set when disabled.
-
-| Tool | Purpose |
-|---|---|
-| `fusion_load_skill` | Load a Pi-discovered skill by exact name |
-| `fusion_load_prompt` | Load a Pi-discovered prompt template by exact name |
-
-These tools are active only in Fusion mode and can read only resources from Pi's discovered skill and prompt command registry; they do not accept arbitrary paths.
+The global `/fusion` prompt template instructs the main agent to load the `subagent` skill, create one task-appropriate primary sidekick, and delegate routine execution while retaining planning, decisions, ambiguity resolution, and final review. An optional argument can suggest the sidekick's role or focus. This is workflow guidance rather than an enforced tool restriction.
 
 ### Questionnaire
 
 Registers `questionnaire`, an interactive tool for one or more structured questions with tabs, selectable options, and optional free-text answers.
-
-### File search
-
-Registers:
-
-- `fd` for finding files and directories by name.
-- `rg` for searching file contents.
-
-The extension prefers system executables, then repository fallback binaries, and finally verified official release downloads. Search output uses Pi's standard truncation limits and preserves complete truncated output in temporary files. The implementation has no Effect dependency.
 
 ### Copy all
 
@@ -80,9 +72,21 @@ Fetches and displays the current OpenAI Codex usage windows when Codex OAuth cre
 
 Displays assistant token throughput and elapsed-time statistics after each agent run.
 
+## Architecture
+
+Pizza is one Pi package with one `package.json`, lockfile, and strict TypeScript project. The root `index.ts` is the sole composition root; each bounded feature owns its registration, runtime state, tools, commands, presenters, and TUI modules. Subagents and background terminals remain separate features, while generation-aware deferred delivery is the only shared runtime primitive. The orchestration workflow is a standalone prompt template, not an extension feature.
+
 ## Development
 
+Run the complete validation from this directory:
+
 ```sh
-bun test tests file-search/index.spec.ts
+npm run check
+```
+
+The same commands are available separately:
+
+```sh
+npm test
 npm run typecheck
 ```

@@ -3,9 +3,11 @@ import {
   extractCodexAccountId,
   fetchCodexUsage,
   formatCodexUsage,
+  formatResetTimestamp,
+  getLatestCodexUsage,
   parseCodexUsage,
   registerCodexUsageExtension,
-} from "../codex-usage.ts";
+} from "../src/features/codex-usage/register.ts";
 
 function accessToken(accountId = "account-123"): string {
   const payload = Buffer.from(JSON.stringify({
@@ -28,7 +30,13 @@ const responseBody = {
       limit_window_seconds: 604_800,
     },
   },
+  credits: {
+    has_credits: true,
+    balance: "1671.2073250000",
+  },
 };
+
+const formattedUsage = `82%/5h ↻${formatResetTimestamp(1_800_000_000)} · 58%/7d ↻${formatResetTimestamp(1_800_100_000)} · +1,671.21`;
 
 describe("Codex usage", () => {
   it("extracts the ChatGPT account ID from the OAuth token", () => {
@@ -42,8 +50,19 @@ describe("Codex usage", () => {
     expect(usage).toEqual({
       primary: { usedPercent: 18.4, resetAt: 1_800_000_000, windowSeconds: 18_000 },
       secondary: { usedPercent: 42.1, resetAt: 1_800_100_000, windowSeconds: 604_800 },
+      creditBalance: 1671.207325,
     });
-    expect(formatCodexUsage(usage!)).toBe("82% 5h · 58% 7d");
+    expect(formatCodexUsage(usage!)).toBe(formattedUsage);
+  });
+
+  it("only includes a balance when has_credits is true", () => {
+    const withoutCredits = parseCodexUsage({
+      ...responseBody,
+      credits: { has_credits: false, balance: "1671.2073250000" },
+    });
+
+    expect(withoutCredits?.creditBalance).toBeUndefined();
+    expect(formatCodexUsage(withoutCredits!)).not.toContain("+1,671.21");
   });
 
   it("accepts a response with only one valid window", () => {
@@ -54,7 +73,7 @@ describe("Codex usage", () => {
       },
     });
 
-    expect(formatCodexUsage(usage!)).toBe("88% 2h");
+    expect(formatCodexUsage(usage!)).toBe("88%/2h");
   });
 
   it("starts the initial credential lookup without blocking session startup", () => {
@@ -78,9 +97,9 @@ describe("Codex usage", () => {
     };
 
     registerCodexUsageExtension(pi);
-    handlers.get("session_start")({}, ctx);
+    handlers.get("session_start")!({}, ctx);
     expect(credentialLookups).toBe(1);
-    handlers.get("session_shutdown")({}, ctx);
+    handlers.get("session_shutdown")!({}, ctx);
   });
 
   it("refreshes after a run even though Pi supplies a fresh event context", async () => {
@@ -95,25 +114,57 @@ describe("Codex usage", () => {
     });
     const originalFetch = globalThis.fetch;
     let fetches = 0;
-    globalThis.fetch = async () => {
+    globalThis.fetch = (async () => {
       fetches++;
       return new Response(JSON.stringify(responseBody), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
-    };
+    }) as unknown as typeof globalThis.fetch;
 
     const sessionContext = makeContext();
     try {
       registerCodexUsageExtension(pi);
-      handlers.get("session_start")({}, sessionContext);
+      handlers.get("session_start")!({}, sessionContext);
       await new Promise((resolve) => setTimeout(resolve, 0));
-      handlers.get("agent_end")({}, makeContext());
+      handlers.get("agent_end")!({}, makeContext());
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(fetches).toBe(2);
-      expect(statuses).toEqual(["82% 5h · 58% 7d", "82% 5h · 58% 7d"]);
+      expect(statuses).toEqual([formattedUsage, formattedUsage]);
     } finally {
-      handlers.get("session_shutdown")({}, sessionContext);
+      handlers.get("session_shutdown")!({}, sessionContext);
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("clears last account usage when credentials are removed", async () => {
+    const handlers = new Map<string, Function>();
+    const pi: any = { on: (event: string, handler: Function) => handlers.set(event, handler) };
+    let token: string | undefined = accessToken();
+    const statuses: Array<string | undefined> = [];
+    const ctx: any = {
+      mode: "tui",
+      hasUI: true,
+      modelRegistry: { async getApiKeyForProvider() { return token; } },
+      ui: { setStatus(_key: string, value: string | undefined) { statuses.push(value); } },
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(responseBody), { status: 200 })) as unknown as typeof globalThis.fetch;
+
+    try {
+      registerCodexUsageExtension(pi);
+      handlers.get("session_start")!({}, ctx);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(getLatestCodexUsage()).toBe(formattedUsage);
+
+      token = undefined;
+      handlers.get("agent_end")!({}, ctx);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(getLatestCodexUsage()).toBe("");
+      expect(statuses.at(-1)).toBeUndefined();
+    } finally {
+      handlers.get("session_shutdown")!({}, ctx);
       globalThis.fetch = originalFetch;
     }
   });
@@ -136,6 +187,6 @@ describe("Codex usage", () => {
     expect(requestUrl).toBe("https://chatgpt.com/backend-api/wham/usage");
     expect(headers.get("authorization")).toBe(`Bearer ${accessToken()}`);
     expect(headers.get("chatgpt-account-id")).toBe("account-123");
-    expect(formatCodexUsage(usage)).toBe("82% 5h · 58% 7d");
+    expect(formatCodexUsage(usage)).toBe(formattedUsage);
   });
 });

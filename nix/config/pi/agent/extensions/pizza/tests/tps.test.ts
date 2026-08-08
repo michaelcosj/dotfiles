@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { registerTpsExtension } from "../tps.ts";
+import { registerTpsExtension } from "../src/features/tps/register.ts";
 
 function createHarness() {
   const handlers = new Map<string, Function>();
@@ -40,12 +40,12 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([0, 100, 600, 10_000, 11_000, 12_500], () => {
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!(
         {
           messages: [
             { role: "assistant", usage: { input: 10, output: 100, totalTokens: 110 } },
@@ -68,8 +68,8 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([1_000, 3_500], () => {
-      handlers.get("agent_start")({});
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("agent_end")!(
         { messages: [{ role: "assistant", usage: { output: 0 } }] },
         ctx,
       );
@@ -87,10 +87,10 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([1_000, 1_500, 2_500, 3_500], () => {
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!(
         { messages: [{ role: "assistant", usage: { output: 0 } }] },
         ctx,
       );
@@ -108,8 +108,8 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([200, 1_700], () => {
-      handlers.get("agent_start")({});
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("agent_end")!(
         { messages: [{ role: "assistant", usage: { output: 25 } }] },
         ctx,
       );
@@ -127,12 +127,12 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([0, 100, 1_100, 2_000, 2_000, 3_000], () => {
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!(
         {
           messages: [
             { role: "assistant", usage: { output: 100 } },
@@ -155,12 +155,12 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([0, 100, 1_100, 2_000, 1_500, 3_000], () => {
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!(
         {
           messages: [
             { role: "assistant", usage: { output: 100 } },
@@ -183,10 +183,10 @@ describe("tps", () => {
     const { handlers, notifications, ctx } = createHarness();
 
     runAtTimes([0, 100, 1_100, 3_000], () => {
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")(
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!(
         {
           messages: [
             { role: "assistant", usage: { output: 100 } },
@@ -213,15 +213,15 @@ describe("tps", () => {
     }];
 
     runAtTimes([0, 100, 1_100, 2_000, 10_000, 10_250, 10_750, 12_000], () => {
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")({ messages }, ctx);
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!({ messages }, ctx);
 
-      handlers.get("agent_start")({});
-      handlers.get("message_start")({ message: { role: "assistant" } });
-      handlers.get("message_end")({ message: { role: "assistant" } });
-      handlers.get("agent_end")({ messages }, ctx);
+      handlers.get("agent_start")!({});
+      handlers.get("message_start")!({ message: { role: "assistant" } });
+      handlers.get("message_end")!({ message: { role: "assistant" } });
+      handlers.get("agent_end")!({ messages }, ctx);
     });
 
     expect(notifications).toEqual([
