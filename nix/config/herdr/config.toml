@@ -37,3 +37,4 @@ kitty_graphics = true
 prompt_new_tab_name = false
 pane_gaps = true
 hide_tab_bar_when_single_tab = true
+agent_panel_sort = "spaces"
