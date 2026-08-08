@@ -15,4 +15,4 @@
 
 ## Subagents
 
-You must read the subagents skill before spawning subagents
+You must load the subagents skill before spawning subagents

@@ -59,4 +59,4 @@ Give each subagent enough context to complete its task without unnecessary disco
 - Parallelize only independent work that benefits from concurrent execution.
 - Do not spawn more subagents than the task requires.
 - Reuse an existing subagent when a follow-up aligns with its previous work.
-- When in fusion mode always prefer `subagent_send` over spawning a replacement, even when the existing subagent has completed, so its persisted context can be reused.
+- When a task uses a primary sidekick, prefer `subagent_send` over spawning a replacement, even when the existing subagent has completed, so its persisted context can be reused.
