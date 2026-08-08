@@ -1,7 +1,18 @@
 local defaults = {
 	agent = {
-		cmd = "opencode",
-		args = { "run" },
+		cmd = "pi",
+		args = {
+			"-p",
+			"-ne",
+			"-ns",
+			"--no-session",
+			"--mode",
+			"text",
+			"--model",
+			"opencode-go/mimo-v2.5",
+			"--thinking",
+			"off",
+		},
 	},
 
 	git = {
@@ -14,10 +25,10 @@ local defaults = {
     Generate a Conventional Commit message for the following staged git diff.
 
     Rules:
-    - Output only the commit message.
+    - Output ONLY the commit message.
     - Use Conventional Commits format.
-    - Prefer one concise subject line.
-    - Add a body only if it helps explain the change.
+    - Prefer one concise subject line
+    - Include a brief body explaining the change only when necessary.
     - Use types like feat, fix, refactor, chore, docs, test, perf, build, ci.
   ]],
 }
@@ -70,27 +81,47 @@ local function generate_commit_message()
 		diff,
 	}, "\n")
 
-	vim.notify("Generating commit message...", vim.log.levels.INFO)
+	local spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+
+	local notification_id = vim.notify("Generating commit message...", vim.log.levels.INFO, {
+		timeout = false,
+		title = "Generate Commit",
+		opts = function(notification)
+			notification.icon = spinner[math.floor(vim.uv.hrtime() / (1e6 * 80)) % #spinner + 1]
+		end,
+	})
 
 	local cmd = vim.list_extend(vim.list_extend({ config.agent.cmd }, config.agent.args), { prompt })
 
 	vim.system(cmd, { text = true }, function(result)
 		vim.schedule(function()
 			if result.code ~= 0 then
-				vim.notify("OpenCode failed: " .. (result.stderr or ""), vim.log.levels.ERROR)
+				vim.notify(config.agent.cmd .. " failed: " .. (result.stderr or ""), vim.log.levels.ERROR, {
+					id = notification_id,
+					icon = "",
+					timeout = 3000,
+				})
 				return
 			end
 
 			local message = vim.trim(result.stdout or "")
 
 			if message == "" then
-				vim.notify("OpenCode returned an empty message.", vim.log.levels.WARN)
+				vim.notify(config.agent.cmd .. " returned an empty message.", vim.log.levels.WARN, {
+					id = notification_id,
+					icon = "",
+					timeout = 3000,
+				})
 				return
 			end
 
 			vim.api.nvim_buf_set_lines(0, 0, 0, false, vim.split(message, "\n"))
 
-			vim.notify("Commit message generated.", vim.log.levels.INFO)
+			vim.notify("Commit message generated.", vim.log.levels.INFO, {
+				id = notification_id,
+				icon = "",
+				timeout = 3000,
+			})
 		end)
 	end)
 end
@@ -101,7 +132,9 @@ function M.setup(opts)
 	vim.api.nvim_create_autocmd("FileType", {
 		pattern = "gitcommit",
 		callback = function(args)
-			vim.api.nvim_buf_create_user_command(args.buf, "GenerateConventionCommit", generate_commit_message, {})
+			vim.api.nvim_buf_create_user_command(args.buf, "GenerateCommit", generate_commit_message, {})
+
+			vim.keymap.set("n", "<leader>cc", generate_commit_message, { noremap = true, silent = true })
 		end,
 	})
 end
