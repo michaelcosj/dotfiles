@@ -31,7 +31,15 @@ blink_cmp.setup({
 	},
 	sources = {
 		default = { "lazydev", "lsp", "path", "buffer", "snippets" },
+		per_filetype = {
+			pi_bridge_input = { "pi_bridge", "path", "buffer" },
+		},
 		providers = {
+			pi_bridge = {
+				name = "Pi Bridge",
+				module = "config.pi-bridge.blink",
+				score_offset = 100,
+			},
 			lazydev = {
 				name = "LazyDev",
 				module = "lazydev.integrations.blink",

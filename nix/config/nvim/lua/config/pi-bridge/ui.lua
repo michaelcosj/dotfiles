@@ -23,7 +23,10 @@ function M.input(default, callback)
 		prompt = require("config.pi-bridge.config").values.prompt,
 		default = default,
 		highlight = highlights,
-		win = { bo = { filetype = "pi_bridge_input" } },
+		win = {
+			b = { completion = true },
+			bo = { filetype = "pi_bridge_input" },
+		},
 	}, function(value)
 		if value and vim.trim(value) ~= "" then
 			callback(value)
