@@ -38,6 +38,14 @@ lualine.setup({
 				draw_empty = false,
 			},
 			"overseer",
+			{
+				function()
+					return require("config.pi-bridge").statusline()
+				end,
+				cond = function()
+					return vim.env.HERDR_WORKSPACE_ID ~= nil
+				end,
+			},
 		},
 		lualine_y = {
 			"progress",

@@ -68,7 +68,6 @@ vim.pack.add({
 	gh("HakonHarnes/img-clip.nvim"),
 
 	-- AI
-	gh("sudo-tee/opencode.nvim"),
 	gh("milanglacier/minuet-ai.nvim"),
 })
 
@@ -97,7 +96,7 @@ require("config.plugins.conform")
 require("config.plugins.overseer")
 require("config.plugins.resession")
 require("config.plugins.quicker")
-require("config.plugins.opencode")
+require("config.plugins.pi-bridge")
 require("config.plugins.ale")
 require("config.plugins.undotree")
 require("config.plugins.neogit")

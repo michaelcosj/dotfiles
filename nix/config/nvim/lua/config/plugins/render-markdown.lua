@@ -6,6 +6,6 @@ end
 
 render_markdown.setup({
 	anti_conceal = { enabled = false },
-	file_types = { "markdown", "opencode_output" },
+	file_types = { "markdown" },
 	latex = { enabled = false },
 })

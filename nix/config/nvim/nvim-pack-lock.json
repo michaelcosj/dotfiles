@@ -129,10 +129,6 @@
       "rev": "dfbfaa967a6f7ec50789bead7ef87e336c1fa63c",
       "src": "https://www.github.com/nvim-tree/nvim-web-devicons"
     },
-    "opencode.nvim": {
-      "rev": "a677af6b3613c4753e126d06e57fa10b6d813be6",
-      "src": "https://www.github.com/sudo-tee/opencode.nvim"
-    },
     "overseer.nvim": {
       "rev": "a93d9f6d6defdac4bcd6d2c8ba988650e42e0a0e",
       "src": "https://www.github.com/stevearc/overseer.nvim"
