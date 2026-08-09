@@ -26,6 +26,7 @@ local defaults = {
 
     Rules:
     - Output ONLY the commit message.
+    - Do not wrap the commit message in a Markdown code block or backticks.
     - Use Conventional Commits format.
     - Prefer one concise subject line
     - Include a brief body explaining the change only when necessary.
