@@ -312,11 +312,11 @@ describe("compact rendering", () => {
     expect(
       visible(read.renderCall({ path: "/workspace/src/a.ts", offset: 50, limit: 100 }, theme, renderContext({}))),
     ).toContain("● Read(src/a.ts · offset 50 · limit 100)");
-    expect(
-      visible(
-        bash.renderCall({ command: "\n npm test\necho done", timeout: 5 }, theme, renderContext({ command: "" })),
-      ),
-    ).toContain("● Bash(npm test · timeout 5s)");
+    const renderedBashCall = visible(
+      bash.renderCall({ command: "\n npm test\necho done", timeout: 5 }, theme, renderContext({ command: "" })),
+    );
+    expect(renderedBashCall).toContain("npm test");
+    expect(renderedBashCall).toContain("echo done · timeout 5s");
     expect(visible(edit.renderCall({ path: "src/a.ts", edits: [{}, {}] }, theme, renderContext({})))).toContain(
       "2 replacements",
     );
@@ -386,8 +386,8 @@ describe("compact rendering", () => {
     );
     expect(collapsed).toContain("Completed · 5 lines · truncated");
     expect(collapsed).toContain("to expand");
-    expect(collapsed).toContain("   one");
-    expect(collapsed).toContain("   five");
+    expect(collapsed).toContain("> │ one");
+    expect(collapsed).toContain("> │ five");
 
     const expanded = visible(
       bash.renderResult(
@@ -436,8 +436,8 @@ describe("compact rendering", () => {
     );
     expect(collapsed).toContain("Read 4 lines · truncated · more available");
     expect(collapsed).toContain("to expand");
-    expect(collapsed).toContain("   a");
-    expect(collapsed).toContain("   b");
+    expect(collapsed).toContain("1 │ a");
+    expect(collapsed).toContain("2 │ b");
     expect(collapsed).not.toContain("Showing lines");
     const expanded = visible(
       read.renderResult(
@@ -541,9 +541,9 @@ describe("compact rendering", () => {
       ),
     );
 
-    expect(collapsed).toContain("   line 1");
-    expect(collapsed).toContain("   line 10");
-    expect(collapsed).not.toContain("   line 11");
+    expect(collapsed).toContain("> │ line 1");
+    expect(collapsed).toContain("> │ line 10");
+    expect(collapsed).not.toContain("> │ line 11");
     expect(collapsed).toContain("2 more lines");
   });
 

@@ -221,9 +221,23 @@ function resultLine(theme: Theme, text: string, color: "muted" | "toolOutput" | 
   return theme.fg("dim", "└─ ") + theme.fg(color, text);
 }
 
-function bodyLines(theme: Theme, text: string, color: "toolOutput" | "error" = "toolOutput"): string[] {
-  if (!text) return [theme.fg("dim", "   (no output)")];
-  return text.split("\n").map((line) => theme.fg("dim", "   ") + theme.fg(color, line));
+function gutterWidth(count: number): number {
+  return Math.max(1, String(Math.max(1, count)).length);
+}
+
+function numberedBodyLines(theme: Theme, text: string, color: "toolOutput" | "error" = "toolOutput"): string[] {
+  if (!text) return [theme.fg("dim", "  · │ (no output)")];
+  const lines = text.split("\n");
+  const width = gutterWidth(lines.length);
+  return lines.map(
+    (line, index) =>
+      theme.fg("dim", `${String(index + 1).padStart(width)} │ `) + theme.fg(color, line),
+  );
+}
+
+function outputBodyLines(theme: Theme, text: string, color: "toolOutput" | "error" = "toolOutput"): string[] {
+  if (!text) return [theme.fg("dim", "  > │ (no output)")];
+  return text.split("\n").map((line) => theme.fg("dim", "  > │ ") + theme.fg(color, line));
 }
 
 const COLLAPSED_DIFF_LINES = 12;
@@ -237,8 +251,9 @@ function previewBodyLines(
   if (!text) return [];
   const lines = text.split("\n");
   const shown = lines.slice(0, COLLAPSED_PREVIEW_LINES);
-  const rendered = shown.map((line) => theme.fg("dim", "   ") + theme.fg(color, line));
-  if (lines.length > shown.length) rendered.push(theme.fg("muted", `   … ${lines.length - shown.length} more lines`));
+  const rendered = shown.map((line) => theme.fg("dim", "  > │ ") + theme.fg(color, line));
+  if (lines.length > shown.length)
+    rendered.push(theme.fg("muted", `    └─ ${lines.length - shown.length} more lines`));
   return rendered;
 }
 
@@ -261,21 +276,32 @@ function diffBodyLines(
   renderExpansionHint = expansionHint,
 ): string[] {
   const shown = expanded ? lines : lines.slice(0, COLLAPSED_DIFF_LINES);
+  let oldLine: number | undefined;
+  let newLine: number | undefined;
   const rendered = shown.map((line) => {
-    const color =
-      line.startsWith("+") && !line.startsWith("+++")
-        ? "toolDiffAdded"
-        : line.startsWith("-") && !line.startsWith("---")
-          ? "toolDiffRemoved"
-          : "toolDiffContext";
-    return theme.fg("dim", "   ") + theme.fg(color, line);
+    const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunk) {
+      oldLine = Number(hunk[1]);
+      newLine = Number(hunk[2]);
+      return theme.fg("toolDiffContext", `    │ ${line}`);
+    }
+    const added = line.startsWith("+") && !line.startsWith("+++");
+    const removed = line.startsWith("-") && !line.startsWith("---");
+    const marker = added ? "+" : removed ? "-" : " ";
+    const number = added ? newLine : removed ? oldLine : newLine;
+    const color = added ? "toolDiffAdded" : removed ? "toolDiffRemoved" : "toolDiffContext";
+    if (added && newLine !== undefined) newLine++;
+    else if (removed && oldLine !== undefined) oldLine++;
+    else if (!added && !removed) {
+      if (oldLine !== undefined) oldLine++;
+      if (newLine !== undefined) newLine++;
+    }
+    const label = number === undefined ? "   " : String(number).padStart(3);
+    return theme.fg("dim", `${label} ${marker}│ `) + theme.fg(color, line);
   });
   if (!expanded && lines.length > shown.length) {
     rendered.push(
-      theme.fg(
-        "muted",
-        `   … ${lines.length - shown.length} more diff lines · ${renderExpansionHint()}`,
-      ),
+      theme.fg("muted", `      └─ ${lines.length - shown.length} more diff lines · ${renderExpansionHint()}`),
     );
   }
   return rendered;
@@ -379,7 +405,7 @@ export function registerClaudeStyleToolRenderers(pi: ExtensionAPI, dependencies:
               parts.push(renderExpansionHint());
               const lines = [resultLine(current, parts.join(" · "))];
               const snippet = readSnippet(output);
-              if (snippet.text) lines.push(...bodyLines(current, snippet.text));
+              if (snippet.text) lines.push(...numberedBodyLines(current, snippet.text));
               if (snippet.hasMore) lines.push(current.fg("muted", "   …"));
               return lines;
             }
@@ -388,7 +414,12 @@ export function registerClaudeStyleToolRenderers(pi: ExtensionAPI, dependencies:
               ? highlightCode(output, language)
               : output.split("\n").map((line) => current.fg("toolOutput", line));
             const lines = [resultLine(current, `Read ${lineCount(output)} lines`)];
-            lines.push(...highlighted.map((line) => current.fg("dim", "   ") + line));
+            const width = gutterWidth(highlighted.length);
+            lines.push(
+              ...highlighted.map(
+                (line, index) => current.fg("dim", `${String(index + 1).padStart(width)} │ `) + line,
+              ),
+            );
             if (truncation?.truncated)
               lines.push(current.fg("warning", "   [Result truncated; use the continuation instruction above.]"));
             return lines;
@@ -413,20 +444,16 @@ export function registerClaudeStyleToolRenderers(pi: ExtensionAPI, dependencies:
         renderCall(args, theme, context) {
           const state = context.state as PizzaRenderState;
           if (context.executionStarted && state.startedAt === undefined) state.startedAt = Date.now();
-          const streamedCommand = sanitizeOutput(safeString(args.command));
-          const meaningful =
-            streamedCommand
-              .split("\n")
-              .find((line) => line.trim())
-              ?.trim() ?? "";
-          const command = context.expanded ? streamedCommand : meaningful;
+          // Always show the complete command, even while collapsed, so hidden lines
+          // cannot obscure unsafe shell operations.
+          const command = sanitizeOutput(safeString(args.command));
           const timeout = finiteNumber(args.timeout);
           const detail = timeout === undefined ? command : `${command} · timeout ${timeout}s`;
           return component(
             context,
             theme,
             statusFor(context, !context.isPartial),
-            `bash-call:${context.expanded}:${detail}:${context.isError}`,
+            `bash-call:${detail}:${context.isError}`,
             (current) => [titleLine(current, "Bash", detail || "…", statusFor(context, !context.isPartial))],
           );
         },
@@ -441,13 +468,16 @@ export function registerClaudeStyleToolRenderers(pi: ExtensionAPI, dependencies:
           return component(context, theme, statusFor(context, !options.isPartial), version, (current) => {
             if (options.isPartial) {
               const tail = output ? output.split("\n").slice(-COLLAPSED_PREVIEW_LINES) : [];
-              return [resultLine(current, "Running…", "muted"), ...tail.map((line) => current.fg("dim", `   ${line}`))];
+              return [
+                resultLine(current, "Running…", "muted"),
+                ...tail.map((line) => current.fg("dim", "  > │ ") + current.fg("toolOutput", line)),
+              ];
             }
             if (options.expanded) {
               const lines = [
                 resultLine(current, context.isError ? "Failed" : "Completed", context.isError ? "error" : "toolOutput"),
               ];
-              lines.push(...bodyLines(current, output, context.isError ? "error" : "toolOutput"));
+              lines.push(...outputBodyLines(current, output, context.isError ? "error" : "toolOutput"));
               if (details?.fullOutputPath && !output.includes(details.fullOutputPath)) {
                 lines.push(current.fg("warning", `   Full output: ${sanitizeOutput(details.fullOutputPath)}`));
               }
