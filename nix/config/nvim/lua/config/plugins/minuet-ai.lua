@@ -17,13 +17,25 @@ require("minuet").setup({
 		},
 		show_on_completion_menu = true,
 	},
-	provider = "openai_fim_compatible",
+	provider = "openai_compatible",
 	provider_options = {
 		openai_fim_compatible = {
 			model = "mercury-edit-2",
 			end_point = "https://api.inceptionlabs.ai/v1/fim/completions",
 			api_key = "INCEPTION_API_KEY",
 			stream = true,
+		},
+		openai_compatible = {
+			api_key = "OPENCODE_API_KEY",
+			end_point = "https://opencode.ai/zen/go/v1/chat/completions",
+			model = "deepseek-v4-flash",
+			name = "Opencode",
+			optional = {
+				max_tokens = 56,
+				top_p = 0.9,
+				-- disable thinking to avoid first token latency
+				thinking = { type = "disabled" },
+			},
 		},
 	},
 })
