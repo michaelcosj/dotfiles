@@ -9,7 +9,7 @@ local ui = require("config.pi-bridge.ui")
 
 local function report_error(err)
 	if err and err ~= "Pi selection cancelled" then
-		vim.notify("Pi bridge: " .. err, vim.log.levels.ERROR)
+		vim.notify("Pi control bridge: " .. err, vim.log.levels.ERROR)
 	end
 end
 

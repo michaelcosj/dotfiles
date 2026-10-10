@@ -27,10 +27,22 @@ function M.emit(event, data)
 					if vim.bo[bufnr].modified then
 						vim.notify("Pi edited a locally modified buffer: " .. filename, vim.log.levels.WARN)
 					else
-						vim.api.nvim_buf_call(bufnr, function()
-							vim.cmd("checktime")
-						end)
+						vim.cmd("checktime " .. bufnr)
 					end
+				end
+			end
+		end)
+	elseif event == "agent_settled" then
+		-- Tool-level events miss changes made through shells or external tools.
+		-- Recheck every safe loaded file once the turn has fully settled.
+		vim.schedule(function()
+			for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+				if
+					vim.api.nvim_buf_is_loaded(bufnr)
+					and vim.api.nvim_buf_get_name(bufnr) ~= ""
+					and not vim.bo[bufnr].modified
+				then
+					vim.cmd("checktime " .. bufnr)
 				end
 			end
 		end)

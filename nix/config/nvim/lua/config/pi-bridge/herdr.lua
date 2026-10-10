@@ -1,7 +1,9 @@
 local M = {}
 
+local last_used_pane_id = nil
+
 local function notify_error(message)
-	vim.notify("Pi bridge: " .. message, vim.log.levels.ERROR)
+	vim.notify("Pi control bridge: " .. message, vim.log.levels.ERROR)
 end
 
 local function run(args, callback)
@@ -71,6 +73,11 @@ function M.discover(callback)
 			end
 		end
 		table.sort(candidates, function(a, b)
+			local a_last = a.pane_id == last_used_pane_id
+			local b_last = b.pane_id == last_used_pane_id
+			if a_last ~= b_last then
+				return a_last
+			end
 			return score(a, cwd) > score(b, cwd)
 		end)
 		callback(candidates)
@@ -85,7 +92,10 @@ local function select_agent(candidates, callback)
 	vim.ui.select(candidates, {
 		prompt = "Select Pi",
 		format_item = function(agent)
-			return string.format("%s  %s  [%s]", agent.pane_id, agent.foreground_cwd or agent.cwd or "?", agent.agent_status or "?")
+			local tokens = agent.tokens or {}
+			local instance_id = tokens.pi_instance_id or ("[?] " .. agent.pane_id)
+			local last_used = agent.pane_id == last_used_pane_id and "󰋚 " or "  "
+			return string.format("%s%s  %s  [%s]", last_used, instance_id, agent.foreground_cwd or agent.cwd or "?", agent.agent_status or "?")
 		end,
 	}, callback)
 end
@@ -112,13 +122,13 @@ local function wait_for_agent(pane_id, deadline, callback)
 			return
 		end
 		for _, agent in ipairs(candidates) do
-			if agent.pane_id == pane_id and agent.tokens and agent.tokens.pi_nvim_socket then
+			if agent.pane_id == pane_id and agent.tokens and agent.tokens.pi_control_socket then
 				callback(agent)
 				return
 			end
 		end
 		if vim.uv.now() >= deadline then
-			callback(nil, "Timed out waiting for Pi bridge; run /reload in the Pi pane")
+			callback(nil, "Timed out waiting for Pi control bridge; run /reload in the Pi pane")
 			return
 		end
 		vim.defer_fn(function()
@@ -154,17 +164,24 @@ local function spawn(callback)
 end
 
 function M.ensure(callback)
+	local function use_agent(agent, err)
+		if agent then
+			last_used_pane_id = agent.pane_id
+		end
+		callback(agent, err)
+	end
+
 	M.discover(function(candidates, err)
 		if not candidates then
-			callback(nil, err)
+			use_agent(nil, err)
 		elseif #candidates == 0 then
-			spawn(callback)
+			spawn(use_agent)
 		else
 			select_agent(candidates, function(agent)
 				if agent then
-					callback(agent)
+					use_agent(agent)
 				else
-					callback(nil, "Pi selection cancelled")
+					use_agent(nil, "Pi selection cancelled")
 				end
 			end)
 		end

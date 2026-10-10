@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 const PROTOCOL = "1";
-const SOURCE = "pi-nvim-bridge";
+const SOURCE = "pi-control-bridge";
 const HERDR_SOCKET_PATH = process.env.HERDR_SOCKET_PATH;
 const HERDR_PANE_ID = process.env.HERDR_PANE_ID;
 const HERDR_ENABLED =
@@ -15,6 +15,9 @@ const HERDR_ENDPOINT =
     ? `\\\\.\\pipe\\${HERDR_SOCKET_PATH}`
     : HERDR_SOCKET_PATH;
 const MAX_LINE_BYTES = 1024 * 1024;
+const INSTANCE_ROLE = process.env.PIZZA_SUBAGENT === "1" ? "S" : "M";
+const INSTANCE_ID = HERDR_PANE_ID ? `[${INSTANCE_ROLE}] ${HERDR_PANE_ID}` : undefined;
+const STATUS_KEY = "pi-instance-id";
 
 type BridgeState = "idle" | "working" | "blocked";
 type Client = { socket: net.Socket; authenticated: boolean; buffer: string };
@@ -98,11 +101,19 @@ export default function (pi: any) {
       seq: Date.now(),
       ttl_ms: clear ? 1 : 15000,
       tokens: clear
-        ? { pi_nvim_socket: null, pi_nvim_token: null, pi_nvim_protocol: null }
+        ? {
+            pi_control_socket: null,
+            pi_control_token: null,
+            pi_control_protocol: null,
+            pi_instance_id: null,
+            pi_instance_role: null,
+          }
         : {
-            pi_nvim_socket: socketPath,
-            pi_nvim_token: token,
-            pi_nvim_protocol: PROTOCOL,
+            pi_control_socket: socketPath,
+            pi_control_token: token,
+            pi_control_protocol: PROTOCOL,
+            pi_instance_id: INSTANCE_ID,
+            pi_instance_role: INSTANCE_ROLE,
           },
     });
   }
@@ -135,6 +146,8 @@ export default function (pi: any) {
       response(client, id, {
         protocol: PROTOCOL,
         pane_id: HERDR_PANE_ID,
+        instance_id: INSTANCE_ID,
+        instance_role: INSTANCE_ROLE,
         state,
       });
       return;
@@ -222,9 +235,10 @@ export default function (pi: any) {
   async function start(ctx: any) {
     if (server || ctx?.mode !== "tui" || !HERDR_ENABLED) return;
     currentCtx = ctx;
+    if (INSTANCE_ID) ctx.ui.setStatus(STATUS_KEY, INSTANCE_ID);
     runtimeDir = path.join(
       os.tmpdir(),
-      `pi-nvim-${process.getuid?.() ?? "user"}`,
+      `pi-control-${process.getuid?.() ?? "user"}`,
     );
     fs.mkdirSync(runtimeDir, { recursive: true, mode: 0o700 });
     socketPath = path.join(
@@ -271,6 +285,7 @@ export default function (pi: any) {
       try {
         fs.unlinkSync(socketPath);
       } catch {}
+    currentCtx?.ui?.setStatus?.(STATUS_KEY, undefined);
     currentCtx = undefined;
   }
 

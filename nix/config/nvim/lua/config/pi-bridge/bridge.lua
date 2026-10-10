@@ -16,7 +16,7 @@ local function close(reason)
 	end
 	M.pipe = nil
 	for _, callback in pairs(M.pending) do
-		callback(nil, reason or "Pi bridge disconnected")
+		callback(nil, reason or "Pi control bridge disconnected")
 	end
 	M.pending = {}
 	events.emit("disconnected", { message = reason })
@@ -62,7 +62,7 @@ end
 
 function M.request(method, params, callback)
 	if not M.pipe then
-		callback(nil, "Pi bridge is not connected")
+		callback(nil, "Pi control bridge is not connected")
 		return
 	end
 	M.next_id = M.next_id + 1
@@ -80,14 +80,14 @@ function M.connect(agent, callback)
 		close()
 	end
 	local tokens = agent.tokens or {}
-	if not tokens.pi_nvim_socket or not tokens.pi_nvim_token then
-		callback(nil, "Pi bridge is unavailable; run /reload in the Pi pane")
+	if not tokens.pi_control_socket or not tokens.pi_control_token then
+		callback(nil, "Pi control bridge is unavailable; run /reload in the Pi pane")
 		return
 	end
 	M.agent = agent
 	M.buffer = ""
 	M.pipe = uv.new_pipe(false)
-	M.pipe:connect(tokens.pi_nvim_socket, function(err)
+	M.pipe:connect(tokens.pi_control_socket, function(err)
 		if err then
 			vim.schedule(function()
 				close(err)
@@ -97,8 +97,8 @@ function M.connect(agent, callback)
 		end
 		read_start()
 		M.request("hello", {
-			protocol = tokens.pi_nvim_protocol or "1",
-			token = tokens.pi_nvim_token,
+			protocol = tokens.pi_control_protocol or "1",
+			token = tokens.pi_control_token,
 			client_id = tostring(uv.os_getpid()),
 		}, function(result, request_err)
 			if request_err then

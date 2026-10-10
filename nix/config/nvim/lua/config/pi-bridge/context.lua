@@ -65,6 +65,8 @@ local function quickfix()
 end
 
 function M.expand(text, range)
+	-- Keep text following @this outside its closing Markdown fence.
+	text = text:gsub("@this:%s*", "@this\n\n")
 	local current_buf = range and range.bufnr or vim.api.nvim_get_current_buf()
 	local visible = {}
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
