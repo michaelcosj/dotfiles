@@ -16,9 +16,11 @@
         ast-grep
         bat
         biome
+        caddy
         cloudflared
         cowsay
-        # docker
+        docker
+        docker-compose
         eza
         fd
         fortune
@@ -32,16 +34,20 @@
         jq
         lazygit
         lua-language-server
+        mailpit
         mongodb-tools
+        mpv
         neovim
         nixd
         nixfmt-rfc-style
         ngrok
         oxlint
+        php
         pngpaste
         prettierd
         python313Packages.ddgs
         ripgrep
+        rtk
         stylua
         tree
         tree-sitter
@@ -190,11 +196,12 @@
           };
           shellAliases = {
             nv = "nvim";
+            op = "opencode";
             rm = "rm -i";
             cp = "cp -i";
             mv = "mv -i";
             cat = "bat";
-            ls = "eza --hyperlink";
+            ls = "eza --hyperlink .";
             nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
             reload-env = "load_env";
             sg = "ast-grep";
@@ -240,6 +247,7 @@
             set -g fish_pager_color_selected_description yellow
 
             fish_add_path "$HOME/.dotfiles/nix/scripts"
+            fish_add_path "$HOME/.local/bin"
 
             # Node tooling
             fnm env --use-on-cd --shell fish | source
