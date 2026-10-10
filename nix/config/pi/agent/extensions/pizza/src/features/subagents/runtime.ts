@@ -6,6 +6,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { createChildSession } from "./child-session.js";
 import {
+  createHerdrChildSession,
+  focusHerdrTab,
+  isHerdrAvailable,
+} from "./herdr-child-session.js";
+import {
   createSubagentManager,
   type SubagentCommandPort,
   type SubagentManager,
@@ -24,6 +29,7 @@ import {
   type ReasoningEffort,
   type SpawnTask,
   type SubagentEvent,
+  type SubagentHandoff,
   type SubagentOrigin,
   type SubagentSnapshot,
 } from "./state.js";
@@ -71,6 +77,8 @@ export interface SpawnParameters {
   working_dir?: string;
   model?: string;
   reasoning_effort?: ReasoningEffort;
+  context?: SubagentHandoff;
+  fork_parent?: boolean;
 }
 
 export interface SubagentRuntime {
@@ -89,8 +97,11 @@ export interface SubagentRuntime {
     origin?: SubagentOrigin,
   ): Promise<SpawnTask>;
   flush(): void;
-  shutdown(): Promise<void>;
+  shutdown(options?: { preserveForReload?: boolean }): Promise<void>;
 }
+
+const managerCache: Map<string, SubagentManager> =
+  ((globalThis as any).__pizzaSubagentManagers ??= new Map());
 
 export function createSubagentRuntime(
   pi: ExtensionAPI,
@@ -158,13 +169,32 @@ export function createSubagentRuntime(
 
   const getManager = () => {
     if (!manager) {
-      manager =
-        options.createManager?.() ??
-        createSubagentManager((task) => {
-          const registry = context?.modelRegistry;
-          if (!registry) throw new Error("Parent model registry unavailable.");
-          return createChildSession(task, { modelRegistry: registry });
-        });
+      const sessionKey = context?.sessionManager?.getSessionFile();
+      const currentFactory = (task: SpawnTask) => {
+        if (isHerdrAvailable()) {
+          return createHerdrChildSession(task);
+        }
+        const registry = context?.modelRegistry;
+        if (!registry) throw new Error("Parent model registry unavailable.");
+        return createChildSession(task, { modelRegistry: registry });
+      };
+      const cached = sessionKey && managerCache.get(sessionKey);
+      const reusable = cached && typeof cached.setFactory === "function"
+        ? cached
+        : undefined;
+      // One-time migration from managers cached by an older extension build.
+      // Their closed-over factory cannot be replaced, so detach them and start
+      // a current-generation manager rather than crashing or spawning stale children.
+      if (cached && !reusable) {
+        if (sessionKey) managerCache.delete(sessionKey);
+        void cached.disposeAll().catch(() => {});
+      }
+      manager = reusable ?? options.createManager?.() ??
+        createSubagentManager(currentFactory);
+      // A manager preserved across /reload retains entries, but all future
+      // children must use this extension generation's implementation.
+      reusable?.setFactory(currentFactory);
+      if (sessionKey) managerCache.set(sessionKey, manager);
       manager.setOnSettled(onSettled);
       unsubscribe = manager.view.subscribe(updateStatus);
       updateStatus();
@@ -184,6 +214,12 @@ export function createSubagentRuntime(
         requestAbort: async (id: string) => {
           await current.cancel([id]);
         },
+        requestOpen: async (id: string) => {
+          const tabId = current.get(id)?.meta.herdrTabId;
+          if (!tabId) return false;
+          await focusHerdrTab(tabId);
+          return true;
+        },
       };
     },
     getContext: () => context,
@@ -202,8 +238,15 @@ export function createSubagentRuntime(
         currentContext.cwd,
         currentContext.isProjectTrusted(),
       );
+      const forkParent = origin === "btw" || params.fork_parent === true;
+      const parentSessionFile = currentContext.sessionManager?.getSessionFile();
+      if (forkParent && !parentSessionFile) {
+        throw new Error("Cannot fork an ephemeral or unsaved parent session");
+      }
       return {
         prompt: params.prompt,
+        context: params.context,
+        forkParent,
         title:
           sanitizeText(params.name).replace(/\s+/g, " ").trim().slice(0, 80) ||
           "subagent",
@@ -220,19 +263,27 @@ export function createSubagentRuntime(
           inheritedThinkingLevel: pi.getThinkingLevel(),
           activeTools:
             options.getInheritedActiveTools?.() ?? pi.getActiveTools(),
+          sessionName: pi.getSessionName(),
+          sessionFilePath: parentSessionFile,
         },
       };
     },
     flush,
-    async shutdown() {
+    async shutdown(options = {}) {
       delivery.clear();
       unsubscribe?.();
       unsubscribe = undefined;
       ui?.setStatus("subagents", undefined);
       const closing = manager;
+      const sessionKey = context?.sessionManager?.getSessionFile();
       manager = undefined;
       context = undefined;
       ui = undefined;
+      if (options.preserveForReload) {
+        closing?.setOnSettled(() => {});
+        return;
+      }
+      if (sessionKey) managerCache.delete(sessionKey);
       await closing?.disposeAll();
     },
   };

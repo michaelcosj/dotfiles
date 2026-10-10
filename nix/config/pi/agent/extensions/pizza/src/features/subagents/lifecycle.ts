@@ -34,22 +34,25 @@ export function registerSubagentLifecycle(
     pendingEditorContext = undefined;
     const manager = runtime.getManager();
     editorNavigation = installSubagentEditorNavigation(context, manager.view, {
-      onOpen: (snapshot) =>
-        openSubagentTakeover(
+      onOpen: async (snapshot) => {
+        const commands = runtime.getCommands();
+        if (await commands.requestOpen(snapshot.id)) return;
+        await openSubagentTakeover(
           context,
           manager.view,
-          runtime.getCommands(),
+          commands,
           snapshot.id,
-        ),
+        );
+      },
     });
   });
 
   pi.on("agent_settled", () => runtime.flush());
 
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (event) => {
     pendingEditorContext = undefined;
     editorNavigation?.dispose();
     editorNavigation = undefined;
-    await runtime.shutdown();
+    await runtime.shutdown({ preserveForReload: event.reason === "reload" });
   });
 }

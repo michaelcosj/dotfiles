@@ -23,9 +23,22 @@ export interface ParentContext {
   inheritedModel?: { provider: string; id: string };
   inheritedThinkingLevel?: string;
   activeTools?: string[];
+  sessionName?: string;
+  /** Internal only: used to fork /btw; never rendered into child prompts. */
+  sessionFilePath?: string;
+}
+export interface SubagentHandoff {
+  objective: string;
+  current_state?: string;
+  constraints?: string[];
+  relevant_files?: string[];
+  decisions?: string[];
+  expected_output?: string;
 }
 export interface SpawnTask {
   prompt: string;
+  context?: SubagentHandoff;
+  forkParent?: boolean;
   title: string;
   cwd: string;
   model?: string;
@@ -65,6 +78,8 @@ export interface SubagentMeta {
   contextWindow?: number;
   sessionFilePath?: string;
   reasoningEffort?: ReasoningEffort;
+  herdrTabId?: string;
+  herdrPaneId?: string;
 }
 export interface SubagentSnapshot {
   id: string;

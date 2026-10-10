@@ -6,11 +6,9 @@ import { registerPizzaUiExtension } from "./features/pizza-ui/register.js";
 import { registerQuestionnaireTool } from "./features/questionnaire/register.js";
 import { registerSubagentExtension } from "./features/subagents/register.js";
 import { registerTpsExtension } from "./features/tps/register.js";
-import { registerClaudeStyleToolRenderers } from "./features/tool-renderers/register.js";
 
 export {
   registerBackgroundTerminalsExtension,
-  registerClaudeStyleToolRenderers,
   registerCodexUsageExtension,
   registerCopyAllExtension,
   registerPizzaUiExtension,
@@ -21,11 +19,12 @@ export {
 
 /** The sole Pizza composition root. Feature internals do not compose siblings. */
 export default function registerPizza(pi: ExtensionAPI) {
+  // Herdr children use the child-only pizza-minimal profile instead.
+  if (process.env.PIZZA_SUBAGENT === "1") return;
   registerBackgroundTerminalsExtension(pi);
   registerSubagentExtension(pi);
   registerCodexUsageExtension(pi);
   registerCopyAllExtension(pi);
-  registerClaudeStyleToolRenderers(pi);
   registerPizzaUiExtension(pi);
   registerTpsExtension(pi);
   registerQuestionnaireTool(pi);

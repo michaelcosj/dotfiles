@@ -6,6 +6,7 @@ import {
   MAX_RUNNING,
   REASONING_EFFORTS,
   type SpawnTask,
+  type SubagentHandoff,
 } from "./state.js";
 import type { SubagentRuntime, SpawnParameters } from "./runtime.js";
 import {
@@ -30,6 +31,8 @@ interface TaskInput {
   working_dir?: string;
   model?: string;
   reasoning_effort?: (typeof REASONING_EFFORTS)[number];
+  context?: SubagentHandoff;
+  fork_parent?: boolean;
 }
 
 function taskInput(input: TaskInput): SpawnParameters {
@@ -55,6 +58,8 @@ export function registerSubagentTools(
       "Use subagent_wait when its result is required before continuing; do not poll.",
       "Use subagent_send to continue an existing subagent session instead of spawning a new one.",
       "Children cannot spawn subagents or ask the user questions.",
+      "By default the child receives no parent transcript. Write a self-contained prompt and include all required context, constraints, decisions, relevant files, and expected output in context.",
+      "Set fork_parent only when the task genuinely benefits from the full parent conversation; prefer explicit context for focused, independent work.",
     ],
     parameters: Type.Object({
       prompt: Type.String(),
@@ -62,6 +67,17 @@ export function registerSubagentTools(
       working_dir: Type.Optional(Type.String()),
       model: Type.Optional(Type.String()),
       reasoning_effort: Type.Optional(StringEnum(REASONING_EFFORTS)),
+      fork_parent: Type.Optional(Type.Boolean({
+        description: "Fork the current parent session so the child inherits its complete conversation context.",
+      })),
+      context: Type.Optional(Type.Object({
+        objective: Type.String(),
+        current_state: Type.Optional(Type.String()),
+        constraints: Type.Optional(Type.Array(Type.String())),
+        relevant_files: Type.Optional(Type.Array(Type.String())),
+        decisions: Type.Optional(Type.Array(Type.String())),
+        expected_output: Type.Optional(Type.String()),
+      })),
     }),
     async execute(_id, params, signal, _update, context) {
       if (signal?.aborted) throw new Error("Spawn aborted");

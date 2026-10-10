@@ -1,10 +1,6 @@
-import { execFile } from "node:child_process";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import {
-  CODEX_USAGE_STATUS_KEY,
-  getLatestCodexUsage,
-} from "../codex-usage/register.js";
+import { CODEX_USAGE_STATUS_KEY, getLatestCodexUsage } from "../codex-usage/register.js";
 import { ModalEditor } from "./modal-editor.js";
 import { workingPhrases } from "./working-phrases.js";
 
@@ -118,16 +114,40 @@ function compactPath(path: string): string {
     .join("/");
 }
 
-function parseGitIndicators(status: string): string {
-  const aheadBehind = status.match(/^# branch\.ab \+(\d+) -(\d+)$/m);
-  const indicators = [];
-  if (status.split("\n").some((line) => line && !line.startsWith("#"))) indicators.push("*");
-  if (aheadBehind && Number(aheadBehind[1])) indicators.push(`↑${aheadBehind[1]}`);
-  if (aheadBehind && Number(aheadBehind[2])) indicators.push(`↓${aheadBehind[2]}`);
-  return indicators.join(" ");
-}
-
-const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const spinnerFrames = [
+  "▰▱▱▱▱▱▱▱▱▱",
+  "▱▰▱▱▱▱▱▱▱▱",
+  "▱▱▰▱▱▱▱▱▱▱",
+  "▱▱▱▰▱▱▱▱▱▱",
+  "▱▱▱▱▰▱▱▱▱▱",
+  "▱▱▱▱▱▰▱▱▱▱",
+  "▱▱▱▱▱▱▰▱▱▱",
+  "▱▱▱▱▱▱▱▰▱▱",
+  "▱▱▱▱▱▱▱▱▰▱",
+  "▱▱▱▱▱▱▱▱▱▰",
+  "▱▱▱▱▱▱▱▱▰▱",
+  "▱▱▱▱▱▱▱▰▱▱",
+  "▱▱▱▱▱▱▰▱▱▱",
+  "▱▱▱▱▱▰▱▱▱▱",
+  "▱▱▱▱▰▱▱▱▱▱",
+  "▱▱▱▰▱▱▱▱▱▱",
+  "▱▱▰▱▱▱▱▱▱▱",
+  "▱▰▱▱▱▱▱▱▱▱",
+  "▰▱▱▱▱▱▱▱▱▱",
+  // "▰▱▱",
+  // "▱▰▱",
+  // "▱▱▰",
+  // "▰▱▱▱▱▱▱▱▱▱",
+  // "▱▰▱▱▱▱▱▱▱▱",
+  // "▱▱▰▱▱▱▱▱▱▱",
+  // "▱▱▱▰▱▱▱▱▱▱",
+  // "▱▱▱▱▰▱▱▱▱▱",
+  // "▱▱▱▱▱▰▱▱▱▱",
+  // "▱▱▱▱▱▱▰▱▱▱",
+  // "▱▱▱▱▱▱▱▰▱▱",
+  // "▱▱▱▱▱▱▱▱▰▱",
+  // "▱▱▱▱▱▱▱▱▱▰",
+];
 
 const thinkingColor = {
   off: "thinkingOff",
@@ -155,9 +175,7 @@ function renderPizzaLogo(theme: Theme, width: number, height?: number): string[]
   const center = (text: string) =>
     " ".repeat(Math.max(0, Math.floor((width - visibleWidth(text)) / 2))) + text;
   const taglineText = truncateToWidth(pizzaTagline, width, "");
-  const tagline = center(
-    `\x1b[32m${taglineText.replace("PI", "\x1b[1;37mPI\x1b[22;32m")}\x1b[39m`,
-  );
+  const tagline = center(`\x1b[32m${taglineText.replace("PI", "\x1b[1;37mPI\x1b[22;32m")}\x1b[39m`);
   if (width < logoWidth)
     return [
       center(truncateToWidth(theme.fg("accent", theme.bold("PIZZA")), width, "")),
@@ -190,37 +208,18 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
   let totalCost = 0;
   let codexUsageLabel = "";
   let lastWorkingPhrase = "";
-  let gitIndicators = "";
-  let gitRefreshTimer: ReturnType<typeof setInterval> | undefined;
-  let gitRefreshInFlight = false;
-
   const refresh = () => requestRender?.();
-  const refreshGitIndicators = (cwd: string) => {
-    if (gitRefreshInFlight) return;
-    gitRefreshInFlight = true;
-    execFile(
-      "git",
-      ["status", "--porcelain=v2", "--branch"],
-      { cwd, encoding: "utf8", timeout: 1_000 },
-      (error, stdout) => {
-        gitRefreshInFlight = false;
-        const next = error ? "" : parseGitIndicators(stdout);
-        if (next === gitIndicators) return;
-        gitIndicators = next;
-        refresh();
-      },
-    );
-  };
-
   const updateWorkingPhrase = (ctx: ExtensionContext, configureSpinner = false) => {
     if (ctx.mode !== "tui") return;
-    const choices = workingPhrases.filter((phrase) => phrase !== lastWorkingPhrase);
-    lastWorkingPhrase = choices[Math.floor(Math.random() * choices.length)] ?? "working…";
-    ctx.ui.setWorkingMessage(ctx.ui.theme.fg("warning", `${lastWorkingPhrase}...`));
+    // const choices = workingPhrases.filter((phrase) => phrase !== lastWorkingPhrase);
+    // lastWorkingPhrase = choices[Math.floor(Math.random() * choices.length)] ?? "working…";
+    // ctx.ui.setWorkingMessage(ctx.ui.theme.fg("warning", ` ${lastWorkingPhrase}...`));
+
+    ctx.ui.setWorkingMessage("");
     if (configureSpinner) {
       ctx.ui.setWorkingIndicator({
         frames: spinnerFrames.map((frame) => ctx.ui.theme.fg("warning", frame)),
-        intervalMs: 100,
+        intervalMs: 75,
       });
     }
   };
@@ -243,10 +242,6 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
   pi.on("model_select", refresh);
   pi.on("thinking_level_select", refresh);
   pi.on("session_shutdown", () => {
-    if (gitRefreshTimer) clearInterval(gitRefreshTimer);
-    gitRefreshTimer = undefined;
-    gitRefreshInFlight = false;
-    gitIndicators = "";
     requestRender = undefined;
     totalCost = 0;
     codexUsageLabel = "";
@@ -256,11 +251,6 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
     if (ctx.mode !== "tui") return;
 
     totalCost = 0;
-    gitIndicators = "";
-    refreshGitIndicators(ctx.cwd);
-    if (gitRefreshTimer) clearInterval(gitRefreshTimer);
-    gitRefreshTimer = setInterval(() => refreshGitIndicators(ctx.cwd), 5_000);
-    gitRefreshTimer.unref?.();
     for (const entry of ctx.sessionManager.getEntries()) {
       if (entry.type === "message" && entry.message.role === "assistant")
         totalCost += entry.message.usage.cost.total;
@@ -323,7 +313,6 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
     ctx.ui.setFooter((tui, theme, footerData) => {
       requestRender = () => tui.requestRender();
       const unsubscribe = footerData.onBranchChange(() => {
-        refreshGitIndicators(ctx.cwd);
         tui.requestRender();
       });
 
@@ -341,10 +330,7 @@ export function registerPizzaUiExtension(pi: ExtensionAPI) {
             .filter(([key]) => key !== CODEX_USAGE_STATUS_KEY)
             .map(([, status]) => sanitizeStatus(status))
             .filter(Boolean);
-          const coloredIndicators = gitIndicators
-            ? theme.fg("warning", gitIndicators)
-            : "";
-          const left = [coloredIndicators, ...otherStatuses].filter(Boolean).join(" · ");
+          const left = otherStatuses.join(" · ");
           const cwd = theme.fg("dim", theme.bold(compactPath(ctx.cwd)));
           if (left !== bottomLeft || cwd !== bottomRight) {
             bottomLeft = left;

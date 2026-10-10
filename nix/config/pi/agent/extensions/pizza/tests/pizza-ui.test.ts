@@ -155,14 +155,13 @@ describe("pizza ui", () => {
     expect(widgetLine).toContain(`<text>codex ${usage}</text>`);
   });
 
-  it("uses a yellow spinner and one randomized working phrase", () => {
+  it("uses a yellow progress spinner without a working phrase", () => {
     const { handlers, ctx, ui } = setup();
     handlers.get("agent_start")!({}, ctx);
-    expect(ui.workingIndicator.frames).toHaveLength(10);
-    expect(ui.workingIndicator.intervalMs).toBe(100);
-    expect(ui.workingIndicator.frames[0]).toContain("<warning>⠋</warning>");
-    expect(ui.workingMessage).toMatch(/<warning>.+\.\.\.<\/warning>/);
-    expect(ui.workingMessage).not.toContain("Working… Working…");
+    expect(ui.workingIndicator.frames).toHaveLength(19);
+    expect(ui.workingIndicator.intervalMs).toBe(75);
+    expect(ui.workingIndicator.frames[0]).toContain("<warning>▰▱▱▱▱▱▱▱▱▱</warning>");
+    expect(ui.workingMessage).toBe("");
   });
 
   it("caches initial session entries and stays within narrow terminal width", () => {

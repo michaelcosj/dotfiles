@@ -8,16 +8,33 @@ export function registerSubagentCommands(
 ) {
   pi.registerCommand("subagents", {
     description: "List, inspect, and take over subagents",
-    handler: async (_args, context) => {
+    handler: async (args, context) => {
+      if (args.trim() === "reconcile") {
+        const count = await runtime.getManager().reconcile();
+        context.ui.notify(
+          count ? `Reconciled ${count} stale subagent${count === 1 ? "" : "s"}` : "No stale subagents found",
+          "info",
+        );
+        return;
+      }
       if (context.mode !== "tui") {
         context.ui.notify("/subagents requires TUI mode", "warning");
         return;
       }
-      await openSubagentPicker(
-        context,
-        runtime.getQuery(),
-        runtime.getCommands(),
-      );
+      const query = runtime.getQuery();
+      const commands = runtime.getCommands();
+      const snapshots = query.list();
+      const native = snapshots.filter((snapshot) => snapshot.meta.herdrTabId);
+      if (native.length) {
+        const labels = native.map(
+          (snapshot) => `${snapshot.id} · ${snapshot.status} · ${snapshot.title}`,
+        );
+        const picked = await context.ui.select("Open subagent", labels);
+        const index = picked ? labels.indexOf(picked) : -1;
+        if (index >= 0) await commands.requestOpen(native[index]!.id);
+        return;
+      }
+      await openSubagentPicker(context, query, commands);
     },
   });
 
@@ -39,10 +56,12 @@ export function registerSubagentCommands(
         ),
       );
       if (context.mode === "tui") {
+        const commands = runtime.getCommands();
+        if (await commands.requestOpen(snapshot.id)) return;
         await openSubagentTakeover(
           context,
           runtime.getQuery(),
-          runtime.getCommands(),
+          commands,
           snapshot.id,
           { badge: "by the way" },
         );

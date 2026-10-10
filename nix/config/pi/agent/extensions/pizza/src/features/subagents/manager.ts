@@ -28,18 +28,21 @@ export interface SubagentReadModel {
 export interface SubagentCommandPort {
   requestSend(id: string, text: string): Promise<void>;
   requestAbort(id: string): Promise<void>;
+  requestOpen(id: string): Promise<boolean>;
 }
 
 export interface SubagentManager {
   spawn(task: SpawnTask, signal?: AbortSignal): Promise<SubagentSnapshot>;
   wait(ids: string[], signal?: AbortSignal): Promise<void>;
   cancel(ids: string[], signal?: AbortSignal): Promise<CancelResult[]>;
+  reconcile(): Promise<number>;
   send(id: string, text: string): Promise<void>;
   get(id: string): SubagentSnapshot | undefined;
   list(): SubagentSnapshot[];
   disposeAll(): Promise<void>;
   view: SubagentReadModel;
   setOnSettled(fn: (s: SubagentSnapshot) => void): void;
+  setFactory(factory: ChildSessionFactory): void;
 }
 type Mutable = { -readonly [K in keyof SubagentSnapshot]: SubagentSnapshot[K] };
 interface Entry {
@@ -86,8 +89,9 @@ const errorMessage = (error: unknown) =>
 export type ChildSessionFactory = (task: SpawnTask) => Promise<ChildSession>;
 
 export function createSubagentManager(
-  factory: ChildSessionFactory,
+  initialFactory: ChildSessionFactory,
 ): SubagentManager {
+  let factory = initialFactory;
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>(),
     per = new Map<string, Set<() => void>>();
@@ -269,6 +273,9 @@ export function createSubagentManager(
     setOnSettled(fn) {
       onSettled = fn;
     },
+    setFactory(nextFactory) {
+      factory = nextFactory;
+    },
     async spawn(task, signal) {
       if (disposed) throw new Error("Subagent manager disposed");
       if (signal?.aborted) throw new Error("Spawn aborted");
@@ -374,6 +381,21 @@ export function createSubagentManager(
           };
         }),
       );
+    },
+    async reconcile() {
+      let reconciled = 0;
+      await Promise.all([...entries.values()].map(async (e) => {
+        if (e.snapshot.status !== "running" || !e.child.reconcile) return;
+        try {
+          if (!(await e.child.reconcile())) {
+            settle(e, "cancelled", e.snapshot.finalText, "Herdr agent or tab was closed", "aborted");
+            reconciled++;
+          }
+        } catch {
+          // Herdr itself may be temporarily unavailable; do not destroy state.
+        }
+      }));
+      return reconciled;
     },
     async send(id, text) {
       if (disposed) throw new Error("Subagent manager disposed");

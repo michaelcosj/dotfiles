@@ -94,6 +94,8 @@ function managerHarness(initial: SubagentSnapshot[]) {
     list: () => snapshots,
     disposeAll: async () => {},
     setOnSettled() {},
+    reconcile: async () => 0,
+    setFactory() {},
   } as SubagentManager;
   return {
     manager,

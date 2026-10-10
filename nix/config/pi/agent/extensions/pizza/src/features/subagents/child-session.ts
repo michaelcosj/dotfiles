@@ -18,6 +18,7 @@ import type {
   TranscriptPart,
 } from "./state.js";
 import { SpawnError } from "./state.js";
+import { renderSubagentHandoff } from "./handoff.js";
 
 export const CHILD_EXCLUDED_TOOLS = [
   "subagent_spawn",
@@ -168,11 +169,13 @@ export interface ChildSessionDependencies {
 }
 
 export interface ChildSession {
-  readonly session: AgentSession;
+  readonly session?: AgentSession;
   readonly meta: ChildSessionMeta;
   subscribe(fn: (e: SubagentEvent) => void): () => void;
   send(text: string): Promise<void>;
   interrupt(): Promise<void>;
+  /** Return whether the externally hosted child still exists. */
+  reconcile?(): Promise<boolean>;
   dispose(): Promise<void>;
 }
 export interface ChildSessionMeta extends SubagentMeta {}
@@ -200,7 +203,9 @@ export async function createChildSession(
   try {
     ({ session } = await createAgentSession({
       cwd: task.cwd,
-      sessionManager: SessionManager.create(task.cwd),
+      sessionManager: task.forkParent && task.parent.sessionFilePath
+        ? SessionManager.forkFrom(task.parent.sessionFilePath, task.cwd)
+        : SessionManager.create(task.cwd),
       settingsManager: settings,
       resourceLoader: loader,
       model,
@@ -395,7 +400,7 @@ export async function createChildSession(
     startTimer = undefined;
     if (!closed) {
       emit({ type: "meta", meta: activeMeta() });
-      start(task.prompt);
+      start(renderSubagentHandoff(task));
     }
   }, 0);
   return {

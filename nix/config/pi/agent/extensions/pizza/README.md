@@ -8,7 +8,6 @@ A single package for my Pi extensions.
 
 - Framed editor with working-directory and mode indicators
 - Vim-style insert and normal modes
-- Compact renderers for `read`, `bash`, `edit`, and `write`
 - Codex usage in the header
 - Custom spinner and working messages
 
