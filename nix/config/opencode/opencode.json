@@ -1,125 +1,63 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openai/gpt-5.6-sol",
-  "small_model": "openai/gpt-5.4-mini",
+  "model": "openai/gpt-6.1-sol",
+  "small_model": "opencode/big-pickle",
+  "warming": true,
   "enabled_providers": [
     "openai",
     "opencode",
     "opencode-go"
   ],
-  "instructions": [
-    "./instructions/agent_etiquette.md"
-  ],
-  "plugin": [
-    "cc-safety-net"
-  ],
+  "references": {
+    "effect": {
+      "repository": "Effect-TS/effect",
+      "branch": "main",
+      "description": "Use for Effect implementation details"
+    }
+  },
   "mcp": {
-    "context7": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@upstash/context7-mcp",
-        "--api-key",
-        "{env:CONTEXT7_API_KEY}"
-      ],
-      "enabled": false
+    "servers": {
+      "open-computer-use": {
+        "type": "local",
+        "command": [
+          "open-computer-use",
+          "mcp"
+        ]
+      },
+      "open-browser-use": {
+        "type": "local",
+        "command": [
+          "/Users/synth/.bun/bin/obu",
+          "mcp"
+        ]
+      },
+      "pencil": {
+        "type": "local",
+        "command": [
+          "/Applications/Pen.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-x64",
+          "-app",
+          "desktop",
+          "-agent",
+          "openCodeCLI"
+        ]
+      }
     }
   },
   "permission": {
     "bash": {}
   },
-  "agent": {
-    "compaction": {
-      "model": "openai/gpt-5.6-terra",
-      "variant": "low"
-    },
+  "agents": {
     "general": {
-      "permission": {
-        "question": "allow"
-      }
+      "model": "openai/gpt-6.1-sol#low",
     },
     "plan": {
-      "model": "openai/gpt-5.6-sol",
-      "variant": "medium",
-      "permission": {
-        "task": {
-          "worker": "deny"
-        }
-      }
+      "model": "openai/gpt-6.1-sol#high",
     },
     "build": {
-      "model": "openai/gpt-5.6-terra",
-      "variant": "high"
+      "model": "openai/gpt-6.1-sol#medium",
     },
     "explore": {
-      "model": "openai/gpt-5.6-terra",
-      "variant": "medium",
-      "description": "Read-only local discovery agent. Finds relevant files, patterns, interfaces, and conventions in the codebase.",
-      "permission": {
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "bash": "deny",
-        "edit": "deny",
-        "websearch": "deny",
-        "webfetch": "deny",
-        "task": "deny"
-      }
-    },
-    "librarian": {
-      "mode": "subagent",
-      "model": "openai/gpt-5.6-terra",
-      "variant": "medium",
-      "prompt": "{file:./prompts/librarian.md}",
-      "description": "Research subagent for external libraries, APIs, frameworks, and related local code context. Use to gather source-grounded findings, compare options, inspect local usage patterns, and return concise structured research for the calling agent.",
-      "permission": {
-        "edit": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "webfetch": "allow",
-        "websearch": "allow",
-        "task": "deny",
-        "bash": {
-          "*": "deny"
-        }
-      }
-    },
-    "code-reviewer": {
-      "mode": "subagent",
-      "model": "openai/gpt-5.6-sol",
-      "variant": "high",
-      "prompt": "{file:./prompts/code-reviewer.md}",
-      "description": "Validation agent with two modes: `pre-flight` for reviewing execution plans before worker spawn, and `final` for reviewing completed code after implementation. Use to catch task decomposition issues, dependency/interface mismatches, correctness bugs, security risks, performance problems, and architectural drift. Returns approval status, issues by severity, and the next required action.",
-      "permission": {
-        "read": "allow",
-        "list": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "bash": "allow",
-        "edit": "deny",
-        "webfetch": "deny",
-        "task": "deny"
-      }
-    },
-    "worker": {
-      "mode": "subagent",
-      "model": "openai/gpt-5.6-sol",
-      "variant": "low",
-      "description": "Focused coding agent for a single bounded task. Implements changes, validates locally, and reports what changed. Must be given specific, precise and detailed instructions. Always verify changes made by the worker",
-      "permission": {
-        "read": "allow",
-        "list": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "bash": "allow",
-        "edit": "allow",
-        "webfetch": "deny",
-        "task": "deny"
-      }
+      "model": "openai/gpt-6-luna#high",
     }
   }
 }

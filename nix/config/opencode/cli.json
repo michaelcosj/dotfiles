@@ -1,0 +1,37 @@
+{
+  "plugins": [
+    "./tui-plugins/herdr-agent-state-v2-tui.js",
+    "./tui-plugins/handoff.js",
+    "./tui-plugins/empty-enter.js",
+    "./herdr-opencode"
+  ],
+  "theme": {
+    "name": "system",
+    "mode": "system"
+  },
+  "diffs": {
+    "wrap": "word"
+  },
+  "session": {
+    "sidebar": "hide",
+    "scrollbar": false,
+    "thinking": "show",
+    "image_preview": true,
+    "terminal": true,
+    "permissions": "autoaccept"
+  },
+  "animations": true,
+  "prompt": {
+    "image_preview": true
+  },
+  "debug": {
+    "devtools": true,
+    "turn_tokens": "verbose"
+  },
+  "tabs": {
+    "mode": "on",
+    "layout": "vertical",
+    "scope": "cwd",
+    "indicators": "status"
+  }
+}

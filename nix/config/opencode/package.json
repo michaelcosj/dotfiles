@@ -1,6 +1,10 @@
 {
   "dependencies": {
-    "@opencode-ai/plugin": "1.4.3"
+    "@opencode-ai/plugin": "0.0.0-beta-19234",
+    "@opencode-ai/theme": "0.0.0-beta-19234",
+    "@opentui/core": "^0.5.10",
+    "@opentui/solid": "^0.5.10",
+    "solid-js": "^1.9.0"
   },
   "name": "opencode",
   "module": "index.ts",
