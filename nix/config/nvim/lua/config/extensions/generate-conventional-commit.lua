@@ -5,11 +5,14 @@ local defaults = {
 			"-p",
 			"-ne",
 			"-ns",
+      "-nt",
+			"-t",
+			"read",
 			"--no-session",
 			"--mode",
 			"text",
 			"--model",
-			"opencode-go/mimo-v2.5",
+			"openai-codex/gpt-5.6-luna",
 			"--thinking",
 			"off",
 		},
@@ -30,6 +33,7 @@ local defaults = {
     - Use Conventional Commits format.
     - Prefer one concise subject line
     - Include a brief body explaining the change only when necessary.
+    - Don't put the entire body as one line, break it into a readable paragraph.
     - Use types like feat, fix, refactor, chore, docs, test, perf, build, ci.
   ]],
 }

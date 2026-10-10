@@ -7,8 +7,8 @@ end
 conform.setup({
 	formatters_by_ft = {
 		lua = { "stylua" },
-		javascript = { "biome-check" },
-		typescript = { "biome-check" },
+		javascript = { "oxfmt" },
+		typescript = { "oxfmt" },
 		nix = { "nixfmt" },
 		json = { "jq" },
 		jsonc = { "jq" },

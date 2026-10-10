@@ -17,7 +17,7 @@ require("minuet").setup({
 		},
 		show_on_completion_menu = true,
 	},
-	provider = "openai_compatible",
+	provider = "openai_fim_compatible",
 	provider_options = {
 		openai_fim_compatible = {
 			model = "mercury-edit-2",
