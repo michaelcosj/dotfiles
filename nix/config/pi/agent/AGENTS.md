@@ -16,3 +16,10 @@
 ## Subagents
 
 You must load the subagents skill before spawning subagents
+
+---
+
+Use `bun` instead of `npx ts-node`
+
+
+when editing effect code you can look at `~/Projects/oss/effect` for the source code

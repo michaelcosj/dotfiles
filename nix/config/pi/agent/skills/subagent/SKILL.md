@@ -28,21 +28,24 @@ Match the model and reasoning effort to the task's complexity, required capabili
 
 The recommended models to use are 
 
-`openai-codex/gpt-5.6-luna`: lightweight cheap and fast for exploration and simple tasks
-`openai-codex/gpt-5.6-terra`: middle child for more complex tasks that require some more autonomy but not much capability
-`openai-codex/gpt-5.6-sol`: most capable frontier model for more complex tasks that require the most autonomy and capability
+### Cheap
+`Luna - openai-codex/gpt-5.6-luna or opencode-go/gpt-5.6-luna`: lightweight fast and very cheap for exploration and simple tasks that don't require much autonomy.
+`Deepseek Flash - opencode-go/deepseek-v4-flash`: faster and cheaper than luna, very good for exploration and simple tasks that need to be done quickly.
+
+
+### Middle
+`Deepseek Pro - opencode-go/deepseek-v4-pro`: capable for middle tasks that don't require as much autonomy or capability as the frontier
+
+
+### Powerful
+`Sol - openai-codex/gpt-5.6-sol`: most capable frontier model for more complex tasks that require autonomy and higher capability
 
 ### Recommended Picks:
 
-
-| Model | Effort | Best for |
-| --- | --- | --- |
-| `openai-codex/gpt-5.6-terra` | `low` | Very simple implementation tasks that require a small model |
-| `openai-codex/gpt-5.6-sol` | `low` | Implementation with complete requirements and precise instructions |
-| `openai-codex/gpt-5.6-luna` | `high` | Exploration and context gathering |
-| `openai-codex/gpt-5.6-sol` | `medium` | Complex implementation and implementation verification |
-| `openai-codex/gpt-5.6-sol` | `high` | Code review |
-
+- For code related task, sol with low reasoning is the optimal choise as it is fast and performant and not as expensive in low reasoning
+- For review sol at medium reasoning should be sufficient, more complex tasks could require high reasoning although this should be rare. Never go above high reasoning with sol
+- For cheap code tasks deepseek pro is also performant and can be used for code work that don't require as much autonomy
+- Exploration and context gathering should be done with low cost, fast models like flash and luna.
 
 ## Write Precise Prompts
 
