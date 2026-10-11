@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "paper": {
+      "command": "/home/m/.paper/bin/paper",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
