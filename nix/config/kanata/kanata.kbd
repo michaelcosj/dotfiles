@@ -1,0 +1,18 @@
+;; Caps Lock: Esc on tap, Ctrl on hold. Edits apply after
+;; `systemctl --user restart kanata`.
+(defcfg
+  process-unmapped-keys yes
+  ;; Leave the laptop keyboard alone: it's disabled for libinput by
+  ;; /etc/udev/rules.d/99-disable-internal-keyboard.rules, and kanata would
+  ;; otherwise re-emit its keys through its virtual keyboard.
+  linux-dev-names-exclude ("AT Translated Set 2 keyboard")
+)
+
+(defsrc caps)
+
+;; tap-hold-press <tap timeout ms> <hold timeout ms> <tap action> <hold action>
+;; Ctrl after 150ms held, or immediately once another key is pressed while held
+;; (so Caps+C is Ctrl+C without waiting); a quick tap alone is Esc.
+(defalias escctl (tap-hold-press 150 150 esc lctl))
+
+(deflayer base @escctl)
