@@ -98,6 +98,12 @@
       ];
     };
 
+    # Fish integration is on by default; nix-direnv caches `use flake` shells.
+    direnv = {
+      enable = true;
+      nix-direnv.enable = true;
+    };
+
     git = {
       enable = true;
       settings = {
