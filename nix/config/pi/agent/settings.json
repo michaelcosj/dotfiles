@@ -1,7 +1,7 @@
 {
-  "lastChangelogVersion": "0.84.1",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol",
+  "lastChangelogVersion": "1.1.0",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "low",
   "hideThinkingBlock": false,
   "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep -E '^[[:space:]]+alias[[:space:]]+' ~/.config/fish/config.fish | sed -E \"s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+'([^']*)'[[:space:]]*$/alias \\\\1='\\\\2'/;s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+([^ ]+)[[:space:]]*$/alias \\\\1='\\\\2'/\")\"",
@@ -10,7 +10,7 @@
     "reserveTokens": 65536,
     "keepRecentTokens": 20000
   },
-  "quietStartup": true,
+  "quietStartup": "header",
   "collapseChangelog": true,
   "showCacheMissNotices": true,
   "terminal": {
@@ -19,28 +19,23 @@
   },
   "packages": [
     "npm:pi-web-access",
-    "npm:@ff-labs/pi-fff"
+    "npm:@ff-labs/pi-fff",
+    "npm:pi-claude-bridge"
   ],
   "enabledModels": [
-    "openai-codex/gpt-5.4-mini",
-    "openai-codex/gpt-5.5",
-    "openai-codex/gpt-5.6-luna",
-    "openai-codex/gpt-5.6-sol",
-    "openai-codex/gpt-5.6-terra",
-    "opencode/big-pickle",
-    "opencode-go/hy3",
-    "opencode-go/glm-5.2",
-    "opencode-go/kimi-k3",
-    "opencode-go/minimax-m3",
-    "opencode-go/qwen3.7-max",
-    "opencode-go/qwen3.7-plus",
-    "opencode-go/deepseek-v4-flash",
-    "opencode-go/grok-4.5",
-    "opencode-go/mimo-v2.5",
-    "opencode-go/mimo-v2.5-pro",
-    "opencode-go/gpt-5.6-luna",
-    "opencode-go/glm-5.3",
-    "opencode-go/ox-alpha-free"
+    "openai/gpt-6-astra",
+    "openai/gpt-6.1-sol",
+    "openai/gpt-6-luna",
+    "claude-bridge/claude-opus-5-5",
+    "claude-bridge/claude-haiku-5-5",
+    "claude-bridge/claude-sonnet-5-5"
   ],
-  "tuiMode": "fullscreen"
+  "tuiMode": "fullscreen",
+  "deviceId": "7515a2c8-3865-4ca1-b7dc-bd080a49d2de",
+  "showHardwareCursor": false,
+  "editorPaddingX": 0,
+  "modelThinkingLevels": {
+    "openai/gpt-6.1-sol": "medium",
+    "openai/gpt-6-astra": "low"
+  }
 }

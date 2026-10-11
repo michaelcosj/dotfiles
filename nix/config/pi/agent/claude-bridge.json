@@ -1,0 +1,6 @@
+{
+  "provider": {
+    "pathToClaudeCodeExecutable": "/home/m/.local/bin/claude"
+  },
+  "startupNoticeShown": "2026-10-12"
+}
