@@ -8,7 +8,23 @@
 
   programs.fish.enable = true;
   users.users.synth = {
+    home = "/Users/synth";
     shell = pkgs.fish;
+  };
+
+  home-manager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    backupFileExtension = "backup";
+    users.synth = {
+      imports = [
+        ./home/common.nix
+        ./home/darwin.nix
+      ];
+      home.username = "synth";
+      home.homeDirectory = "/Users/synth";
+      home.stateVersion = "24.11";
+    };
   };
 
   homebrew = {
@@ -18,7 +34,6 @@
 
     taps = [
       # "karimbenbourenane/cask-fonts"
-      "tursodatabase/homebrew-tap"
     ];
 
     casks = [
@@ -50,7 +65,6 @@
     brews = [
       "colima"
       "mas"
-      "turso"
       "unar"
       "pam-reattach"
       {

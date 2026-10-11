@@ -2,7 +2,6 @@
 vim.lsp.enable({
 	"cssls",
 	"html",
-	"intelephense",
 	"jsonls",
 	"lua_ls",
 	"nixd",
