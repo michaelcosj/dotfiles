@@ -20,10 +20,12 @@
   targets.genericLinux.enable = true;
 
   home.packages = with pkgs; [
+    codex # here, not common.nix: the darwin nixpkgs pin lags far behind
     gcc
     gnomeExtensions.hot-edge # not in Fedora's repos; nixpkgs build supports GNOME 50
     nerd-fonts.zed-mono
     kanata
+    pi-coding-agent # same reason as codex
     unar
     wl-clipboard
     zed-editor
