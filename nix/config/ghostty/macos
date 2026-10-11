@@ -1,0 +1,3 @@
+# theme = Gruvbox Dark
+theme = dark:Catppuccin Macchiato,light:Catppuccin Latte
+macos-option-as-alt = true

@@ -1,0 +1,11 @@
+# GNOME/Ptyxis look
+theme = dark:Adwaita Dark,light:Adwaita
+
+# Titlebar blends into the terminal (like macOS): it takes the terminal
+# background, and tabs + window buttons share that single bar.
+window-theme = ghostty
+gtk-titlebar-style = tabs
+gtk-toolbar-style = flat
+
+# Smaller than the shared 14 for this screen.
+font-size = 12
