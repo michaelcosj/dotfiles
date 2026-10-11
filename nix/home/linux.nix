@@ -8,13 +8,18 @@
 #      for nix GUI apps). After this, `nix-rebuild` re-runs it automatically when needed.
 #   5. Container runtime from dnf (docker or podman), since it needs a system service.
 #   6. GNOME extensions (enabled in dconf.settings below):
-#        sudo dnf install gnome-shell-extension-{auto-move-windows,appindicator,gpaste,caffeine,gsconnect}
+#        sudo dnf install gnome-shell-extension-{auto-move-windows,appindicator,caffeine,gsconnect}
 #   7. kanata access to keyboards, then reboot:
 #        sudo groupadd --system uinput
 #        sudo usermod -aG input,uinput m
 #        echo 'KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"' \
 #          | sudo tee /etc/udev/rules.d/99-uinput.rules
-{ pkgs, lib, config, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 {
   # XDG dirs, desktop entries, fonts and GPU driver integration for nix apps.
   targets.genericLinux.enable = true;
@@ -22,6 +27,7 @@
   home.packages = with pkgs; [
     codex # here, not common.nix: the darwin nixpkgs pin lags far behind
     gcc
+    gnomeExtensions.copyous # clipboard manager; not in Fedora's repos
     gnomeExtensions.hot-edge # not in Fedora's repos; nixpkgs build supports GNOME 50
     nerd-fonts.zed-mono
     kanata
@@ -60,10 +66,11 @@
       "background-logo@fedorahosted.org"
       "auto-move-windows@gnome-shell-extensions.gcampax.github.com"
       "appindicatorsupport@rgcjonas.gmail.com"
-      "GPaste@gnome-shell-extensions.gnome.org"
+      "copyous@boerdereinar.dev"
       "caffeine@patapon.info"
       "gsconnect@andyholmes.github.io"
       "hotedge@jonathan.jdoda.ca"
+      "agent-bar@local"
     ];
     # Push against the bottom-centre of the screen to open Activities.
     "org/gnome/shell/extensions/hotedge" = {
