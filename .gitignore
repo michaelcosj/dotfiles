@@ -24,3 +24,8 @@ node_modules/
 /nix/config/pi/agent/sessions/
 /nix/config/pi/agent/state/
 /nix/config/pi/agent/trust.json
+/nix/config/herdr/*.sock*
+/nix/config/herdr/session-snapshots/
+
+# Opencode server credentials
+/nix/config/opencode/service.json
