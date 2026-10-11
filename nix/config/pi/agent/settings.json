@@ -10,7 +10,6 @@
     "reserveTokens": 65536,
     "keepRecentTokens": 20000
   },
-  "theme": "pizza-ui",
   "quietStartup": true,
   "collapseChangelog": true,
   "showCacheMissNotices": true,
@@ -43,18 +42,5 @@
     "opencode-go/glm-5.3",
     "opencode-go/ox-alpha-free"
   ],
-  "subagents": {
-    "agentOverrides": {
-      "scout": {
-        "model": "openai-codex/gpt-5.3-codex-spark"
-      }
-    },
-    "watchdog": {
-      "main": {
-        "enabled": true
-      },
-      "enabled": true
-    }
-  },
   "tuiMode": "fullscreen"
 }

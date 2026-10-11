@@ -435,7 +435,7 @@ export async function askQuestionnaire(
   };
 }
 
-export function registerQuestionnaireTool(pi: ExtensionAPI): void {
+export default function registerQuestionnaireTool(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "questionnaire",
     label: "Questionnaire",

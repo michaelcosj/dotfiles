@@ -1,18 +1,23 @@
 ---
 name: subagent
-description: Delegate independent work to lightweight persisted Pi child sessions.
+description: Delegate independent work to non-interactive Pi child processes (pi -p) run in the background.
 ---
 
-# Lightweight Subagents
+# Subagents
 
-- Use `subagent_spawn` for independent tasks that can run concurrently.
-- Use `subagent_wait` when results are required before continuing; never poll or run sleep.
-- Use `subagent_check` only for a one-shot status/output preview.
-- Use `subagent_send` to steer a running child or continue a completed child in its persisted session instead of spawning a replacement.
-- Use `subagent_cancel` to interrupt work that is no longer needed.
-- Use `subagent_list` to inventory model-spawned children.
-- Children are persisted, session-scoped, limited to four running agents, and cannot recursively delegate or ask the user.
-- `/subagents` opens the dashboard and takeover UI; `/btw question` opens a side-question child whose answer stays out of model context.
+A subagent is a non-interactive Pi child run in print mode. Run it through the background-terminals helper so it doesn't block you:
+
+```sh
+bg=~/.pi/agent/skills/background-terminals/bg.sh
+$bg start scout-auth 'pi -p --no-session --model opencode-go/deepseek-v4-flash --thinking low "<prompt>"'
+```
+
+- The child's final answer is its output. Read it with `$bg wait <name>` when you need the result, or with `$bg status <name>` for a preview. Don't poll or `sleep`.
+- For long prompts, write the prompt to a file and pass it as `"$(cat /path/to/prompt.md)"` to avoid quoting problems.
+- Run independent children in parallel with separate names. Keep it to four or fewer at once.
+- `$bg kill <name>` cancels a child that's no longer needed.
+- Children can't ask the user questions. Put everything they need in the prompt.
+- To continue a child's work, drop `--no-session` and pass `--session-id <id>` on both the first run and every follow-up.
 
 # Delegation Guidelines
 
@@ -62,4 +67,4 @@ Give each subagent enough context to complete its task without unnecessary disco
 - Parallelize only independent work that benefits from concurrent execution.
 - Do not spawn more subagents than the task requires.
 - Reuse an existing subagent when a follow-up aligns with its previous work.
-- When a task uses a primary sidekick, prefer `subagent_send` over spawning a replacement, even when the existing subagent has completed, so its persisted context can be reused.
+- When a follow-up builds on a child's earlier work, continue its session with `--session-id` instead of starting from scratch.

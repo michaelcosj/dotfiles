@@ -15,8 +15,7 @@ const HERDR_ENDPOINT =
     ? `\\\\.\\pipe\\${HERDR_SOCKET_PATH}`
     : HERDR_SOCKET_PATH;
 const MAX_LINE_BYTES = 1024 * 1024;
-const INSTANCE_ROLE = process.env.PIZZA_SUBAGENT === "1" ? "S" : "M";
-const INSTANCE_ID = HERDR_PANE_ID ? `[${INSTANCE_ROLE}] ${HERDR_PANE_ID}` : undefined;
+const INSTANCE_ID = HERDR_PANE_ID;
 const STATUS_KEY = "pi-instance-id";
 
 type BridgeState = "idle" | "working" | "blocked";
@@ -106,14 +105,12 @@ export default function (pi: any) {
             pi_control_token: null,
             pi_control_protocol: null,
             pi_instance_id: null,
-            pi_instance_role: null,
           }
         : {
             pi_control_socket: socketPath,
             pi_control_token: token,
             pi_control_protocol: PROTOCOL,
             pi_instance_id: INSTANCE_ID,
-            pi_instance_role: INSTANCE_ROLE,
           },
     });
   }
@@ -147,7 +144,6 @@ export default function (pi: any) {
         protocol: PROTOCOL,
         pane_id: HERDR_PANE_ID,
         instance_id: INSTANCE_ID,
-        instance_role: INSTANCE_ROLE,
         state,
       });
       return;

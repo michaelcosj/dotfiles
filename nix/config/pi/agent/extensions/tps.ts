@@ -7,7 +7,7 @@ function isAssistantMessage(message: unknown): message is AssistantMessage {
   return role === "assistant";
 }
 
-export function registerTpsExtension(pi: ExtensionAPI) {
+export default function registerTpsExtension(pi: ExtensionAPI) {
   let agentStartMs: number | null = null;
   let assistantStartMs: number | null = null;
   let modelElapsedMs = 0;
