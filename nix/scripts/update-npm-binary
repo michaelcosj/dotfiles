@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Bump nix/pkgs/<name>.nix (a package built with pkgs/npm-binary.nix) to its latest
+# npm release, or to the version given as $2, filling in each platform's hash from
+# the npm registry. Then nix-rebuild.
+#
+#   update-npm-binary opencode
+#   update-npm-binary vite-plus 1.0.0
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "usage: update-npm-binary <name> [version]" >&2
+  echo "packages: $(grep -l 'npm-binary.nix' "$HOME"/.dotfiles/nix/pkgs/*.nix | xargs -n1 basename | sed 's/\.nix$//' | grep -vx npm-binary | tr '\n' ' ')" >&2
+  exit 1
+fi
+
+file="$HOME/.dotfiles/nix/pkgs/$1.nix"
+[ -f "$file" ] || { echo "no such package: $file" >&2; exit 1; }
+
+prefix=$(sed -n 's/^  packagePrefix = "\(.*\)";/\1/p' "$file")
+current=$(sed -n 's/^  version = "\(.*\)";/\1/p' "$file")
+mapfile -t suffixes < <(sed -n 's/^ *suffix = "\(.*\)";/\1/p' "$file")
+registry="https://registry.npmjs.org/$prefix"
+
+version="${2:-$(curl -fsSL "$registry-${suffixes[0]}/latest" | jq -r .version)}"
+
+if [ "$version" = "$current" ]; then
+  echo "$1 is already at $version"
+  exit 0
+fi
+
+for suffix in "${suffixes[@]}"; do
+  hash=$(curl -fsSL "$registry-$suffix/$version" | jq -r .dist.integrity)
+  if [ -z "$hash" ] || [ "$hash" = "null" ]; then
+    echo "no $suffix build found for $1 $version" >&2
+    exit 1
+  fi
+  sed -i "/suffix = \"$suffix\";/{n;s|hash = \".*\";|hash = \"$hash\";|}" "$file"
+done
+sed -i "s/^  version = \".*\";/  version = \"$version\";/" "$file"
+
+echo "$1 $current -> $version. Run nix-rebuild to install it."
