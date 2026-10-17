@@ -8,12 +8,14 @@
 #      for nix GUI apps). After this, `nix-rebuild` re-runs it automatically when needed.
 #   5. Container runtime from dnf (docker or podman), since it needs a system service.
 #   6. GNOME extensions (enabled in dconf.settings below):
-#        sudo dnf install gnome-shell-extension-{auto-move-windows,appindicator,caffeine,gsconnect}
+#        sudo dnf install gnome-shell-extension-{auto-move-windows,appindicator,blur-my-shell,caffeine,gsconnect}
 #   7. kanata access to keyboards, then reboot:
 #        sudo groupadd --system uinput
 #        sudo usermod -aG input,uinput m
 #        echo 'KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"' \
 #          | sudo tee /etc/udev/rules.d/99-uinput.rules
+#   8. Closed-lid operation and hibernation at 25% battery:
+#        sudo bash ~/.dotfiles/nix/scripts/setup-power-management
 {
   pkgs,
   lib,
@@ -24,14 +26,21 @@
   # XDG dirs, desktop entries, fonts and GPU driver integration for nix apps.
   targets.genericLinux.enable = true;
 
+  # GearLever launches AppImages as host processes, so they resolve libraries
+  # through the loader's search path, which never includes /nix/store. Fedora
+  # ships no libfuse.so.2 (only libfuse3), and type 2 AppImages need it.
+  systemd.user.sessionVariables.LD_LIBRARY_PATH = "${lib.getLib pkgs.fuse}/lib";
+
   home.packages = with pkgs; [
     codex # here, not common.nix: the darwin nixpkgs pin lags far behind
     gcc
     gnomeExtensions.copyous # clipboard manager; not in Fedora's repos
     gnomeExtensions.hot-edge # not in Fedora's repos; nixpkgs build supports GNOME 50
+    gnome-power-manager # "Power Statistics" app: battery charge/rate history graphs
     nerd-fonts.zed-mono
     kanata
     pi-coding-agent # same reason as codex
+    typescript
     unar
     wl-clipboard
     zed-editor
@@ -42,14 +51,20 @@
   # no `settings` are set here.
   programs.ghostty.enable = true;
 
-  # Proprietary/Electron apps from Flathub, the Linux counterpart to the Homebrew casks.
+  # Flatpak apps from Flathub and upstream repositories.
   services.flatpak = {
     enable = true;
     packages = [
+      {
+        appId = "co.hyprlab.Hylki";
+        flatpakref = "https://hylki.hyprlab.co/flatpak/co.hyprlab.Hylki.flatpakref";
+        sha256 = "0rgbr4hf27j1g7s1grdvbi94m7m9hbmyv6fb1ar1lf8sdd3bcas6";
+      }
       "com.discordapp.Discord"
       "com.spotify.Client"
       "com.stremio.Stremio"
       "com.transmissionbt.Transmission"
+      "it.mijorus.gearlever" # integrates AppImages into the app menu and tracks their updates
       "md.obsidian.Obsidian"
       "org.localsend.localsend_app"
     ];
@@ -62,10 +77,17 @@
   # GNOME settings. Extensions come from dnf (step 6) so they match the system
   # gnome-shell version; enabling them here overrides toggles in the Extensions app.
   dconf.settings = {
+    "org/gnome/settings-daemon/plugins/power" = {
+      idle-dim = true;
+      sleep-inactive-ac-type = "nothing";
+      sleep-inactive-battery-type = "suspend";
+      sleep-inactive-battery-timeout = 1800;
+    };
     "org/gnome/shell".enabled-extensions = [
       "background-logo@fedorahosted.org"
       "auto-move-windows@gnome-shell-extensions.gcampax.github.com"
       "appindicatorsupport@rgcjonas.gmail.com"
+      "blur-my-shell@aunetx"
       "copyous@boerdereinar.dev"
       "caffeine@patapon.info"
       "gsconnect@andyholmes.github.io"

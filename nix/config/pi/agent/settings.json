@@ -20,7 +20,7 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@ff-labs/pi-fff",
-    "npm:pi-claude-bridge"
+    "/home/m/Projects/pi-claude-bridge"
   ],
   "enabledModels": [
     "openai/gpt-6-astra",

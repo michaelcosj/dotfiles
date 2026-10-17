@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+[[ $# -eq 0 ]] || fail "Usage: sudo bash $0"
+[[ $EUID -eq 0 ]] || fail "Run this script with sudo bash."
+
+source /etc/os-release
+[[ $ID == fedora ]] || fail "This script supports Fedora only."
+
+[[ $(busctl call org.freedesktop.login1 /org/freedesktop/login1 \
+  org.freedesktop.login1.Manager CanHibernate) == 's "yes"' ]] ||
+  fail "Hibernation is not available. Set it up and reboot first."
+
+upower_config=/etc/UPower/UPower.conf
+for key in UsePercentageForPolicy PercentageLow PercentageCritical PercentageAction CriticalPowerAction; do
+  grep -q "^${key}=" "$upower_config" || fail "Missing $key in $upower_config."
+done
+
+temporary_dir=$(mktemp -d)
+trap 'rm -f "$temporary_dir/upower.conf" "$temporary_dir/logind.conf"; rmdir "$temporary_dir"' EXIT
+
+sed -E \
+  -e 's/^UsePercentageForPolicy=.*/UsePercentageForPolicy=true/' \
+  -e 's/^PercentageLow=.*/PercentageLow=35.0/' \
+  -e 's/^PercentageCritical=.*/PercentageCritical=30.0/' \
+  -e 's/^PercentageAction=.*/PercentageAction=25.0/' \
+  -e 's/^CriticalPowerAction=.*/CriticalPowerAction=Hibernate/' \
+  "$upower_config" > "$temporary_dir/upower.conf"
+
+cat > "$temporary_dir/logind.conf" <<'EOF'
+[Login]
+HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+HandleLidSwitchDocked=ignore
+IdleAction=ignore
+EOF
+
+install -d -m 755 /etc/systemd/logind.conf.d
+logind_config=/etc/systemd/logind.conf.d/70-power-management.conf
+if ! cmp -s "$temporary_dir/logind.conf" "$logind_config"; then
+  if [[ -e $logind_config ]]; then
+    backup=$(mktemp "${logind_config}.backup.XXXXXX")
+    cp -p "$logind_config" "$backup"
+    echo "Saved the previous logind settings to $backup"
+  fi
+  install -m 644 "$temporary_dir/logind.conf" "$logind_config"
+fi
+systemctl reload systemd-logind.service
+
+if ! cmp -s "$temporary_dir/upower.conf" "$upower_config"; then
+  backup=$(mktemp "${upower_config}.backup.XXXXXX")
+  cp -p "$upower_config" "$backup"
+  cat "$temporary_dir/upower.conf" > "$upower_config"
+  systemctl restart upower.service
+  echo "Saved the previous UPower settings to $backup"
+fi
+
+echo "Lid close and system idle actions are disabled."
+echo "Battery warnings: low at 35%, critical at 30%; hibernate at 25%."
+echo "Disable GNOME automatic sleep through Home Manager or GNOME Power settings."

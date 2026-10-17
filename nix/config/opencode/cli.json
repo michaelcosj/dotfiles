@@ -30,7 +30,7 @@
   },
   "tabs": {
     "mode": "on",
-    "layout": "vertical",
+    "layout": "horizontal",
     "scope": "cwd",
     "indicators": "status"
   }

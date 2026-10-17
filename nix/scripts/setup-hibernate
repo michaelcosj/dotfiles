@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+[[ $# -eq 0 ]] || fail "Usage: sudo bash $0"
+[[ $EUID -eq 0 ]] || fail "Run this script with sudo bash."
+
+source /etc/os-release
+[[ $ID == fedora ]] || fail "This script supports Fedora only."
+
+for command in btrfs findmnt grubby dracut swapon blkid stat awk selinuxenabled; do
+  command -v "$command" >/dev/null || fail "Required command not found: $command"
+done
+
+if selinuxenabled; then
+  for command in semanage restorecon; do
+    command -v "$command" >/dev/null ||
+      fail "Required command not found: $command. Install policycoreutils-python-utils and policycoreutils."
+  done
+fi
+
+[[ $(findmnt -no FSTYPE /) == btrfs ]] || fail "The root filesystem must be Btrfs."
+grep -qw disk /sys/power/state || fail "The kernel does not support hibernation."
+if [[ -r /sys/kernel/security/lockdown ]]; then
+  grep -q '\[none\]' /sys/kernel/security/lockdown ||
+    fail "Kernel lockdown blocks hibernation. Check Secure Boot before continuing."
+fi
+
+swap_dir=/swap
+swap_file=$swap_dir/swapfile
+swap_bytes=$((20 * 1024 * 1024 * 1024))
+ram_bytes=$(awk '/^MemTotal:/ { printf "%.0f", $2 * 1024 }' /proc/meminfo)
+[[ $ram_bytes -le $swap_bytes ]] || fail "This script uses 20 GiB of swap, but this system has more RAM."
+
+[[ ! -L $swap_dir && ! -L $swap_file ]] || fail "The swap path must not be a symbolic link."
+if [[ -e $swap_dir ]]; then
+  btrfs subvolume show "$swap_dir" >/dev/null || fail "$swap_dir must be a Btrfs subvolume."
+fi
+
+if [[ -e $swap_file ]]; then
+  [[ -f $swap_file ]] || fail "$swap_file is not a regular file."
+  [[ $(stat -c %s "$swap_file") -ge $swap_bytes ]] || fail "The existing swap file is smaller than 20 GiB. It was not changed."
+  [[ $(blkid -p -s TYPE -o value "$swap_file") == swap ]] || fail "The existing file is not formatted as swap."
+  btrfs inspect-internal map-swapfile -r "$swap_file" >/dev/null || fail "The existing swap file is not suitable for Btrfs swap."
+else
+  space_path=/
+  [[ ! -d $swap_dir ]] || space_path=$swap_dir
+  available_bytes=$(df -B1 --output=avail "$space_path" | awk 'NR == 2 { print $1 }')
+  [[ $available_bytes -ge $((swap_bytes + 2 * 1024 * 1024 * 1024)) ]] ||
+    fail "At least 22 GiB of free space is required."
+fi
+
+if awk -v file="$swap_file" '
+  $1 == file {
+    found = 1
+    if ($3 != "swap" || $4 ~ /(^|,)noauto(,|$)/) exit 1
+  }
+  END { if (!found) exit 2 }
+' /etc/fstab; then
+  add_fstab=false
+else
+  status=$?
+  [[ $status -eq 2 ]] || fail "An incompatible entry for $swap_file exists in /etc/fstab."
+  add_fstab=true
+fi
+
+echo "Setting up 20 GiB of disk-backed swap. Existing zram will stay enabled."
+echo "The hibernation image will not be encrypted unless the disk is encrypted."
+
+if [[ ! -e $swap_dir ]]; then
+  btrfs subvolume create "$swap_dir"
+fi
+
+uuid=$(findmnt -no UUID -T "$swap_dir")
+[[ -n $uuid ]] || fail "Could not get the swap filesystem UUID."
+
+if [[ ! -e $swap_file ]]; then
+  btrfs filesystem mkswapfile --size 20G "$swap_file"
+fi
+chmod 600 "$swap_file"
+
+if selinuxenabled; then
+  echo "Setting persistent SELinux labels for $swap_dir and $swap_file."
+  local_contexts=$(semanage fcontext -l -C)
+
+  set_swap_label() {
+    local path=$1 type=$2 action=-a
+    if awk -v path="$path" '$1 == path { found = 1 } END { exit !found }' <<< "$local_contexts"; then
+      action=-m
+    fi
+    semanage fcontext "$action" -t "$type" "$path"
+  }
+
+  set_swap_label "$swap_dir" var_t
+  set_swap_label "$swap_file" swapfile_t
+  restorecon -v "$swap_dir" "$swap_file"
+fi
+
+if ! swapon --show=NAME --noheadings | grep -Fxq "$swap_file"; then
+  swapon "$swap_file"
+fi
+
+if [[ $add_fstab == true ]]; then
+  backup=$(mktemp /etc/fstab.before-hibernate.XXXXXX)
+  cp -p /etc/fstab "$backup"
+  printf '\n%s none swap defaults 0 0\n' "$swap_file" >> /etc/fstab
+  echo "Saved the previous /etc/fstab to $backup"
+fi
+
+offset=$(btrfs inspect-internal map-swapfile -r "$swap_file")
+[[ $offset =~ ^[0-9]+$ ]] || fail "Could not get the swap file resume offset."
+echo "Updating kernel resume settings."
+grubby --update-kernel=ALL --args="resume=UUID=$uuid resume_offset=$offset"
+echo "Rebuilding initramfs images. This can take several minutes."
+dracut --regenerate-all --force
+
+echo
+echo "Setup complete. Reboot, save your work, then run: systemctl hibernate"
+echo "If you recreate $swap_file, run this script again to update the resume offset."

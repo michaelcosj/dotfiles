@@ -41,6 +41,14 @@
           "openCodeCLI"
         ]
       }
+    },
+    "paper": {
+      "type": "local",
+      "command": [
+        "/home/m/.paper/bin/paper",
+        "mcp"
+      ],
+      "enabled": true
     }
   },
   "permission": {

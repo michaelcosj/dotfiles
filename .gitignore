@@ -13,11 +13,13 @@ node_modules/
 /nix/config/herdr/release-notes.json
 /nix/config/herdr/session.json
 /nix/config/herdr/plugins/github/
+/nix/config/opencode/plugins/herdr-agent-state.js
 
 # Pi credentials, runtime state, and package cache
 /nix/config/pi/.agent/
 /nix/config/pi/pi-acp/session-map.json
 /nix/config/pi/agent/auth.json
+/nix/config/pi/agent/fff/
 /nix/config/pi/agent/models-store.json
 /nix/config/pi/agent/npm/
 /nix/config/pi/agent/plans/
@@ -29,3 +31,7 @@ node_modules/
 
 # Opencode server credentials
 /nix/config/opencode/service.json
+
+# Local research notes and investigation reports
+/reports/
+/research_notes/

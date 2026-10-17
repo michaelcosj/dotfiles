@@ -5,14 +5,27 @@
   ;; Leave the laptop keyboard alone: it's disabled for libinput by
   ;; /etc/udev/rules.d/99-disable-internal-keyboard.rules, and kanata would
   ;; otherwise re-emit its keys through its virtual keyboard.
-  linux-dev-names-exclude ("AT Translated Set 2 keyboard")
+  ;; Leave the touchpad alone too: GNOME disables it on purpose (ghost
+  ;; clicks), and that setting does not cover kanata's virtual mouse.
+  linux-dev-names-exclude ("AT Translated Set 2 keyboard" "ETPS/2 Elantech Touchpad")
 )
 
-(defsrc caps)
+;; The mouse is intercepted so its buttons and wheel count as "another key
+;; pressed": tap-hold-press then engages Ctrl at the first scroll or click,
+;; instead of waiting for the hold timeout. The layer passes them through.
+(defsrc
+  caps
+  mlft mmid mrgt
+  mwu mwd
+)
 
 ;; tap-hold-press <tap timeout ms> <hold timeout ms> <tap action> <hold action>
-;; Ctrl after 150ms held, or immediately once another key is pressed while held
-;; (so Caps+C is Ctrl+C without waiting); a quick tap alone is Esc.
+;; Ctrl immediately once any key, mouse button, or wheel notch arrives while
+;; held, or after holding 150ms with no other input; a quick tap alone is Esc.
 (defalias escctl (tap-hold-press 150 150 esc lctl))
 
-(deflayer base @escctl)
+(deflayer base
+  @escctl
+  mlft mmid mrgt
+  (mwheel-up 50 120) (mwheel-down 50 120)
+)
