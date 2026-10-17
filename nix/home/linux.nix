@@ -80,8 +80,13 @@
     "org/gnome/settings-daemon/plugins/power" = {
       idle-dim = true;
       sleep-inactive-ac-type = "nothing";
-      sleep-inactive-battery-type = "suspend";
-      sleep-inactive-battery-timeout = 1800;
+      sleep-inactive-battery-type = "nothing";
+    };
+    "org/gnome/desktop/session".idle-delay = lib.hm.gvariant.mkUint32 1800;
+    "org/gnome/desktop/screensaver" = {
+      idle-activation-enabled = true;
+      lock-enabled = true;
+      lock-delay = lib.hm.gvariant.mkUint32 0;
     };
     "org/gnome/shell".enabled-extensions = [
       "background-logo@fedorahosted.org"
