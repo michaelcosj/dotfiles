@@ -19,6 +19,10 @@
   home.file.".config/herdr".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/herdr";
 
+  # Rex config
+  home.file.".config/rex".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/rex";
+
   # Ghostty config
   # Loads the shared file, then the per-OS one. Both are read straight from the
   # repo, so edits apply on reload without a rebuild.
