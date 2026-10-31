@@ -177,7 +177,18 @@ no auth key belongs in this repository or the Nix store.
 1. Sign up at <https://login.tailscale.com/start> and create a tailnet. Choose
    personal use only if appropriate; use your organization's tailnet for work
    when its policy requires that.
-2. Install Tailscale on the MacBook and sign in to the same tailnet.
+2. Rebuild the MacBook to install the native Tailscale app through the
+   nix-darwin Homebrew configuration:
+
+   ```sh
+   cd ~/.dotfiles
+   git pull --ff-only
+   sudo darwin-rebuild switch --flake ./nix#macbook
+   open -a Tailscale
+   ```
+
+   Approve its VPN/network-extension permissions and sign in to the same
+   tailnet. This uses the `tailscale-app` cask, not the CLI-only Nix package.
 3. Open <https://login.tailscale.com/admin/dns>. Enable MagicDNS and HTTPS
    certificates. Certificate names are published in public certificate
    transparency logs, but the services remain private to the tailnet.
