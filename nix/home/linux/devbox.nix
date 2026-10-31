@@ -12,7 +12,10 @@ let
     builtins.toJSON (
       (builtins.removeAttrs desktopSettings [ "deviceId" ])
       // {
-        packages = builtins.filter (lib.hasPrefix "npm:") desktopSettings.packages;
+        # Keep portable registry/Git packages; never copy desktop-local paths.
+        packages = builtins.filter (
+          source: lib.hasPrefix "npm:" source || lib.hasPrefix "git:" source
+        ) desktopSettings.packages;
       }
     )
   );

@@ -112,9 +112,14 @@ git config user.email 'you@company.example'
 ```
 
 Pi settings are seeded once into a private writable file, without desktop-local
-packages, device identity, or Paper MCP. Auth and sessions remain separate per
-account; sign in to providers as needed. Shared extensions, skills, and prompts
-come from each account's own checkout.
+package paths, device identity, or Paper MCP. Portable npm and Git packages are
+included. The personal Claude Code and cached-compaction forks are pinned to
+commits in `config/pi/agent/settings.json`.
+
+Existing accounts keep their runtime settings during rebuilds. To add or change
+a package there, run `pi install <source>` with its pinned source from the shared
+settings. Auth and sessions remain separate per account; sign in to providers as
+needed. Shared extensions, skills, and prompts come from each account's own checkout.
 
 ## SSH and Rex
 

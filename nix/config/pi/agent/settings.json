@@ -25,8 +25,8 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@ff-labs/pi-fff",
-    "/home/m/Projects/oss/pi-claude-code",
-    "/home/m/Projects/oss/pi-cached-compaction"
+    "git:github.com/michaelcosj/pi-claude-code@42d77ee622e1e8c23526522e03f7ece841f36f19",
+    "git:github.com/michaelcosj/pi-cached-compaction@132e0da268def8f6ae18c25c8b100497a54a589e"
   ],
   "enabledModels": [
     "openai/gpt-6-astra",
