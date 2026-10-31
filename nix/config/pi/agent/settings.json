@@ -8,9 +8,14 @@
   "compaction": {
     "enabled": true,
     "reserveTokens": 65536,
-    "keepRecentTokens": 20000
+    "keepRecentTokens": 20000,
+    "modelOverrides": {
+      "claude-code/claude-opus-5-5": {
+        "reserveTokens": 600000
+      }
+    }
   },
-  "quietStartup": "header",
+  "quietStartup": false,
   "collapseChangelog": true,
   "showCacheMissNotices": true,
   "terminal": {
@@ -20,15 +25,16 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@ff-labs/pi-fff",
-    "/home/m/Projects/pi-claude-bridge"
+    "/home/m/Projects/oss/pi-claude-code",
+    "/home/m/Projects/oss/pi-cached-compaction"
   ],
   "enabledModels": [
     "openai/gpt-6-astra",
     "openai/gpt-6.1-sol",
     "openai/gpt-6-luna",
-    "claude-bridge/claude-opus-5-5",
-    "claude-bridge/claude-haiku-5-5",
-    "claude-bridge/claude-sonnet-5-5"
+    "claude-code/claude-opus-5-5",
+    "claude-code/claude-haiku-5-5",
+    "claude-code/claude-sonnet-5-5"
   ],
   "tuiMode": "fullscreen",
   "deviceId": "7515a2c8-3865-4ca1-b7dc-bd080a49d2de",
@@ -37,5 +43,10 @@
   "modelThinkingLevels": {
     "openai/gpt-6.1-sol": "medium",
     "openai/gpt-6-astra": "low"
-  }
+  },
+  "images": {
+    "blockImages": false
+  },
+  "outputPad": 1,
+  "cacheWarming": "idle"
 }
