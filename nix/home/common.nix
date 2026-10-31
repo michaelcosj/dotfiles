@@ -124,7 +124,11 @@
           set_color normal
           set_color brblack
           printf '╭─'
-          set_color blue
+          set -l directory_icon_color blue
+          if set -q dotfiles_directory_icon_color[1]
+            set directory_icon_color $dotfiles_directory_icon_color[1]
+          end
+          set_color $directory_icon_color
           printf '  '
           set_color cyan
           printf '%s' (string replace "$HOME" '~' "$PWD")
