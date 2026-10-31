@@ -1,9 +1,8 @@
-# Shared home-manager config for every machine. Platform-specific bits live
-# in ./darwin.nix and ./linux.nix; username/home are set by the flake.
+# Shared headless-safe Home Manager config. Desktop and platform modules
+# add their own tools; the flake sets the account and machine identity.
 {
   pkgs,
   config,
-  herdr,
   ...
 }:
 {
@@ -19,11 +18,9 @@
     gws
     htop
     imagemagick
-    jetbrains-mono
     jq
     lua-language-server
     mongodb-tools
-    mpv
     neovim
     nixd
     nixfmt
@@ -33,17 +30,16 @@
     stylua
     tree
     tree-sitter
+    typescript
     uv
-    herdr.packages.${pkgs.stdenv.hostPlatform.system}.default
     (callPackage ../pkgs/opencode.nix { })
     (callPackage ../pkgs/vite-plus.nix { })
-    vtsls
-    yt-dlp
   ];
 
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1";
     # opencode is pinned by Nix (pkgs/opencode.nix); don't let it replace itself.
     OPENCODE_DISABLE_AUTOUPDATE = "1";
   };
@@ -53,18 +49,6 @@
   home.file.".config/nvim".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/nvim";
 
-  # Ghostty config
-  # Loads the shared file, then the per-OS one. Both are read straight from the
-  # repo, so edits apply on reload without a rebuild.
-  xdg.configFile."ghostty/config".text =
-    let
-      dir = "${config.home.homeDirectory}/.dotfiles/nix/config/ghostty";
-    in
-    ''
-      config-file = ${dir}/common
-      config-file = ${dir}/${if pkgs.stdenv.hostPlatform.isDarwin then "macos" else "linux"}
-    '';
-
   # Opencode config
   home.file.".config/opencode".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/opencode";
@@ -73,15 +57,9 @@
   home.file.".config/btca".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/btca";
 
-  # Herdr config (https://herdr.dev/docs/configuration/)
-  home.file.".config/herdr".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/herdr";
-
   # pi config (https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)
   home.file.".pi".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/pi";
-
-  fonts.fontconfig.enable = true;
 
   programs = {
     home-manager.enable = true;
@@ -107,8 +85,6 @@
     git = {
       enable = true;
       settings = {
-        user.name = "Michael";
-        user.email = "michaelcosj@proton.me";
         core.editor = "nvim";
         color.ui = true;
         pull.ff = "only";
