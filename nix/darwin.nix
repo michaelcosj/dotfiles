@@ -66,7 +66,6 @@
     brews = [
       "colima"
       "mas"
-      "unar"
       "pam-reattach"
       {
         name = "colima";
