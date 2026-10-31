@@ -68,8 +68,6 @@ vim.pack.add({
 	-- Images
 	gh("HakonHarnes/img-clip.nvim"),
 
-	-- AI
-	gh("milanglacier/minuet-ai.nvim"),
 })
 
 --
@@ -102,4 +100,3 @@ require("config.plugins.pi-bridge")
 require("config.plugins.ale")
 require("config.plugins.undotree")
 require("config.plugins.neogit")
-require("config.plugins.minuet-ai")

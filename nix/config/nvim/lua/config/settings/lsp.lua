@@ -7,7 +7,7 @@ vim.lsp.enable({
 	"nixd",
 	"oxlint",
 	"svelte",
-	"tsgo",
+	"tsc",
 })
 
 -- On attach autocmd

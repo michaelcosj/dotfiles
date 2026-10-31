@@ -13,7 +13,7 @@ conform.setup({
 		json = { "jq" },
 		jsonc = { "jq" },
 		php = { "pint" },
-		svelte = { "prettier" },
+		svelte = { "oxfmt" },
 	},
 })
 
