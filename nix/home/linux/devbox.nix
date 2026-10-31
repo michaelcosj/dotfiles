@@ -19,7 +19,13 @@ let
 in
 {
   # Never install GUI apps, GNOME/Flatpak configuration, GPU integration or Kanata here.
-  # Rex uses only its private Unix socket. Remote access goes through SSH.
+  # Rex keeps its private Unix socket and joins the tailnet as a separate device
+  # for each account. No anonymous TCP listener or host Tailscale daemon is needed.
+  services.rex.tailscale = {
+    enable = true;
+    hostname = "devbox-${config.home.username}";
+    allowTailnetMembers = false;
+  };
 
   # The desktop .pi symlink includes machine-local packages and Paper MCP.
   # Keep remote runtime state outside the repo and share only portable config.

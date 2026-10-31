@@ -126,8 +126,9 @@ ssh devbox-work    # work
 ssh devbox-admin   # original provisioning account
 ```
 
-Rex runs as a separate systemd user service for each Linux account. It listens
-on its private Unix socket, with no public TCP listener or anonymous access.
+Rex runs as a separate systemd user service for each Linux account. Each keeps
+its private Unix socket, with no anonymous TCP listener. Devbox servers also
+have built-in Tailscale enabled, as described below.
 
 ```sh
 systemctl --user status rex
@@ -153,6 +154,66 @@ sudo "$(command -v rex)" terminfo setup --system
 
 This has already been done on the devbox. It installs terminal data and an
 outgoing SSH guard, not an SSH server or a new network listener.
+
+## Rex remote access through Tailscale
+
+The devbox Home Manager profile enables Rex's built-in Tailscale integration:
+
+```nix
+services.rex.tailscale = {
+  enable = true;
+  hostname = "devbox-${config.home.username}";
+  allowTailnetMembers = false;
+};
+```
+
+This creates separate Tailscale devices for `m` and `work`: `devbox-m` and
+`devbox-work`. The server does not need a host-level Tailscale daemon.
+Each device must be enrolled once. Login state stays private to that account;
+no auth key belongs in this repository or the Nix store.
+
+### Create a tailnet and enroll Rex
+
+1. Sign up at <https://login.tailscale.com/start> and create a tailnet. Choose
+   personal use only if appropriate; use your organization's tailnet for work
+   when its policy requires that.
+2. Install Tailscale on the MacBook and sign in to the same tailnet.
+3. Open <https://login.tailscale.com/admin/dns>. Enable MagicDNS and HTTPS
+   certificates. Certificate names are published in public certificate
+   transparency logs, but the services remain private to the tailnet.
+4. Sign in to each devbox Rex device using the enrollment link from:
+
+   ```sh
+   ssh devbox 'rex server status'
+   ssh devbox-work 'rex server status'
+   ```
+
+   If a link is not shown there, inspect that account's service log:
+
+   ```sh
+   journalctl --user -u rex -n 100 --no-pager
+   ```
+
+5. Open Rex for Mac, choose **Add Remote Host...**, and add each device's exact
+   HTTPS address shown by Rex/Tailscale. They have this form:
+
+   ```text
+   https://devbox-m.<tailnet>.ts.net
+   https://devbox-work.<tailnet>.ts.net
+   ```
+
+Both Rex devices accept only their enrolling Tailscale owner by default, subject
+to tailnet access rules. A connection has full control of that server account;
+`m` includes passwordless sudo. Do not enable `allowTailnetMembers` without
+reviewing access rules. SSH aliases and existing SSH access remain unchanged.
+
+Applying Home Manager changes does not restart an existing Rex server, to protect
+sessions. Enabling this integration on an already-running server therefore needs
+one `systemctl --user restart rex` per account. Check `rex ls` first: restarting
+ends its sessions. Once enrolled, later restarts reuse its saved Tailscale identity.
+
+Documentation: <https://www.superlogical.com/rex/docs/linux/remote-access> and
+<https://tailscale.com/docs/how-to/quickstart>.
 
 ## Fedora host prerequisites
 
