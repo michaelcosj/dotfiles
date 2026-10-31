@@ -1,6 +1,11 @@
 # macOS-only home-manager config. GUI apps come from Homebrew casks in ../darwin.nix.
 { pkgs, config, ... }:
 {
+  imports = [
+    ./desktop.nix
+    ./personal.nix
+  ];
+
   home.packages = with pkgs; [
     docker
     docker-compose

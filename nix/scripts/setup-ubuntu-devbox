@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Run as root on a fresh Ubuntu devbox, with the path to an SSH public-key file.
+# Keeps the existing provisioning account, SSH daemon, and firewall unchanged.
+set -euo pipefail
+
+if [[ $EUID != 0 || $# != 1 ]]; then
+  echo "Usage: sudo bash $0 /path/to/authorized-public-key" >&2
+  exit 1
+fi
+key_file=$(realpath "$1")
+ssh-keygen -lf "$key_file" >/dev/null
+# shellcheck disable=SC1091
+source /etc/os-release
+[[ $ID == ubuntu ]] || { echo "This script supports Ubuntu only." >&2; exit 1; }
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=120 install -y --no-install-recommends \
+  ca-certificates curl fish git sudo xz-utils
+
+for account in m work; do
+  if ! id "$account" >/dev/null 2>&1; then
+    useradd --create-home --shell /usr/bin/fish "$account"
+  fi
+  home_dir=$(getent passwd "$account" | cut -d: -f6)
+  [[ $home_dir == "/home/$account" ]] || { echo "Unexpected home for $account" >&2; exit 1; }
+  chmod 0750 "$home_dir"
+  install -d -m 0700 -o "$account" -g "$(id -gn "$account")" "$home_dir/.ssh"
+  touch "$home_dir/.ssh/authorized_keys"
+  while IFS= read -r key || [[ -n $key ]]; do
+    [[ -z $key || $key == \#* ]] && continue
+    grep -qxF -- "$key" "$home_dir/.ssh/authorized_keys" || printf '%s\n' "$key" >> "$home_dir/.ssh/authorized_keys"
+  done < "$key_file"
+  chown "$account:$(id -gn "$account")" "$home_dir/.ssh/authorized_keys"
+  chmod 0600 "$home_dir/.ssh/authorized_keys"
+  loginctl enable-linger "$account"
+done
+
+# m is the administrator, with the same passwordless sudo model as the
+# provisioning account. work is created without administrative groups.
+usermod -aG sudo m
+sudoers=$(mktemp)
+trap 'rm -f "$sudoers"' EXIT
+printf 'm ALL=(ALL:ALL) NOPASSWD: ALL\n' > "$sudoers"
+visudo -cf "$sudoers"
+install -m 0440 "$sudoers" /etc/sudoers.d/90-devbox-m
+
+# Official multi-user Nix installer; all users share the daemon and store.
+if [[ ! -x /nix/var/nix/profiles/default/bin/nix ]]; then
+  installer=$(mktemp)
+  trap 'rm -f "$sudoers" "${installer:-}"' EXIT
+  curl --fail --location --proto '=https' --tlsv1.2 https://nixos.org/nix/install -o "$installer"
+  sh "$installer" --daemon --yes --no-channel-add
+fi
+install -d -m 0755 /etc/nix
+if ! grep -Eq '^(extra-)?experimental-features = .*nix-command.*flakes' /etc/nix/nix.conf; then
+  printf '\nextra-experimental-features = nix-command flakes\n' >> /etc/nix/nix.conf
+fi
+systemctl restart nix-daemon.service
+
+echo 'Ubuntu setup complete. Apply the separate m@devbox and work@devbox Home Manager configurations as their respective users.'

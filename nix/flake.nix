@@ -13,6 +13,10 @@
     home-manager-linux.url = "github:nix-community/home-manager";
     home-manager-linux.inputs.nixpkgs.follows = "nixpkgs-linux";
 
+    # Prebuilt Rex snapshot, pinned by flake.lock. Update with: nix flake update rex
+    rex.url = "https://pkgs.superlogical.com/rex/nix/snapshot.tar.gz";
+    rex.inputs.nixpkgs.follows = "nixpkgs-linux";
+
     # Herdr, built from source. Bump the tag to update. [https://herdr.dev/docs/install/#install-with-nix]
     herdr.url = "github:herdrdev/herdr/v0.9.3";
 
@@ -45,6 +49,7 @@
       home-manager,
       home-manager-linux,
       herdr,
+      rex,
       ...
     }:
     let
@@ -53,6 +58,32 @@
         {
           nixpkgs.config.allowUnfree = true;
           # virtualisation.docker.enable = true;
+        };
+      mkLinuxHome =
+        {
+          username,
+          host,
+          modules,
+        }:
+        home-manager-linux.lib.homeManagerConfiguration {
+          pkgs = import nixpkgs-linux {
+            system = "x86_64-linux";
+            config.allowUnfree = true;
+          };
+          extraSpecialArgs = {
+            inherit herdr rex nix-flatpak;
+            homeConfiguration = "${username}@${host}";
+          };
+          modules = [
+            ./home/common.nix
+            ./home/linux/common.nix
+            {
+              home.username = username;
+              home.homeDirectory = "/home/${username}";
+              home.stateVersion = "26.05";
+            }
+          ]
+          ++ modules;
         };
     in
     {
@@ -75,24 +106,38 @@
         ];
       };
 
-      # Standalone home-manager on a non-NixOS distro (Fedora). Apply with:
-      # $ home-manager switch --flake .#m@fedora
-      homeConfigurations."m@fedora" = home-manager-linux.lib.homeManagerConfiguration {
-        pkgs = import nixpkgs-linux {
-          system = "x86_64-linux";
-          config.allowUnfree = true;
+      # Standalone Home Manager; the host distribution still owns the OS.
+      homeConfigurations = {
+        "m@fedora" = mkLinuxHome {
+          username = "m";
+          host = "fedora";
+          modules = [
+            ./home/linux/fedora.nix
+            ./home/personal.nix
+          ];
         };
-        extraSpecialArgs = { inherit herdr; };
-        modules = [
-          nix-flatpak.homeManagerModules.nix-flatpak
-          ./home/common.nix
-          ./home/linux.nix
-          {
-            home.username = "m";
-            home.homeDirectory = "/home/m";
-            home.stateVersion = "26.05";
-          }
-        ];
+        "m@devbox" = mkLinuxHome {
+          username = "m";
+          host = "devbox";
+          modules = [
+            ./home/linux/devbox.nix
+            ./home/personal.nix
+          ];
+        };
+        "work@devbox" = mkLinuxHome {
+          username = "work";
+          host = "devbox";
+          modules = [
+            ./home/linux/devbox.nix
+            {
+              programs.git.settings.user = {
+                name = "michael";
+                email = "michael@synthally.com";
+                useConfigOnly = true;
+              };
+            }
+          ];
+        };
       };
     };
 }
