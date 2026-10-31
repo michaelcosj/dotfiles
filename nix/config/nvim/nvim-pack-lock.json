@@ -114,7 +114,7 @@
       "src": "https://www.github.com/MunifTanjim/nui.nvim"
     },
     "nvim-lspconfig": {
-      "rev": "3371bf298c1f56efc26771ee961f461176958fb5",
+      "rev": "4b2b045b8ceb035f5c8bc9cab19b95706bfa6a19",
       "src": "https://www.github.com/neovim/nvim-lspconfig"
     },
     "nvim-origami": {
