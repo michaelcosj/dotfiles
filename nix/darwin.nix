@@ -53,6 +53,7 @@
       "raycast"
       "spotify"
       "stremio"
+      "tailscale-app" # Native VPN client; approve permissions and sign in once.
       "homebrew/cask/transmission"
       "zed"
       "font-zed-mono-nerd-font"
