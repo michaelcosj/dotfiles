@@ -5,8 +5,8 @@ local gh = require("config.helpers").gh
 --
 vim.pack.add({
 	-- Colorscheme
-	-- gh("folke/tokyonight.nvim"),
-	gh("Mofiqul/adwaita.nvim"),
+	gh("folke/tokyonight.nvim"),
+	-- gh("Mofiqul/adwaita.nvim"),
 	-- gh("rebelot/kanagawa.nvim"),
 	-- { src = gh("catppuccin/nvim"), name = "catppuccin" },
 	-- gh("nyoom-engineering/oxocarbon.nvim"),
@@ -75,8 +75,8 @@ vim.pack.add({
 --
 -- [[ Configuration ]]
 --
--- require("config.plugins.tokyonight")
-require("config.plugins.adwaita")
+require("config.plugins.tokyonight")
+-- require("config.plugins.adwaita")
 -- require("config.plugins.kanagawa")
 -- require("config.plugins.catppuccin")
 -- require("config.plugins.oxocarbon")
