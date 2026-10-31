@@ -30,7 +30,7 @@ in
   # Identify remote accounts without changing the shared prompt or exporting
   # the color into nested SSH sessions. Local shells keep the blue default.
   programs.fish.interactiveShellInit = lib.mkAfter ''
-    set -gu dotfiles_directory_icon_color ${if config.home.username == "work" then "magenta" else "green"}
+    set -gu dotfiles_directory_icon_color ${if config.home.username == "work" then "magenta" else "white"}
   '';
 
   # The desktop .pi symlink includes machine-local packages and Paper MCP.
