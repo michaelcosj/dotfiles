@@ -17,6 +17,8 @@
     claude-code
     codex # Linux tracks unstable; the Darwin pin lags behind.
     gcc
+    # Pi installs extension packages with npm, even outside a project Node environment.
+    nodejs
     pi-coding-agent
     svelte-language-server
     unar
