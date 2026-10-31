@@ -128,7 +128,7 @@ case "$cmd" in
     shopt -s nullglob
     for f in "$dir"/*.pid; do
       name="$(basename "$f" .pid)"
-      running "$name" || rm -f "$dir/$name".{pid,log,exit}
+      running "$name" || rm -f "$dir/$name".{pid,log,exit,json,notified}
     done
     ;;
   *)

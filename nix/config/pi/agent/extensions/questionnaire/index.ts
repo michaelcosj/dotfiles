@@ -10,6 +10,7 @@ import {
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { askViaMailbox, captureRelay } from "../background/ask.js";
 import type { QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireUiResult } from "./types.js";
 
 interface NormalizedQuestion extends QuestionnaireQuestion {
@@ -95,16 +96,28 @@ function normalizeQuestions(questions: QuestionnaireQuestion[]): {
   return { questions: normalized };
 }
 
+export interface AskQuestionnaireOptions {
+  /** Show as a centered popup overlay instead of replacing the editor area. */
+  overlay?: boolean;
+}
+
 export async function askQuestionnaire(
   ctx: ExtensionContext,
   inputQuestions: QuestionnaireQuestion[],
   signal?: AbortSignal,
+  options: AskQuestionnaireOptions = {},
 ): Promise<
   | { ok: true; result: QuestionnaireUiResult; values: Record<string, string> }
   | { ok: false; error: string }
 > {
   if (ctx.mode !== "tui") {
-    return { ok: false, error: "Error: questionnaire requires interactive TUI mode" };
+    // A background child of an interactive Pi relays the questions to the parent's mailbox.
+    const relay = captureRelay();
+    if (!relay) return { ok: false, error: "Error: questionnaire requires interactive TUI mode" };
+    if ("unavailable" in relay) return { ok: false, error: `Error: questionnaire unavailable: ${relay.unavailable}` };
+    const normalized = normalizeQuestions(inputQuestions);
+    if (!normalized.questions) return { ok: false, error: normalized.error ?? "Invalid questions" };
+    return askViaMailbox(relay.relay, normalized.questions, signal);
   }
 
   const normalized = normalizeQuestions(inputQuestions);
@@ -423,7 +436,9 @@ export async function askQuestionnaire(
         signal?.removeEventListener("abort", abort);
       },
     };
-  });
+  }, options.overlay
+    ? { overlay: true, overlayOptions: { anchor: "center", width: "80%", minWidth: 40, maxHeight: "80%", margin: 1 } }
+    : undefined);
 
   const values: Record<string, string> = {};
   for (const answer of result.answers) values[answer.id] = answer.value;
@@ -436,6 +451,7 @@ export async function askQuestionnaire(
 }
 
 export default function registerQuestionnaireTool(pi: ExtensionAPI): void {
+  captureRelay(); // scrub relay env early so this child's own subprocesses can't relay
   pi.registerTool({
     name: "questionnaire",
     label: "Questionnaire",
