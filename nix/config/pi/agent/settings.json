@@ -48,5 +48,6 @@
     "blockImages": false
   },
   "outputPad": 1,
-  "cacheWarming": "idle"
+  "cacheWarming": "idle",
+  "theme": "dark"
 }
