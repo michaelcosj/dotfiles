@@ -7,6 +7,9 @@
 node_modules/
 /nix/package-lock.json
 
+# Nix build output
+/result
+
 # Herdr runtime state and downloaded plugins
 /nix/config/herdr/.plugins.lock
 /nix/config/herdr/*.log
