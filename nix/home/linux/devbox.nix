@@ -20,6 +20,51 @@ let
   );
 in
 {
+  # CLIProxyAPI pools the Codex accounts that T3 Code uses. Credentials and the
+  # generated keys stay in ~/.cli-proxy-api, never in the Nix store.
+  home.packages = [ pkgs.cliproxyapi ];
+
+  home.activation.seedCliProxyAPIConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    config="$HOME/.cli-proxy-api/config.yaml"
+    if [ ! -e "$config" ]; then
+      mkdir -p "$HOME/.cli-proxy-api"
+      api_key="sk-$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+      management_key="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+      # The server rewrites secret-key in config.yaml as a hash, so keep the
+      # usable value in its own file for the management API.
+      (
+        umask 077
+        printf '%s\n' "$management_key" > "$HOME/.cli-proxy-api/management.key"
+        cat > "$config" <<EOF
+host: "127.0.0.1"
+port: 8317
+auth-dir: "~/.cli-proxy-api"
+api-keys:
+  - "$api_key"
+remote-management:
+  allow-remote: false
+  secret-key: "$management_key"
+routing:
+  strategy: "round-robin"
+  session-affinity: true
+EOF
+      )
+    fi
+  '';
+
+  systemd.user.services.cli-proxy-api = {
+    Unit = {
+      Description = "CLIProxyAPI Codex account pool";
+      After = [ "network.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.cliproxyapi}/bin/cliproxyapi --config %h/.cli-proxy-api/config.yaml";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
   # Never install GUI apps, GNOME/Flatpak configuration, GPU integration or Kanata here.
   # Rex keeps its private Unix socket and joins the tailnet as a separate device
   # for each account. Rex needs no anonymous TCP listener or host daemon.
