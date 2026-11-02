@@ -20,6 +20,9 @@
     # Herdr, built from source. Bump the tag to update. [https://herdr.dev/docs/install/#install-with-nix]
     herdr.url = "github:herdrdev/herdr/v0.9.3";
 
+    # Hex local voice dictation, Linux x86_64 only. Update with: nix flake update hex
+    hex.url = "github:anomalyco/hex";
+
     # Declarative Flatpaks on Linux [https://github.com/gmodena/nix-flatpak]
     nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.8.0";
 
@@ -49,6 +52,7 @@
       home-manager,
       home-manager-linux,
       herdr,
+      hex,
       rex,
       ...
     }:
@@ -71,7 +75,7 @@
             config.allowUnfree = true;
           };
           extraSpecialArgs = {
-            inherit herdr rex nix-flatpak;
+            inherit herdr hex rex nix-flatpak;
             homeConfiguration = "${username}@${host}";
           };
           modules = [
