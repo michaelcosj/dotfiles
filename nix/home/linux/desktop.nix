@@ -3,12 +3,14 @@
   pkgs,
   lib,
   config,
+  hex,
   nix-flatpak,
   ...
 }:
 {
   imports = [
     ../desktop.nix
+    hex.homeManagerModules.default
     nix-flatpak.homeManagerModules.nix-flatpak
   ];
 
@@ -22,6 +24,13 @@
 
   # Also supplies the systemd user unit used for D-Bus activation.
   programs.ghostty.enable = true;
+
+  # Local dictation. The module installs the desktop entry and runs the
+  # single Hex process as a user service once the graphical session is up.
+  programs.hex = {
+    enable = true;
+    autostart = true;
+  };
 
   # Flatpak apps from Flathub and upstream repositories.
   services.flatpak = {
