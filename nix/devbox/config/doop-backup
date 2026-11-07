@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+backup_dir=/var/backups/doop
+install -d -m 0700 "$backup_dir"
+was_active=false
+if systemctl is-active --quiet doop.service; then
+  was_active=true
+  systemctl stop doop.service
+fi
+partial=''
+cleanup() {
+  if [[ -n "$partial" ]]; then rm -f "$partial"; fi
+  if "$was_active"; then systemctl start doop.service; fi
+}
+trap cleanup EXIT
+name="$backup_dir/doop-$(date -u +%Y%m%dT%H%M%S).tar.gz"
+partial="$name.partial"
+paths=(var/lib/doop/data etc/doop)
+if [[ -d /etc/cloudflared-doop ]]; then paths+=(etc/cloudflared-doop); fi
+tar -czf "$partial" -C / "${paths[@]}"
+mv "$partial" "$name"
+partial=''
+# Keep the newest seven completed archives, even after a long offline period.
+mapfile -t archives < <(find "$backup_dir" -maxdepth 1 -type f -name 'doop-*.tar.gz' -printf '%f\n' | sort -r)
+for old in "${archives[@]:7}"; do rm -f "$backup_dir/$old"; done
+printf 'Backup created: %s\n' "$name"

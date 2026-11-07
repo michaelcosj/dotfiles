@@ -67,8 +67,13 @@ The script installs host prerequisites and multi-user Nix. It creates:
 
 Both use Fish and the supplied public key. Their home directories are private
 from each other. Lingering is enabled for both accounts so user services can
-run from boot and survive logout. The script does not change SSH daemon settings
+run from boot and survive logout. The bootstrap script does not change SSH daemon settings
 or firewall rules, and does not remove the provisioning account.
+
+For Nix-pinned host Tailscale, private Doop, SSH hardening, firewall policy,
+and backups, apply the separate [devbox services deployment](devbox/README.md).
+It runs Doop as a non-sudo system account and leaves public web ports closed.
+Ubuntu still manages its kernel and base-system security updates.
 
 Each account needs its **own** writable checkout at `~/.dotfiles`. Do not share
 one writable checkout across accounts. The upstream repository is
@@ -173,7 +178,9 @@ services.rex.tailscale = {
 ```
 
 This creates separate Tailscale devices for `m` and `work`: `devbox-m` and
-`devbox-work`. The server does not need a host-level Tailscale daemon.
+`devbox-work`. Rex does not need a host-level Tailscale daemon.
+The separate `nix/devbox` deployment uses a host daemon for private Doop HTTPS;
+it creates another device, `devbox`, without changing Rex's identities.
 Each device must be enrolled once. Login state stays private to that account;
 no auth key belongs in this repository or the Nix store.
 
@@ -230,6 +237,12 @@ ends its sessions. Once enrolled, later restarts reuse its saved Tailscale ident
 
 Documentation: <https://www.superlogical.com/rex/docs/linux/remote-access> and
 <https://tailscale.com/docs/how-to/quickstart>.
+
+## Tailscale on a Linux desktop
+
+Use the [Nix-managed Tailscale client](tailscale-client/README.md) to join the
+same tailnet as `devbox`. It installs a boot-persistent host daemon without
+publishing local services. This is separate from Rex's embedded Tailscale.
 
 ## Fedora host prerequisites
 

@@ -1,0 +1,29 @@
+[Unit]
+Description=Cloudflare Tunnel for Doop
+Wants=network-online.target
+After=network-online.target doop.service
+
+[Service]
+Type=notify
+User=doop-tunnel
+Group=doop-tunnel
+LoadCredential=tunnel.json:/etc/cloudflared-doop/credentials.json
+ExecStart=@cloudflared@/bin/cloudflared --no-autoupdate --config /etc/cloudflared-doop/config.yml tunnel run
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

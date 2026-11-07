@@ -23,17 +23,31 @@ in
 {
   # Never install GUI apps, GNOME/Flatpak configuration, GPU integration or Kanata here.
   # Rex keeps its private Unix socket and joins the tailnet as a separate device
-  # for each account. No anonymous TCP listener or host Tailscale daemon is needed.
+  # for each account. Rex needs no anonymous TCP listener or host daemon.
+  # nix/devbox separately manages host Tailscale for private Doop access.
   services.rex.tailscale = {
     enable = true;
     hostname = "devbox-${config.home.username}";
     allowTailnetMembers = false;
   };
 
+  # Git uses gh's browser-login OAuth token over HTTPS; no SSH key lives here.
+  # Home Manager owns the Git config, so `gh auth setup-git` cannot write it.
+  programs.git.settings.credential =
+    lib.genAttrs [ "https://github.com" "https://gist.github.com" ]
+      (_: {
+        helper = [
+          ""
+          "!${lib.getExe pkgs.gh} auth git-credential"
+        ];
+      });
+
   # Identify remote accounts without changing the shared prompt or exporting
   # the color into nested SSH sessions. Local shells keep the blue default.
   programs.fish.interactiveShellInit = lib.mkAfter ''
-    set -gu dotfiles_directory_icon_color ${if config.home.username == "work" then "magenta" else "white"}
+    set -gu dotfiles_directory_icon_color ${
+      if config.home.username == "work" then "magenta" else "white"
+    }
   '';
 
   # The desktop .pi symlink includes machine-local packages and Paper MCP.
