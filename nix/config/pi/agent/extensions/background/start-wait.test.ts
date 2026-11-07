@@ -43,6 +43,47 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("wait sends empty progress updates for the elapsed display", async () => {
+  const updates: any[] = [];
+  const result = await tool.execute("test", {
+    action: "start", name: "job", command: "sleep 1.2; echo done", wait: 3,
+  }, undefined, (update: unknown) => updates.push(update), ctx);
+  expect(updates.length).toBeGreaterThanOrEqual(2);
+  expect(updates.every((update) => update.content.length === 0)).toBe(true);
+  expect(result.content[0].text).toContain("job: exited 0");
+  expect(result.content[0].text).not.toContain("Elapsed");
+});
+
+test("call counter starts at execution and freezes on completion", () => {
+  const theme = { fg: (_color: string, value: string) => value, bold: (value: string) => value };
+  const context: any = { state: {}, executionStarted: false, isPartial: true };
+  const render = () => tool.renderCall({ action: "wait", name: "job" }, theme, context).render(100).join("\n");
+  expect(render()).not.toContain("Elapsed");
+  context.executionStarted = true;
+  expect(render()).toContain("Elapsed 0.0s");
+  context.state.startedAt = Date.now() - 2500;
+  expect(render()).toContain("Elapsed 2.5s");
+  context.isPartial = false;
+  context.durationMs = 2750;
+  expect(render()).not.toContain("Took");
+  expect(render()).not.toContain("Elapsed");
+  const renderResult = () => tool.renderResult(
+    { content: [{ type: "text", text: "job: exited 0" }] },
+    { expanded: false, isPartial: context.isPartial }, theme, context,
+  ).render(100).map((line: string) => line.trimEnd()).join("\n");
+  expect(renderResult()).toBe("job: exited 0\n\nTook 2.8s");
+  context.durationMs = undefined;
+  render();
+  const endedAt = context.state.endedAt;
+  render();
+  expect(context.state.endedAt).toBe(endedAt);
+  // Recorded durations also work when viewing an old call without live state.
+  context.state = {};
+  context.executionStarted = false;
+  context.durationMs = 4000;
+  expect(renderResult()).toBe("job: exited 0\n\nTook 4.0s");
+});
+
 test("start still returns immediately without wait", async () => {
   const result = await execute({ action: "start", name: "job", command: "sleep 5" });
   expect(result).toContain("job: started (pid");

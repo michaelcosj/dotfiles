@@ -460,7 +460,14 @@ export default function registerQuestionnaireTool(pi: ExtensionAPI): void {
     parameters: QuestionnaireParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      const asked = await askQuestionnaire(ctx, params.questions as QuestionnaireQuestion[], signal);
+      // Background questions use their parent's queue-level attention signal.
+      const reportAttention = ctx.mode === "tui" && !signal?.aborted;
+      if (reportAttention) {
+        pi.events.emit("herdr:blocked", { active: true, label: "Questionnaire waiting for your answer" });
+      }
+      const asked = await askQuestionnaire(ctx, params.questions as QuestionnaireQuestion[], signal).finally(() => {
+        if (reportAttention) pi.events.emit("herdr:blocked", { active: false });
+      });
       if (!asked.ok) {
         return {
           content: [{ type: "text", text: asked.error }],

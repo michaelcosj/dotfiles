@@ -22,6 +22,8 @@ node_modules/
 /nix/config/pi/.agent/
 /nix/config/pi/pi-acp/session-map.json
 /nix/config/pi/agent/auth.json
+/nix/config/pi/agent/mcp-auth.json
+/nix/config/pi/agent/mcp.log*
 /nix/config/pi/agent/cached-compaction.jsonl
 /nix/config/pi/agent/fff/
 /nix/config/pi/agent/models-store.json
