@@ -110,6 +110,18 @@
         ];
       };
 
+      # Ubuntu system services: pinned tools/source plus an explicit root installer.
+      packages.x86_64-linux.devbox-services = import ./devbox {
+        pkgs = import nixpkgs-linux {
+          system = "x86_64-linux";
+          config.allowUnfree = true;
+        };
+      };
+
+      packages.x86_64-linux.tailscale-client = import ./tailscale-client {
+        pkgs = import nixpkgs-linux { system = "x86_64-linux"; };
+      };
+
       # Standalone Home Manager; the host distribution still owns the OS.
       homeConfigurations = {
         "m@fedora" = mkLinuxHome {

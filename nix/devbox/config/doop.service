@@ -1,0 +1,36 @@
+[Unit]
+Description=Doop private design canvas
+After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=doop
+Group=doop
+WorkingDirectory=/var/lib/doop/app
+EnvironmentFile=/etc/doop/environment
+ExecStart=/opt/devbox-runtime/bin/node node_modules/tsx/dist/cli.mjs server/index.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/doop
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+MemoryMax=3G
+TasksMax=512
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Doop backup (brief service pause)
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

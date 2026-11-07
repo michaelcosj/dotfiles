@@ -15,7 +15,7 @@ source /etc/os-release
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=120 install -y --no-install-recommends \
-  ca-certificates curl fish git sudo xz-utils
+  ca-certificates curl fish git sudo xz-utils python3 ufw unattended-upgrades
 
 for account in m work; do
   if ! id "$account" >/dev/null 2>&1; then

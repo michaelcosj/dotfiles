@@ -1,0 +1,17 @@
+[Unit]
+Description=Tailscale host networking (Nix-managed binary)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+StateDirectory=tailscale
+StateDirectoryMode=0700
+RuntimeDirectory=tailscale
+RuntimeDirectoryMode=0755
+ExecStart=/opt/devbox-runtime/bin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
