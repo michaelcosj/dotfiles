@@ -32,6 +32,7 @@
     tree-sitter
     typescript
     uv
+    vscode-langservers-extracted # CSS, HTML, and JSON language servers
     (callPackage ../pkgs/opencode.nix { })
     (callPackage ../pkgs/vite-plus.nix { })
   ];
