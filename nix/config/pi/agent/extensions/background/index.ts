@@ -573,7 +573,7 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: Params,
 
-    async execute(_id, params, signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       const dir = stateDir();
       let { action } = params;
       const { name } = params;
@@ -722,8 +722,14 @@ export default function (pi: ExtensionAPI) {
       };
 
       waiting.add(name);
+      let lastUpdate = 0;
       try {
         while (true) {
+          // Refresh the call's elapsed counter without adding progress to the final result.
+          if (onUpdate && Date.now() - lastUpdate >= 1000) {
+            lastUpdate = Date.now();
+            onUpdate({ content: [], details: undefined });
+          }
           const hit = scan();
           const st = jobState(dir, name);
           if (hit !== undefined) {
@@ -766,7 +772,10 @@ export default function (pi: ExtensionAPI) {
       }
     },
 
-    renderCall(args, theme) {
+    renderCall(args, theme, context) {
+      const state = context.state;
+      if (context.executionStarted && state.startedAt === undefined) state.startedAt = Date.now();
+      if (!context.isPartial && state.startedAt !== undefined) state.endedAt ??= Date.now();
       let t = theme.fg("toolTitle", theme.bold("background ")) + theme.fg("muted", args.action ?? "");
       if (args.name) t += ` ${theme.fg("accent", args.name)}`;
       if (args.command) t += ` ${theme.fg("dim", args.command)}`;
@@ -774,6 +783,33 @@ export default function (pi: ExtensionAPI) {
       if (args.until) t += ` ${theme.fg("dim", `until /${args.until}/`)}`;
       if (args.persist) t += ` ${theme.fg("warning", "(persist)")}`;
       if (args.notify) t += ` ${theme.fg("dim", "(notify)")}`;
+      const elapsed = context.durationMs ?? (state.startedAt === undefined ? undefined : (state.endedAt ?? Date.now()) - state.startedAt);
+      if (context.isPartial && elapsed !== undefined) {
+        const time = elapsed < 60000 ? `${(elapsed / 1000).toFixed(1)}s` : duration(elapsed);
+        t += `\n${theme.fg("dim", `Elapsed ${time}`)}`;
+      }
+      return new Text(t, 0, 0);
+    },
+
+    renderResult(result, { expanded, isPartial }, theme, context) {
+      const output = result.content
+        .filter((item) => item.type === "text")
+        .map((item) => item.text)
+        .join("\n");
+      const lines = output ? output.split("\n") : [];
+      const visible = expanded ? lines : lines.slice(0, 10);
+      let t = theme.fg("toolOutput", visible.join("\n"));
+      if (visible.length < lines.length) {
+        t += theme.fg("muted", `\n... (${lines.length - visible.length} more lines, expand to view)`);
+      }
+      if (!isPartial) {
+        const state = context.state;
+        const elapsed = context.durationMs ?? (state.startedAt === undefined ? undefined : (state.endedAt ?? Date.now()) - state.startedAt);
+        if (elapsed !== undefined) {
+          const time = elapsed < 60000 ? `${(elapsed / 1000).toFixed(1)}s` : duration(elapsed);
+          t += `${t ? "\n\n" : ""}${theme.fg("dim", `Took ${time}`)}`;
+        }
+      }
       return new Text(t, 0, 0);
     },
   });

@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.1.0",
+  "lastChangelogVersion": "1.4.0",
   "defaultProvider": "openai",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "low",
@@ -34,7 +34,8 @@
     "openai/gpt-6-luna",
     "claude-code/claude-opus-5-5",
     "claude-code/claude-haiku-5-5",
-    "claude-code/claude-sonnet-5-5"
+    "claude-code/claude-sonnet-5-5",
+    "openai/gpt-6.1-terra"
   ],
   "tuiMode": "fullscreen",
   "deviceId": "7515a2c8-3865-4ca1-b7dc-bd080a49d2de",

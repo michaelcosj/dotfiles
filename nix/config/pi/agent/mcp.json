@@ -5,6 +5,11 @@
       "args": [
         "mcp"
       ]
+    },
+    "doop": {
+      "url": "https://devbox.danio-wezen.ts.net/mcp",
+      "exposure": "codemode",
+      "description": "Design and edit Doop canvases and HTML frames; inspect designs and work with connected agents."
     }
   }
 }
