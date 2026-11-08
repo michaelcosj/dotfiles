@@ -15,12 +15,6 @@ map("n", "<Esc>", "<cmd>nohlsearch<CR>")
 -- Exit terminal mode with easier keybinding
 map("t", "<C-n><C-n>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 
--- Disable arrow keys in normal mode
-map("n", "<left>", '<cmd>echo "Use h to move!!"<CR>')
-map("n", "<right>", '<cmd>echo "Use l to move!!"<CR>')
-map("n", "<up>", '<cmd>echo "Use k to move!!"<CR>')
-map("n", "<down>", '<cmd>echo "Use j to move!!"<CR>')
-
 -- I don't use this as I am used to the default keybindings
 -- This is just for reference
 -- Keybinds to make split navigation easier.
