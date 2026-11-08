@@ -264,6 +264,44 @@ Use the [Nix-managed Tailscale client](tailscale-client/README.md) to join the
 same tailnet as `devbox`. It installs a boot-persistent host daemon without
 publishing local services. This is separate from Rex's embedded Tailscale.
 
+## Rootless Docker on the Ubuntu devbox
+
+The devbox Home Manager profile installs Docker, Compose and RootlessKit through
+Nix, plus a per-user `docker.service`. No root Docker daemon or `docker` group
+membership is required. The CLI uses the `nix-rootless` context by default while
+preserving an existing non-default context.
+
+1. Apply the devbox Home Manager configuration for the intended account.
+2. An administrator must configure the Ubuntu prerequisites once, for example:
+
+   ```sh
+   sudo bash /home/work/.dotfiles/nix/scripts/setup-rootless-docker work
+   ```
+
+   This installs the distribution's setuid UID/GID mapping helpers, validates
+   existing subordinate ID ranges, loads a targeted AppArmor exception for
+   Nix-store RootlessKit binaries, and enables lingering for that account.
+   Global AppArmor restrictions stay enabled; the exception survives Nix
+   package upgrades. Configure each account separately.
+3. As that account:
+
+   ```sh
+   systemctl --user start docker
+   docker info
+   docker run --rm hello-world
+   ```
+
+The daemon skips startup until the host prerequisites are present. If startup
+fails, inspect `journalctl --user -u docker -n 80 --no-pager`. Docker data and the
+socket are account-local; the socket is `/run/user/$(id -u)/docker.sock`. Containers
+can use ports above 1024 without host configuration. No anonymous TCP Docker
+listener is configured.
+
+Nix/Home Manager manages the packages and user service on this Ubuntu host;
+NixOS-only `virtualisation.docker.*` options do not apply here. Documentation:
+<https://docs.docker.com/engine/security/rootless/> and
+<https://docs.docker.com/engine/security/rootless/troubleshoot/>.
+
 ## Fedora host prerequisites
 
 These remain host-level steps; Home Manager does not install RPMs or udev rules.

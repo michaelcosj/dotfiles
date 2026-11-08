@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Ubuntu host prerequisites only. Docker itself and its user unit come from Nix.
+set -euo pipefail
+fail() { echo "Error: $*" >&2; exit 1; }
+[[ $EUID -eq 0 && $# -eq 1 ]] || fail "Usage: sudo bash $0 ACCOUNT"
+source /etc/os-release
+[[ $ID == ubuntu ]] || fail "This script supports Ubuntu only."
+account=$1
+account_entry=$(getent passwd "$account") || fail "Unknown account: $account"
+account_uid=$(cut -d: -f3 <<< "$account_entry")
+account_home=$(cut -d: -f6 <<< "$account_entry")
+[[ $account_uid -ne 0 ]] || fail "Choose a non-root account."
+rootlesskit_bin=$(readlink -f "$account_home/.nix-profile/bin/rootlesskit")
+case "$rootlesskit_bin" in
+  /nix/store/*-rootlesskit-*/bin/rootlesskit) ;;
+  *) fail "Apply the account's Nix Docker configuration first; rootlesskit is not in its profile." ;;
+esac
+[[ -x $rootlesskit_bin ]] || fail "Missing rootlesskit executable."
+for mapping in /etc/subuid /etc/subgid; do
+  awk -F: -v name="$account" -v uid="$account_uid" \
+    '$1 == name || $1 == uid { count += $3 } END { exit(count < 65536) }' "$mapping" ||
+    fail "$mapping needs at least 65536 subordinate IDs for $account; allocate a non-overlapping range first."
+done
+[[ $(cat /proc/sys/user/max_user_namespaces) -gt 0 ]] || fail "User namespaces are disabled on this host."
+if [[ -f /proc/sys/kernel/unprivileged_userns_clone ]]; then
+  [[ $(cat /proc/sys/kernel/unprivileged_userns_clone) -eq 1 ]] || fail "Unprivileged user namespaces are disabled."
+fi
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=120 install -y --no-install-recommends \
+  uidmap dbus-user-session apparmor
+[[ -u /usr/bin/newuidmap && -u /usr/bin/newgidmap ]] || fail "UID mapping helpers must have their distribution-provided setuid permissions."
+
+# Ubuntu restricts unprivileged user namespaces. Permit Nix RootlessKit binaries
+# across package upgrades; keep global AppArmor/user-namespace restrictions intact.
+profile=$(mktemp)
+trap 'rm -f "$profile"' EXIT
+cat > "$profile" <<EOF
+abi <abi/4.0>,
+include <tunables/global>
+profile docker-rootless-nix /nix/store/*-rootlesskit-*/bin/rootlesskit flags=(unconfined) {
+  userns,
+}
+EOF
+apparmor_parser -Q "$profile"
+install -m 0644 "$profile" /etc/apparmor.d/docker-rootless-nix
+apparmor_parser -r /etc/apparmor.d/docker-rootless-nix
+loginctl enable-linger "$account"
+echo "Host prerequisites configured for $account."
+echo "As $account, run: systemctl --user start docker && docker run --rm hello-world"

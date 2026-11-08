@@ -20,6 +20,8 @@ let
   );
 in
 {
+  imports = [ ./docker-rootless.nix ];
+
   # CLIProxyAPI pools the Codex accounts that T3 Code uses. Credentials and the
   # generated keys stay in ~/.cli-proxy-api, never in the Nix store.
   home.packages = [ pkgs.cliproxyapi ];
