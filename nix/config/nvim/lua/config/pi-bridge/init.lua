@@ -4,8 +4,13 @@ local config = require("config.pi-bridge.config")
 local bridge = require("config.pi-bridge.bridge")
 local context = require("config.pi-bridge.context")
 local events = require("config.pi-bridge.events")
-local herdr = require("config.pi-bridge.herdr")
+-- herdr inside Herdr, Rex inside a Rex pane
+local backend = vim.env.HERDR_WORKSPACE_ID == nil and vim.env.REX_SESSION ~= nil
+		and require("config.pi-bridge.rex")
+	or require("config.pi-bridge.herdr")
 local ui = require("config.pi-bridge.ui")
+local requests = require("config.pi-bridge.requests")
+local ambient = require("config.pi-bridge.ambient")
 
 local function report_error(err)
 	if err and err ~= "Pi selection cancelled" then
@@ -14,7 +19,7 @@ local function report_error(err)
 end
 
 local function with_bridge(callback)
-	herdr.ensure(function(agent, err)
+	backend.ensure(function(agent, err)
 		if not agent then
 			report_error(err)
 			return
@@ -65,13 +70,13 @@ end
 function M.focus()
 	local agent = events.agent or bridge.agent
 	if agent then
-		herdr.focus(agent)
+		backend.focus(agent)
 		return
 	end
-	herdr.ensure(function(found, err)
+	backend.ensure(function(found, err)
 		if found then
 			events.set_agent(found)
-			herdr.focus(found)
+			backend.focus(found)
 		else
 			report_error(err)
 		end
@@ -84,6 +89,11 @@ end
 
 function M.statusline()
 	return events.statusline()
+end
+
+-- lualine components for the agent, follow and changes to review.
+function M.lualine()
+	return require("config.pi-bridge.statusline").components()
 end
 
 function M.operator(type)
@@ -109,8 +119,34 @@ local function visual_range()
 	return { bufnr = 0, first = first, last = last }
 end
 
+-- Connects quietly to the best pi for this directory, if there is one.
+local function auto_connect()
+	if bridge.pipe or not config.values.auto_connect then return end
+	backend.discover(function(candidates)
+		local agent = candidates and candidates[1]
+		if agent and not bridge.pipe then
+			bridge.connect(agent, function() end)
+		end
+	end)
+end
+
 function M.setup(opts)
 	config.setup(opts)
+	requests.setup()
+	if config.values.ambient then ambient.setup() end
+	require("config.pi-bridge.follow").setup()
+	require("config.pi-bridge.changes").setup()
+	require("config.pi-bridge.statusline").setup()
+	if config.values.auto_connect then
+		local timer = vim.uv.new_timer()
+		timer:start(1000, 5000, vim.schedule_wrap(auto_connect))
+		vim.api.nvim_create_autocmd("VimLeavePre", { callback = function() timer:stop() end })
+	end
+	vim.api.nvim_create_user_command("PiReview", requests.resume, { desc = "Show the pi review waiting for you" })
+	vim.api.nvim_create_user_command("PlanComments", function()
+		require("config.criticmarkup").attach(0)
+		require("config.criticmarkup").keys(0)
+	end, { desc = "Hide CriticMarkup and comment inline in this buffer" })
 
 	vim.api.nvim_create_user_command("PiAsk", function(command)
 		M.ask(command.args ~= "" and command.args or "@this: ")

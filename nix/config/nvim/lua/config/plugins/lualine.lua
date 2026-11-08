@@ -37,15 +37,8 @@ lualine.setup({
 				color = { fg = "#ff9e64" },
 				draw_empty = false,
 			},
-			"overseer",
-			{
-				function()
-					return require("config.pi-bridge").statusline()
-				end,
-				cond = function()
-					return vim.env.HERDR_WORKSPACE_ID ~= nil
-				end,
-			},
+			-- 󰚩 pi ○/●/⏳ · 󰁌 follow · Δn files to review (all clickable)
+			unpack(require("config.pi-bridge").lualine()),
 		},
 		lualine_y = {
 			"progress",

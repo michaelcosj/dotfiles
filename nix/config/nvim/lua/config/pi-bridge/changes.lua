@@ -1,0 +1,469 @@
+-- Review everything the agent changed, like Zed's agent review: pi saves
+-- each file as it was before its first edit (see trackBaseline in the
+-- pi-control-bridge extension), and this diffs that baseline against the file
+-- now, one file at a time, ignoring git entirely.
+--
+-- In the review tab (left: before pi, right: the real file, editable):
+--   ]c / [c          next / previous hunk (built-in diff motions)
+--   ]f / [f          next / previous file;  <leader>rf  pick a file
+--   <leader>ra / rr  accept / reject the hunk under the cursor
+--   <leader>rA / rR  accept / reject the whole file
+--   <leader>rq       close the review
+-- Accepting moves the baseline forward, so accepted hunks drop out of the
+-- diff; rejecting restores pi's baseline in the real file and tells pi.
+-- A file leaves the list once it matches its baseline, or once you commit
+-- it: committed changes count as reviewed (see committed() below).
+local config = require("config.pi-bridge.config")
+
+local M = {}
+
+M.dir = vim.fs.joinpath(
+	vim.env.XDG_STATE_HOME or vim.fs.joinpath(vim.env.HOME, ".local", "state"),
+	"pi",
+	"agent-changes"
+)
+
+local function read(path)
+	local f = io.open(path, "rb")
+	if not f then return nil end
+	local s = f:read("*a")
+	f:close()
+	return s
+end
+
+local function write(path, text)
+	local tmp = path .. ".tmp"
+	local f = assert(io.open(tmp, "wb"))
+	f:write(text)
+	f:close()
+	assert(os.rename(tmp, path))
+end
+
+local function relative(path)
+	return vim.fs.relpath(vim.uv.cwd(), path) or vim.fn.fnamemodify(path, ":~")
+end
+
+local function split_lines(text)
+	if text == "" then return {} end
+	return vim.split(text:sub(-1) == "\n" and text:sub(1, -2) or text, "\n", { plain = true })
+end
+
+local function git(dir, ...)
+	local r = vim.system({ "git", "-C", dir, ... }, { text = false }):wait()
+	return r.code == 0 and r.stdout or nil, r.code
+end
+
+local function entry_json(e)
+	return vim.json.encode({ version = 1, agent = e.agent, path = e.path, exists = e.exists, baseline = e.baseline, created = e.created, head = e.head })
+end
+
+-- Committing counts as reviewing. Each entry remembers the repo's HEAD
+-- (recorded the first time it's listed); once a newer commit touches the
+-- file, the baseline moves to the committed version, so only changes made
+-- since the commit stay listed, and none if the file is unchanged since.
+local function committed(e, file)
+	-- git needs an existing directory; pi may have created the file's folder
+	local dir = vim.fs.dirname(e.path)
+	while not vim.uv.fs_stat(dir) and vim.fs.dirname(dir) ~= dir do dir = vim.fs.dirname(dir) end
+	local head = git(dir, "rev-parse", "HEAD")
+	head = head and vim.trim(head)
+	if not head or head == e.head then return end
+	if type(e.head) == "string" then
+		local name = "./" .. vim.fs.relpath(dir, e.path)
+		local _, code = git(dir, "diff", "--quiet", e.head, head, "--", name)
+		if code ~= 0 and code ~= 1 then return end -- e.g. the old commit is gone
+		if code == 1 then
+			local text = git(dir, "show", "HEAD:" .. name)
+			e.exists, e.baseline = text ~= nil, text or ""
+		end
+	end
+	e.head = head
+	pcall(write, file, entry_json(e))
+end
+
+-- Changed files, sorted by path. Entries that match their baseline again
+-- (reverted, or an edit you rejected) are deleted on the way.
+-- Each: { entry, path, exists, baseline, current_exists }.
+function M.list(all)
+	local out = {}
+	if vim.fn.isdirectory(M.dir) == 0 then return out end
+	local cwd = vim.uv.cwd()
+	for name, kind in vim.fs.dir(M.dir) do
+		if kind == "file" and name:match("%.json$") then
+			local file = vim.fs.joinpath(M.dir, name)
+			local ok, e = pcall(vim.json.decode, read(file) or "")
+			if ok and type(e) == "table" and type(e.path) == "string" then
+				e.entry = file
+				e.baseline = e.baseline or ""
+				committed(e, file)
+				local current = read(e.path)
+				if (current == nil and not e.exists) or (current ~= nil and e.exists and current == e.baseline) then
+					os.remove(file)
+				elseif all or not config.values.changes.cwd_only or vim.fs.relpath(cwd, e.path) then
+					e.current_exists = current ~= nil
+					out[#out + 1] = e
+				end
+			end
+		end
+	end
+	table.sort(out, function(a, b) return a.path < b.path end)
+	return out
+end
+
+local function note(text)
+	local bridge = require("config.pi-bridge.bridge")
+	if bridge.pipe then bridge.request("note", { text = text }, function() end) end
+end
+
+-- ---- the review tab ----
+
+local R -- { tab, entries, index, left_win, right_win, left, right, mapped = { [buf] = true }, noted = {} }
+
+local keys = { "]f", "[f", "<leader>rf", "<leader>ra", "<leader>rr", "<leader>rA", "<leader>rR", "<leader>rq" }
+
+local function unmap(buf)
+	if not vim.api.nvim_buf_is_valid(buf) then return end
+	for _, lhs in ipairs(keys) do
+		pcall(vim.keymap.del, "n", lhs, { buffer = buf })
+	end
+end
+
+-- Scratch buffers are hidden, not wiped, when their window closes:
+-- Neovim 0.12 can crash wiping a buffer that is still in diff mode. They
+-- are deleted here, once no window shows them.
+local scratch_bufs = {}
+
+local function drop_scratch()
+	for buf in pairs(scratch_bufs) do
+		if not vim.api.nvim_buf_is_valid(buf) then
+			scratch_bufs[buf] = nil
+		elseif vim.fn.bufwinid(buf) == -1 then
+			pcall(vim.api.nvim_buf_delete, buf, { force = true })
+			scratch_bufs[buf] = nil
+		end
+	end
+end
+
+local function cleanup()
+	if not R then return end
+	for buf in pairs(R.mapped) do unmap(buf) end
+	R = nil
+	vim.schedule(drop_scratch)
+end
+
+function M.close()
+	if not R then return end
+	local tab = R.tab
+	cleanup()
+	if vim.api.nvim_tabpage_is_valid(tab) then
+		for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+			vim.api.nvim_win_call(win, function() vim.cmd("diffoff") end)
+		end
+		if #vim.api.nvim_list_tabpages() > 1 then
+			pcall(vim.cmd, vim.api.nvim_tabpage_get_number(tab) .. "tabclose")
+		else
+			vim.cmd("silent! only | enew")
+		end
+	end
+end
+
+local show
+
+local function tell_pi(e, whole)
+	local key = e.path .. (whole and ":file" or ":hunk")
+	if R.noted[key] then return end
+	R.noted[key] = true
+	local rel = relative(e.path)
+	note(whole
+		and ("The user rejected all of your changes to " .. rel .. " in Neovim and restored the file to how it was before you edited it. Read it again before editing it further.")
+		or ("The user reverted some of your changes to " .. rel .. " in Neovim. Read it again before editing it further."))
+end
+
+-- Drops the current file from the list and shows the next one.
+local function resolved()
+	local e = R.entries[R.index]
+	os.remove(e.entry)
+	table.remove(R.entries, R.index)
+	vim.schedule(function() require("config.pi-bridge.statusline").refresh() end)
+	if #R.entries == 0 then
+		M.close()
+		return vim.notify("All agent changes reviewed", vim.log.levels.INFO)
+	end
+	show(math.min(R.index, #R.entries))
+end
+
+local function same()
+	local a = vim.api.nvim_buf_get_lines(R.left, 0, -1, false)
+	local b = vim.api.nvim_buf_get_lines(R.right, 0, -1, false)
+	if #a == 1 and a[1] == "" then a = {} end
+	if #b == 1 and b[1] == "" then b = {} end
+	return vim.deep_equal(a, b)
+end
+
+local function save_baseline()
+	local e = R.entries[R.index]
+	local lines = vim.api.nvim_buf_get_lines(R.left, 0, -1, false)
+	local empty = #lines == 1 and lines[1] == ""
+	e.baseline = empty and "" or (table.concat(lines, "\n") .. "\n")
+	e.exists = e.exists or e.baseline ~= ""
+	write(e.entry, entry_json(e))
+	vim.bo[R.left].modified = false
+end
+
+local function hunk(accept)
+	local e = R.entries[R.index]
+	if not e.current_exists then
+		return vim.notify("pi deleted this file; accept or reject the whole file", vim.log.levels.WARN)
+	end
+	local win = vim.api.nvim_get_current_win()
+	local in_right = win == R.right_win
+	if not in_right and win ~= R.left_win then return end
+	-- Hunks are computed here rather than with :diffget/:diffput, which
+	-- misapply blocks that diffopt's linematch splits up.
+	local function text(buf)
+		local l = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		if #l == 1 and l[1] == "" then return {}, "" end
+		return l, table.concat(l, "\n") .. "\n"
+	end
+	local a, at = text(R.left)
+	local b, bt = text(R.right)
+	local hs = (vim.text and vim.text.diff or vim.diff)(at, bt, { result_type = "indices", algorithm = "histogram" })
+	if #hs == 0 then return resolved() end
+	-- the hunk at the cursor, or the nearest one above it (like :diffget)
+	local line = vim.api.nvim_win_get_cursor(win)[1]
+	local h = hs[1]
+	for _, x in ipairs(hs) do
+		local start = in_right and x[3] or x[1]
+		if math.max(start, 1) <= line then h = x end
+	end
+	local sa, ca, sb, cb = h[1], h[2], h[3], h[4]
+	-- replace one side's span of the hunk with the other side's lines
+	local function put(buf, s, c, lines)
+		local first = c == 0 and s or s - 1 -- c == 0: insert after line s
+		vim.bo[buf].modifiable = true
+		vim.api.nvim_buf_set_lines(buf, first, first + c, false, lines)
+	end
+	if accept then
+		put(R.left, sa, ca, vim.list_slice(b, sb, sb + cb - 1))
+	else
+		put(R.right, sb, cb, vim.list_slice(a, sa, sa + ca - 1))
+	end
+	if accept then
+		save_baseline()
+	else
+		vim.api.nvim_win_call(R.right_win, function() vim.cmd("silent write") end)
+		tell_pi(e, false)
+	end
+	vim.cmd("diffupdate")
+	if same() then return resolved() end
+	-- land on the next hunk
+	pcall(vim.cmd, "normal! ]c")
+end
+
+local function whole(accept)
+	local e = R.entries[R.index]
+	if accept then return resolved() end
+	local rel = relative(e.path)
+	if not e.exists then
+		if vim.fn.confirm("pi created " .. rel .. ". Delete it?", "&Delete\n&Cancel", 2) ~= 1 then return end
+		os.remove(e.path)
+		local buf = vim.fn.bufnr(e.path)
+		if buf > 0 then pcall(vim.api.nvim_buf_delete, buf, { force = true }) end
+	else
+		vim.fn.mkdir(vim.fs.dirname(e.path), "p")
+		write(e.path, e.baseline)
+		local buf = vim.fn.bufnr(e.path)
+		if buf > 0 and vim.api.nvim_buf_is_loaded(buf) then
+			vim.api.nvim_buf_call(buf, function() vim.cmd("silent edit!") end)
+		end
+	end
+	tell_pi(e, true)
+	resolved()
+end
+
+local function map_buf(buf)
+	local function map(lhs, fn, desc)
+		-- Deferred: these wipe or remap the buffer whose mapping is running,
+		-- which crashes Neovim if done inside the mapping.
+		vim.keymap.set("n", lhs, function() vim.schedule(fn) end, { buffer = buf, desc = desc, nowait = true })
+	end
+	map("]f", function() show(R.index % #R.entries + 1) end, "Agent changes: next file")
+	map("[f", function() show((R.index - 2) % #R.entries + 1) end, "Agent changes: previous file")
+	map("<leader>rf", function() M.pick() end, "Agent changes: pick file")
+	map("<leader>ra", function() hunk(true) end, "Agent changes: accept hunk")
+	map("<leader>rr", function() hunk(false) end, "Agent changes: reject hunk")
+	map("<leader>rA", function() whole(true) end, "Agent changes: accept file")
+	map("<leader>rR", function() whole(false) end, "Agent changes: reject file")
+	map("<leader>rq", M.close, "Agent changes: close review")
+	R.mapped[buf] = true
+end
+
+local function scratch(name, lines, ft, modifiable)
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	if name then pcall(vim.api.nvim_buf_set_name, buf, name) end
+	vim.bo[buf].bufhidden = "hide"
+	scratch_bufs[buf] = true
+	vim.bo[buf].modified = false
+	vim.bo[buf].modifiable = modifiable
+	if ft then vim.bo[buf].filetype = ft end
+	return buf
+end
+
+show = function(i)
+	R.index = i
+	local e = R.entries[i]
+	local rel = relative(e.path)
+	local ft = vim.filetype.match({ filename = e.path })
+	for _, win in ipairs({ R.left_win, R.right_win }) do
+		vim.api.nvim_win_call(win, function() vim.cmd("diffoff") end)
+	end
+	if R.right and R.right ~= vim.fn.bufnr(e.path) then
+		unmap(R.right)
+		R.mapped[R.right] = nil
+	end
+
+	-- right: the real file (or a placeholder if pi deleted it)
+	if e.current_exists then
+		vim.api.nvim_win_call(R.right_win, function()
+			vim.cmd("edit " .. vim.fn.fnameescape(e.path))
+			vim.cmd("silent! checktime")
+		end)
+	else
+		vim.api.nvim_win_set_buf(R.right_win, scratch("pi-changes://" .. rel .. " (deleted)", {}, ft, false))
+	end
+	R.right = vim.api.nvim_win_get_buf(R.right_win)
+
+	-- left: the baseline; modifiable so accepted hunks can be put into it
+	local old = R.left
+	local left_name = "pi-changes://" .. rel .. " (before pi)"
+	R.left = scratch(nil, e.exists and split_lines(e.baseline) or {}, ft, true)
+	vim.bo[R.left].buftype = "nofile"
+	vim.api.nvim_win_set_buf(R.left_win, R.left)
+	-- named once the old baseline (which may have the same name) is gone
+	local left = R.left
+	vim.schedule(function()
+		drop_scratch()
+		if vim.api.nvim_buf_is_valid(left) then pcall(vim.api.nvim_buf_set_name, left, left_name) end
+	end)
+
+	map_buf(R.left)
+	map_buf(R.right)
+	for _, win in ipairs({ R.left_win, R.right_win }) do
+		vim.api.nvim_win_call(win, function() vim.cmd("diffthis") end)
+	end
+	local label = rel:gsub("%%", "%%%%")
+	vim.wo[R.left_win].winbar = "%#Comment# before pi" .. (e.exists and "" or " (new file)") .. "%*"
+	vim.wo[R.right_win].winbar = string.format(
+		"%%#DiagnosticWarn# 󰚩 %s%%* %%#Comment#(%d/%d)%%=]c hunk · ]f file · <leader>ra/rr hunk · rA/rR file · rq close %%*",
+		label, i, #R.entries)
+	vim.api.nvim_set_current_win(R.right_win)
+	vim.api.nvim_win_set_cursor(R.right_win, { 1, 0 })
+	if vim.fn.diff_hlID(1, 1) == 0 then pcall(vim.cmd, "normal! ]c") end
+end
+
+function M.pick()
+	if not R then return end
+	local items = {}
+	for i, e in ipairs(R.entries) do items[i] = i end
+	vim.ui.select(items, {
+		prompt = "Agent changes",
+		format_item = function(i)
+			local e = R.entries[i]
+			return relative(e.path) .. (not e.exists and "  (new)" or not e.current_exists and "  (deleted)" or "")
+		end,
+	}, function(i) if i then show(i) end end)
+end
+
+function M.open()
+	local entries = M.list()
+	if #entries == 0 then return vim.notify("No agent changes to review", vim.log.levels.INFO) end
+	if R then M.close() end
+	vim.cmd("tabnew")
+	vim.t.pi_changes = true
+	R = { tab = vim.api.nvim_get_current_tabpage(), entries = entries, mapped = {}, noted = {} }
+	R.left_win = vim.api.nvim_get_current_win()
+	local placeholder = vim.api.nvim_get_current_buf()
+	vim.cmd("rightbelow vsplit")
+	R.right_win = vim.api.nvim_get_current_win()
+	show(1)
+	if vim.api.nvim_buf_is_valid(placeholder) and placeholder ~= R.right then
+		pcall(vim.api.nvim_buf_delete, placeholder, { force = true })
+	end
+end
+
+local function all(accept)
+	local entries = M.list()
+	if #entries == 0 then return vim.notify("No agent changes", vim.log.levels.INFO) end
+	local verb = accept and "Accept" or "Reject"
+	if vim.fn.confirm(string.format("%s pi's changes to %d file(s)?", verb, #entries), "&Yes\n&No", 2) ~= 1 then return end
+	if R then M.close() end
+	for _, e in ipairs(entries) do
+		if not accept then
+			if not e.exists then
+				os.remove(e.path)
+			else
+				vim.fn.mkdir(vim.fs.dirname(e.path), "p")
+				write(e.path, e.baseline)
+			end
+			local buf = vim.fn.bufnr(e.path)
+			if buf > 0 and vim.api.nvim_buf_is_loaded(buf) then
+				if e.exists then
+					vim.api.nvim_buf_call(buf, function() vim.cmd("silent edit!") end)
+				else
+					pcall(vim.api.nvim_buf_delete, buf, { force = true })
+				end
+			end
+		end
+		os.remove(e.entry)
+	end
+	if not accept then
+		local names = vim.tbl_map(function(e) return relative(e.path) end, entries)
+		note("The user rejected all of your changes in Neovim and restored these files to how they were before you edited them: "
+			.. table.concat(names, ", ") .. ". Read them again before editing further.")
+	end
+	vim.notify(string.format("%sed changes to %d file(s)", verb, #entries), vim.log.levels.INFO)
+	require("config.pi-bridge.statusline").refresh()
+end
+
+function M.setup()
+	local group = vim.api.nvim_create_augroup("pi_bridge_changes", { clear = true })
+	vim.api.nvim_create_autocmd("TabClosed", {
+		group = group,
+		callback = function()
+			if R and not vim.api.nvim_tabpage_is_valid(R.tab) then cleanup() end
+		end,
+	})
+	local last
+	vim.api.nvim_create_autocmd("User", {
+		group = group,
+		pattern = "PiEvent:agent_settled",
+		callback = function()
+			if not config.values.changes.notify then return end
+			vim.defer_fn(function()
+				local n = #M.list()
+				if n > 0 and n ~= last then
+					vim.notify(string.format("pi changed %d file%s · <leader>ad to review", n, n == 1 and "" or "s"), vim.log.levels.INFO)
+				end
+				last = n
+			end, 200)
+		end,
+	})
+	vim.api.nvim_create_user_command("AgentChanges", function(c)
+		if c.args == "" or c.args == "review" then return M.open() end
+		if c.args == "accept-all" then return all(true) end
+		if c.args == "reject-all" then return all(false) end
+		if c.args == "list" then
+			local lines = vim.tbl_map(function(e) return relative(e.path) end, M.list())
+			return vim.notify(#lines > 0 and table.concat(lines, "\n") or "No agent changes", vim.log.levels.INFO)
+		end
+		vim.notify("AgentChanges: review | list | accept-all | reject-all", vim.log.levels.ERROR)
+	end, {
+		nargs = "?",
+		complete = function() return { "review", "list", "accept-all", "reject-all" } end,
+		desc = "Review the files the agent changed",
+	})
+	vim.keymap.set("n", "<leader>ad", M.open, { desc = "Agent: review changes" })
+end
+
+return M
