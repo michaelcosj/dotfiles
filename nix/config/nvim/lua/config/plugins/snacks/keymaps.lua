@@ -90,9 +90,10 @@ vim.keymap.set("n", "<leader>gf", function()
 	Snacks.picker.git_log_file()
 end, { desc = "Git Log File" })
 
-vim.keymap.set("n", "<leader>gl", function()
+-- <leader>gl is lazygit (config/floats.lua)
+vim.keymap.set("n", "<leader>gc", function()
 	Snacks.picker.git_log()
-end, { desc = "Git Log" })
+end, { desc = "Git Log (commits)" })
 
 vim.keymap.set("n", "<leader>gL", function()
 	Snacks.picker.git_log_line()
@@ -158,9 +159,9 @@ vim.keymap.set("n", "<leader>un", function()
 	Snacks.notifier.hide()
 end, { desc = "Dismiss All Notifications" })
 
-vim.keymap.set("n", "<c-;>", function()
-	Snacks.terminal()
-end, { desc = "Toggle Terminal" })
+-- Lazygit (<leader>gl) and the terminal (<c-;>) as Rex floats, or Snacks
+-- terminals outside Rex.
+require("config.floats").setup()
 
 vim.keymap.set({ "n", "t" }, "]]", function()
 	Snacks.words.jump(vim.v.count1)

@@ -35,6 +35,8 @@
     vscode-langservers-extracted # CSS, HTML, and JSON language servers
     (callPackage ../pkgs/opencode.nix { })
     (callPackage ../pkgs/vite-plus.nix { })
+    # lazygit's edit command (programs.lazygit below)
+    (writeShellScriptBin "lazygit-nvim-edit" (builtins.readFile ../pkgs/lazygit-nvim-edit.sh))
   ];
 
   home.sessionVariables = {
@@ -277,10 +279,27 @@
       '';
     };
 
+    # Home Manager writes this to the right place on each OS (macOS:
+    # ~/Library/Application Support/lazygit/config.yml).
     lazygit = {
       enable = true;
       settings = {
-        os.editPreset = "nvim";
+        gui = {
+          # The Files panel gets 40% of the width, and grows taller while focused.
+          sidePanelWidth = 0.4;
+          expandFocusedSidePanel = true;
+          showFileTree = true;
+          mainPanelSplitMode = "flexible";
+        };
+        # Open files in the Neovim that started lazygit (Neovim's <leader>gl
+        # float), else in a new nvim.
+        os = {
+          edit = "lazygit-nvim-edit {{filename}}";
+          editAtLine = "lazygit-nvim-edit {{filename}} {{line}}";
+          editAtLineAndWait = "nvim +{{line}} -- {{filename}}";
+          openDirInEditor = "lazygit-nvim-edit {{dir}}";
+          editInTerminal = true;
+        };
       };
     };
 
