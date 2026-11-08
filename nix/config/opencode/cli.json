@@ -1,6 +1,5 @@
 {
   "plugins": [
-    "./tui-plugins/herdr-agent-state-v2-tui.js",
     "./tui-plugins/handoff.js",
     "./tui-plugins/empty-enter.js",
     "./herdr-opencode"

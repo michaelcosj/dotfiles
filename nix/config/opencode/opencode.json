@@ -27,28 +27,10 @@
       "open-browser-use": {
         "type": "local",
         "command": [
-          "/Users/synth/.bun/bin/obu",
+          "obu",
           "mcp"
         ]
-      },
-      "pencil": {
-        "type": "local",
-        "command": [
-          "/Applications/Pen.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-x64",
-          "-app",
-          "desktop",
-          "-agent",
-          "openCodeCLI"
-        ]
       }
-    },
-    "paper": {
-      "type": "local",
-      "command": [
-        "/home/m/.paper/bin/paper",
-        "mcp"
-      ],
-      "enabled": true
     }
   },
   "permission": {
@@ -56,16 +38,16 @@
   },
   "agents": {
     "general": {
-      "model": "openai/gpt-6.1-sol#low",
+      "model": "openai/gpt-6.1-sol#low"
     },
     "plan": {
-      "model": "openai/gpt-6.1-sol#high",
+      "model": "openai/gpt-6.1-sol#high"
     },
     "build": {
-      "model": "openai/gpt-6.1-sol#medium",
+      "model": "openai/gpt-6.1-sol#medium"
     },
     "explore": {
-      "model": "openai/gpt-6-luna#high",
+      "model": "openai/gpt-6-luna#high"
     }
   }
 }
