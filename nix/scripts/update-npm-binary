@@ -7,6 +7,19 @@
 #   update-npm-binary vite-plus 1.0.0
 set -euo pipefail
 
+# Sets one platform's hash (the line after its suffix) or the version, in
+# place. awk instead of `sed -i`, whose syntax differs on macOS and Linux.
+set_field() {
+  local tmp
+  tmp=$(mktemp)
+  awk -v suffix="$2" -v value="$3" '
+    suffix == "" && /^  version = ".*";$/ { sub(/".*"/, "\"" value "\"") }
+    after_suffix && /hash = ".*";/ { sub(/".*"/, "\"" value "\""); after_suffix = 0 }
+    suffix != "" && index($0, "suffix = \"" suffix "\";") { after_suffix = 1 }
+    { print }
+  ' "$1" >"$tmp" && mv "$tmp" "$1"
+}
+
 if [ $# -lt 1 ]; then
   echo "usage: update-npm-binary <name> [version]" >&2
   echo "packages: $(grep -l 'npm-binary.nix' "$HOME"/.dotfiles/nix/pkgs/*.nix | xargs -n1 basename | sed 's/\.nix$//' | grep -vx npm-binary | tr '\n' ' ')" >&2
@@ -34,8 +47,8 @@ for suffix in "${suffixes[@]}"; do
     echo "no $suffix build found for $1 $version" >&2
     exit 1
   fi
-  sed -i "/suffix = \"$suffix\";/{n;s|hash = \".*\";|hash = \"$hash\";|}" "$file"
+  set_field "$file" "$suffix" "$hash"
 done
-sed -i "s/^  version = \".*\";/  version = \"$version\";/" "$file"
+set_field "$file" "" "$version"
 
 echo "$1 $current -> $version. Run nix-rebuild to install it."

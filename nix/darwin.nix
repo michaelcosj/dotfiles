@@ -64,7 +64,6 @@
     ];
 
     brews = [
-      "colima"
       "mas"
       "pam-reattach"
       {

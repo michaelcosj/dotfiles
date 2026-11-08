@@ -90,7 +90,7 @@
       cp = "cp -i";
       mv = "mv -i";
       cat = "bat";
-      ls = "eza --hyperlink=auto";
+      ls = "eza --hyperlink";
       reload-env = "load_env";
       sg = "ast-grep";
     };

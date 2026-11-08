@@ -42,8 +42,6 @@
 
       set -g status-right-style 'fg=colour7 bold'
       set -g status-right " #S "
-
-      set -g status-right-style 'fg=colour7 bold'
       set -g status-left " #W "
 
       set -g pane-border-style fg=brightblack,bg=black
