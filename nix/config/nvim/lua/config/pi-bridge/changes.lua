@@ -113,6 +113,99 @@ function M.list(all)
 	return out
 end
 
+-- Counts changed files like #M.list(), for the statusline, without
+-- blocking: the same steps as committed() and M.list(), with each git call
+-- run asynchronously. callback(n) runs on the main loop. Overlapping
+-- calls are merged: only the newest one reports.
+local function git_async(dir, args, callback)
+	vim.system(vim.list_extend({ "git", "-C", dir }, args), { text = false }, function(r)
+		vim.schedule(function() callback(r.code == 0 and r.stdout or nil, r.code) end)
+	end)
+end
+
+local function git_dir(path)
+	local dir = vim.fs.dirname(path)
+	while not vim.uv.fs_stat(dir) and vim.fs.dirname(dir) ~= dir do dir = vim.fs.dirname(dir) end
+	return dir
+end
+
+-- Async committed(): moves e's baseline forward when a commit touched it.
+local function committed_async(e, file, head, done)
+	if not head or head == e.head then return done() end
+	local function save()
+		e.head = head
+		pcall(write, file, entry_json(e))
+		done()
+	end
+	if type(e.head) ~= "string" then return save() end
+	local dir = git_dir(e.path)
+	local name = "./" .. vim.fs.relpath(dir, e.path)
+	git_async(dir, { "diff", "--quiet", e.head, head, "--", name }, function(_, code)
+		if code ~= 0 and code ~= 1 then return done() end -- e.g. the old commit is gone
+		if code == 0 then return save() end
+		git_async(dir, { "show", "HEAD:" .. name }, function(text)
+			e.exists, e.baseline = text ~= nil, text or ""
+			save()
+		end)
+	end)
+end
+
+local count_gen = 0
+function M.count_async(callback)
+	count_gen = count_gen + 1
+	local gen = count_gen
+	if vim.fn.isdirectory(M.dir) == 0 then return callback(0) end
+	local cwd = vim.uv.cwd()
+	local scoped = config.values.changes.cwd_only
+
+	local entries = {}
+	for name, kind in vim.fs.dir(M.dir) do
+		if kind == "file" and name:match("%.json$") then
+			local file = vim.fs.joinpath(M.dir, name)
+			local ok, e = pcall(vim.json.decode, read(file) or "")
+			if ok and type(e) == "table" and type(e.path) == "string" and not (scoped and not vim.fs.relpath(cwd, e.path)) then
+				e.baseline = e.baseline or ""
+				entries[#entries + 1] = { e = e, file = file, dir = git_dir(e.path) }
+			end
+		end
+	end
+	if #entries == 0 then return callback(0) end
+
+	-- One `git rev-parse HEAD` per directory, not per file.
+	local heads, dirs = {}, {}
+	for _, x in ipairs(entries) do
+		if heads[x.dir] == nil then heads[x.dir] = false; dirs[#dirs + 1] = x.dir end
+	end
+
+	local function finish()
+		if gen ~= count_gen then return end -- a newer count replaced this one
+		local n = 0
+		for _, x in ipairs(entries) do
+			local current = read(x.e.path)
+			local same = (current == nil and not x.e.exists) or (current ~= nil and x.e.exists and current == x.e.baseline)
+			if same then os.remove(x.file) else n = n + 1 end
+		end
+		callback(n)
+	end
+
+	local pending = #dirs
+	for _, dir in ipairs(dirs) do
+		git_async(dir, { "rev-parse", "HEAD" }, function(out)
+			heads[dir] = out and vim.trim(out) or false
+			pending = pending - 1
+			if pending > 0 then return end
+			if gen ~= count_gen then return end
+			local left = #entries
+			for _, x in ipairs(entries) do
+				committed_async(x.e, x.file, heads[x.dir] or nil, function()
+					left = left - 1
+					if left == 0 then finish() end
+				end)
+			end
+		end)
+	end
+end
+
 local function note(text)
 	local bridge = require("config.pi-bridge.bridge")
 	if bridge.pipe then bridge.request("note", { text = text }, function() end) end

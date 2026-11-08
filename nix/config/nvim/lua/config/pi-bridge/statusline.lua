@@ -24,15 +24,15 @@ function M.sync(changes_updated)
 	}, function() end)
 end
 
--- Recounts the files waiting for review, and tells pi when it changed.
+-- Recounts the files waiting for review in the background, and tells pi
+-- and lualine when the count changed. The statusline only reads M.count.
 function M.refresh()
-	local n = #require("config.pi-bridge.changes").list()
-	local changed = n ~= M.count
-	M.count = n
-	if changed then
+	require("config.pi-bridge.changes").count_async(function(n)
+		if n == M.count then return end
+		M.count = n
 		M.sync(true)
 		pcall(function() require("lualine").refresh({ place = { "statusline" } }) end)
-	end
+	end)
 end
 
 local function waiting()
