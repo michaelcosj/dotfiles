@@ -13,7 +13,9 @@ const dir = path.join(stateHome, "rex", "agents");
 const file = block ? path.join(dir, `${block.replace(/^block:/, "").replace(/[^A-Za-z0-9_-]/g, "_")}.json`) : undefined;
 
 function record(ctx: any) {
-  if (!file) return;
+  // Only the pane's interactive pi owns the record. Background children
+  // inherit REX_BLOCK but run headless; they must not replace it.
+  if (!file || ctx?.mode !== "tui") return;
   const sessionFile = ctx?.sessionManager?.getSessionFile?.();
   if (!sessionFile) return;
   try {

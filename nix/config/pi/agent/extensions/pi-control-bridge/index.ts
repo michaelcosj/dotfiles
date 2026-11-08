@@ -4,6 +4,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { Type } from "typebox";
+import { countChanges as countBaselineChanges, trackBaseline } from "./baselines.js";
 
 const PROTOCOL = "1";
 const SOURCE = "pi-control-bridge";
@@ -46,44 +47,6 @@ type EditorContext = {
 };
 
 const MAX_CONTEXT_SELECTION = 4000;
-
-// Agent change tracking: before pi first edits a file, its content is saved
-// here (one JSON file per path), so Neovim can review everything pi changed
-// against that baseline instead of git. Neovim removes an entry once you
-// accept or reject the file, and moves its baseline forward when you commit
-// it. Shared by every pi, keyed by absolute path.
-const CHANGES_DIR = path.join(
-  process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state"),
-  "pi",
-  "agent-changes",
-);
-
-function trackBaseline(file: string) {
-  const entry = path.join(
-    CHANGES_DIR,
-    `${crypto.createHash("sha256").update(file).digest("hex").slice(0, 16)}.json`,
-  );
-  if (fs.existsSync(entry)) return;
-  let baseline = "";
-  let exists = true;
-  try {
-    const bytes = fs.readFileSync(file);
-    if (bytes.includes(0)) return; // binary; nothing to diff
-    baseline = bytes.toString("utf8");
-  } catch (error: any) {
-    if (error?.code !== "ENOENT") return;
-    exists = false;
-  }
-  try {
-    fs.mkdirSync(CHANGES_DIR, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(
-      `${entry}.tmp`,
-      JSON.stringify({ version: 1, agent: "pi", path: file, exists, baseline, created: Date.now() }),
-      { mode: 0o600 },
-    );
-    fs.renameSync(`${entry}.tmp`, entry);
-  } catch {}
-}
 
 // First line that differs between two texts (1-based), for autofollow.
 function firstChangedLine(before: string, after: string): number {
@@ -171,27 +134,9 @@ export default function (pi: any) {
   // what pi is waiting on the user for, by request id
   const waitingOn = new Map<string, string>();
 
-  // Files under cwd that pi changed and you haven't reviewed (see CHANGES_DIR).
+  // Files under cwd that pi changed and you haven't reviewed (see baselines.ts).
   function countChanges() {
-    const cwd = currentCtx?.cwd ?? process.cwd();
-    let n = 0;
-    let names: string[] = [];
-    try {
-      names = fs.readdirSync(CHANGES_DIR).filter((f) => f.endsWith(".json"));
-    } catch {}
-    for (const name of names) {
-      try {
-        const e = JSON.parse(fs.readFileSync(path.join(CHANGES_DIR, name), "utf8"));
-        if (typeof e.path !== "string" || !(e.path === cwd || e.path.startsWith(cwd + path.sep))) continue;
-        let current: string | undefined;
-        try {
-          current = fs.readFileSync(e.path, "utf8");
-        } catch {}
-        const unchanged = current === undefined ? !e.exists : e.exists && current === e.baseline;
-        if (!unchanged) n++;
-      } catch {}
-    }
-    changesCount = n;
+    changesCount = countBaselineChanges(currentCtx?.cwd ?? process.cwd());
   }
 
   function renderStatus() {
