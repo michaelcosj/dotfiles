@@ -24,7 +24,7 @@ const REX_ENABLED = !HERDR_ENABLED && !!REX_BLOCK && !!REX_SESSION;
 const PANE_ID = HERDR_ENABLED ? HERDR_PANE_ID : REX_BLOCK;
 const MAX_LINE_BYTES = 1024 * 1024;
 const INSTANCE_ID = PANE_ID;
-// Footer line: the connected editor, what it shows, follow, changes to review.
+// Widget above the editor: connected Neovim, follow, and changes to review.
 const STATUS_KEY = "pi-editor";
 
 type BridgeState = "idle" | "working" | "blocked";
@@ -141,23 +141,24 @@ export default function (pi: any) {
 
   function renderStatus() {
     const ui = currentCtx?.ui;
-    if (!ui?.setStatus || !ui.theme) return;
+    if (currentCtx?.mode !== "tui" || !ui?.setWidget || !ui.theme) return;
     const t = ui.theme;
     const sep = t.fg("dim", " · ");
-    // pi joins footer statuses with a space and usage comes next, so end
-    // with a dot to separate them
-    const end = t.fg("dim", " ·");
+    const show = (text: string) => {
+      ui.setStatus(STATUS_KEY, undefined); // clear the former footer entry
+      ui.setWidget(STATUS_KEY, [text], { placement: "aboveEditor" });
+    };
     if (connectedClients().length === 0) {
       const parts = [t.fg("dim", "󰕷 no editor")];
       if (changesCount) parts.push(t.fg("accent", `Δ ${changesCount} file${changesCount === 1 ? "" : "s"}`));
-      ui.setStatus(STATUS_KEY, parts.join(sep) + end);
+      show(parts.join(sep));
       return;
     }
     const cwd = currentCtx?.cwd ?? process.cwd();
     let editor = t.fg("success", "󰕷") + " nvim";
     if (waitingOn.size) {
       const what = [...waitingOn.values()].at(-1)!;
-      ui.setStatus(STATUS_KEY, editor + sep + t.fg("warning", `⏳ waiting for you: ${what} in Neovim`) + end);
+      show(editor + sep + t.fg("warning", `⏳ waiting for you: ${what} in Neovim`));
       return;
     }
     const c = editorContext;
@@ -169,8 +170,9 @@ export default function (pi: any) {
     const parts = [editor];
     if (prefs.follow) parts.push(t.fg("accent", "󰁌 follow"));
     if (changesCount) parts.push(t.fg("accent", `Δ ${changesCount} file${changesCount === 1 ? "" : "s"}`));
-    if (prefs.review) parts.push(t.fg("dim", `review: ${prefs.review === "off" ? "grouped" : prefs.review}`));
-    ui.setStatus(STATUS_KEY, parts.join(sep) + end);
+    // Show only per-edit review; the default "off" means review later with <leader>ad.
+    if (prefs.review && prefs.review !== "off") parts.push(t.fg("dim", `󰈈 ${prefs.review}`));
+    show(parts.join(sep));
   }
 
   function connectedClients() {
@@ -532,6 +534,7 @@ export default function (pi: any) {
         } catch {}
     discoveryPath = undefined;
     currentCtx?.ui?.setStatus?.(STATUS_KEY, undefined);
+    currentCtx?.ui?.setWidget?.(STATUS_KEY, undefined);
     currentCtx = undefined;
   }
 
