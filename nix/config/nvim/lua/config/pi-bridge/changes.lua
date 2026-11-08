@@ -88,18 +88,21 @@ function M.list(all)
 	local out = {}
 	if vim.fn.isdirectory(M.dir) == 0 then return out end
 	local cwd = vim.uv.cwd()
+	local scoped = not all and config.values.changes.cwd_only
 	for name, kind in vim.fs.dir(M.dir) do
 		if kind == "file" and name:match("%.json$") then
 			local file = vim.fs.joinpath(M.dir, name)
 			local ok, e = pcall(vim.json.decode, read(file) or "")
-			if ok and type(e) == "table" and type(e.path) == "string" then
+			-- Skip other projects before the git and file reads below: the
+			-- statusline calls this on every write and focus change.
+			if ok and type(e) == "table" and type(e.path) == "string" and not (scoped and not vim.fs.relpath(cwd, e.path)) then
 				e.entry = file
 				e.baseline = e.baseline or ""
 				committed(e, file)
 				local current = read(e.path)
 				if (current == nil and not e.exists) or (current ~= nil and e.exists and current == e.baseline) then
 					os.remove(file)
-				elseif all or not config.values.changes.cwd_only or vim.fs.relpath(cwd, e.path) then
+				else
 					e.current_exists = current ~= nil
 					out[#out + 1] = e
 				end
@@ -335,7 +338,6 @@ show = function(i)
 	R.right = vim.api.nvim_win_get_buf(R.right_win)
 
 	-- left: the baseline; modifiable so accepted hunks can be put into it
-	local old = R.left
 	local left_name = "pi-changes://" .. rel .. " (before pi)"
 	R.left = scratch(nil, e.exists and split_lines(e.baseline) or {}, ft, true)
 	vim.bo[R.left].buftype = "nofile"

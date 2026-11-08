@@ -5,7 +5,7 @@ local defaults = {
 			"-p",
 			"-ne",
 			"-ns",
-      "-nt",
+			"-nt",
 			"-t",
 			"read",
 			"--no-session",
@@ -67,6 +67,8 @@ local function get_git_log()
 end
 
 local function generate_commit_message()
+	-- the reply arrives later; write it into this buffer, not whichever is current then
+	local buf = vim.api.nvim_get_current_buf()
 	local logs = get_git_log()
 	local diff = get_git_diff()
 
@@ -120,7 +122,12 @@ local function generate_commit_message()
 				return
 			end
 
-			vim.api.nvim_buf_set_lines(0, 0, 0, false, vim.split(message, "\n"))
+			if not vim.api.nvim_buf_is_valid(buf) then
+				vim.notify("Commit buffer was closed.", vim.log.levels.WARN, { id = notification_id, timeout = 3000 })
+				return
+			end
+
+			vim.api.nvim_buf_set_lines(buf, 0, 0, false, vim.split(message, "\n"))
 
 			vim.notify("Commit message generated.", vim.log.levels.INFO, {
 				id = notification_id,
@@ -139,7 +146,7 @@ function M.setup(opts)
 		callback = function(args)
 			vim.api.nvim_buf_create_user_command(args.buf, "GenerateCommit", generate_commit_message, {})
 
-			vim.keymap.set("n", "<leader>cc", generate_commit_message, { noremap = true, silent = true })
+			vim.keymap.set("n", "<leader>cc", generate_commit_message, { buffer = args.buf, silent = true })
 		end,
 	})
 end

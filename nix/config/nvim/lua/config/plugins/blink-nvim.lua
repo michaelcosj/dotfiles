@@ -1,10 +1,10 @@
+-- mini.icons is set up in mini.lua; this only reads icons from it.
 local mini_icons_ok, mini_icons = pcall(require, "mini.icons")
 
 if not mini_icons_ok then
 	return
 end
 
-mini_icons.setup({})
 local colorful_menu_ok, colorful_menu = pcall(require, "colorful-menu")
 
 if not colorful_menu_ok then
@@ -12,7 +12,6 @@ if not colorful_menu_ok then
 end
 
 colorful_menu.setup({})
--- add the following lines to your blink.cmp config
 
 local blink_cmp_ok, blink_cmp = pcall(require, "blink.cmp")
 
