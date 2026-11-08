@@ -28,6 +28,7 @@ node_modules/
 /nix/config/pi/agent/fff/
 /nix/config/pi/agent/models-store.json
 /nix/config/pi/agent/npm/
+/nix/config/pi/agent/pi-web-access/
 /nix/config/pi/agent/plans/
 /nix/config/pi/agent/sessions/
 /nix/config/pi/agent/state/
