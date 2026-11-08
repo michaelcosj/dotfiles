@@ -8,7 +8,7 @@ wk.setup({})
 
 wk.add({
 	{ "<leader>f", group = "Find" },
-	{ "<leader>a", group = "AI" },
+	{ "<leader>a", group = "Agent" },
 	{ "<leader>b", group = "Buffer" },
 	{ "<leader>g", group = "Git" },
 	{ "<leader>h", group = "Git Signs" },

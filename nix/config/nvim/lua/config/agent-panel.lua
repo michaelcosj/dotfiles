@@ -335,7 +335,7 @@ function M.setup(opts)
 		end,
 	})
 	if M.values.keys.toggle and rex.available() then
-		vim.keymap.set("n", M.values.keys.toggle, function() M.toggle() end, { desc = "Toggle agent panel" })
+		vim.keymap.set("n", M.values.keys.toggle, function() M.toggle() end, { desc = "Agent: toggle panel" })
 	end
 end
 
