@@ -5,7 +5,11 @@ Home Manager manages user packages, dotfiles, and user services.
 
 ## Modules
 
-- `home/common.nix`: shared headless-safe tools, shell, Git, editor, and CLI configuration.
+- `home/common.nix`: shared headless-safe packages and environment; imports the modules below.
+  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, btca, Pi).
+  - `home/programs/fish.nix`: Fish, prompt, aliases, fzf, direnv, and Starship (off).
+  - `home/programs/git.nix`: Git, delta, and lazygit.
+  - `home/programs/tmux.nix`: tmux and the `tsm` session picker.
 - `home/personal.nix`: personal Git identity; not used by the work account.
 - `home/desktop.nix`: shared desktop packages, Ghostty config, and devbox SSH aliases.
 - `home/darwin.nix`: macOS additions.

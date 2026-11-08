@@ -1,5 +1,5 @@
 onboarding = false
-# Keybindings matching the tmux configuration in home.nix.
+# Keybindings matching the tmux configuration in home/programs/tmux.nix.
 [keys]
 prefix = "ctrl+a"
 reload_config = "prefix+shift+r"

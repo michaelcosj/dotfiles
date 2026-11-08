@@ -10,7 +10,7 @@ local function bounds()
 end
 
 -- Lazygit opens files back in this Neovim: it gets our server address as
--- $NVIM, and its edit command (lazygit-nvim-edit, set up in home/common.nix)
+-- $NVIM, and its edit command (lazygit-nvim-edit, set up in home/programs/git.nix)
 -- calls M.edit over it.
 function M.lazygit()
 	if not rex.available() then return Snacks.terminal("lazygit") end
