@@ -47,12 +47,6 @@ local function count_tiled(node)
 	return 0
 end
 
-local function first_block(node)
-	if not node then return nil end
-	if node.block_id then return node.block_id end
-	if node.split then return first_block(node.split.before) or first_block(node.split.after) end
-end
-
 local function clamp(x, lo, hi)
 	return math.max(lo, math.min(hi, x))
 end
@@ -158,7 +152,5 @@ function M.dock(session_id, block_id)
 	if size > 0.6 then size = 0.5 end
 	return M.edge(session_id, block_id, { side = side, size = size, window_id = at.window.window_id })
 end
-
-M.first_block = first_block
 
 return M

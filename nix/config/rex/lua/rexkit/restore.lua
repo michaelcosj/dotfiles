@@ -35,12 +35,6 @@ local function call_block(session_id, block_id, method, args)
 	if ok then return res end
 end
 
-local function file_url_path(url)
-	if type(url) ~= "string" then return nil end
-	local p = url:match("^file://[^/]*(/.*)$") or url
-	return (p:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
-end
-
 local function command_line(pid)
 	local r = rex.exec({ "ps", "-o", "args=", "-p", tostring(pid) })
 	if r and r.ok then return (r.stdout:gsub("%s+$", "")) end

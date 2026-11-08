@@ -247,12 +247,6 @@ function M.hide_float(callback)
 	end)
 end
 
--- Shows the panel holding block_id (an agent found some other way) and
--- focuses it.
-function M.reveal(block_id)
-	rex.reveal(block_id)
-end
-
 -- Changes a setting and moves the panel to match, showing it if hidden.
 function M.set(key, value)
 	if key == "layout" then

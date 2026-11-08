@@ -87,10 +87,6 @@ function M.format(range)
 	return context.current(range)
 end
 
-function M.statusline()
-	return events.statusline()
-end
-
 -- lualine components for the agent, follow and changes to review.
 function M.lualine()
 	return require("config.pi-bridge.statusline").components()

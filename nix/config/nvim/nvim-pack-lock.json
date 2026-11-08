@@ -21,15 +21,6 @@
       "rev": "05e8787020dcfdb937bf2ff23855ea2415b4e072",
       "src": "https://www.github.com/catppuccin/nvim"
     },
-    "cc-adapter-codex.nvim": {
-      "rev": "ce565d3da357e99ecabc9db0558c8bea42158c32",
-      "src": "https://www.github.com/viespejo/cc-adapter-codex.nvim"
-    },
-    "codecompanion.nvim": {
-      "rev": "2e8865f81a0c8b5900fced953a81fe86c53416b1",
-      "src": "https://www.github.com/olimorris/codecompanion.nvim",
-      "version": "19.0.0 - 20.0.0"
-    },
     "codediff.nvim": {
       "rev": "7608f3b436ce1f84a4888f75e53079caa981a2e9",
       "src": "https://www.github.com/esmuellert/codediff.nvim"
@@ -50,14 +41,6 @@
       "rev": "2038c666bd9d8a0b7349a0b6ee00dc83104b9ecf",
       "src": "https://www.github.com/lewis6991/gitsigns.nvim"
     },
-    "gruvbox.nvim": {
-      "rev": "154eb5ff5b96d0641307113fa385eaf0d36d9796",
-      "src": "https://www.github.com/ellisonleao/gruvbox.nvim"
-    },
-    "image.nvim": {
-      "rev": "88351f1f7d9dbae286e671ce3690a49660dd8a5c",
-      "src": "https://www.github.com/3rd/image.nvim"
-    },
     "img-clip.nvim": {
       "rev": "b6ddfb97b5600d99afe3452d707444afda658aca",
       "src": "https://www.github.com/HakonHarnes/img-clip.nvim"
@@ -73,10 +56,6 @@
     "lualine.nvim": {
       "rev": "221ce6b2d999187044529f49da6554a92f740a96",
       "src": "https://www.github.com/nvim-lualine/lualine.nvim"
-    },
-    "mcp-tools.nvim": {
-      "rev": "8806a2b6f8d1aaccbcf073c210bd870d810f5db3",
-      "src": "https://www.github.com/guill/mcp-tools.nvim"
     },
     "mini.comment": {
       "rev": "4677392f091e8b5c18d4b535130220a6d1da4aca",
@@ -97,21 +76,9 @@
       "src": "https://www.github.com/echasnovski/mini.surround",
       "version": ">=0.0.0"
     },
-    "minuet-ai.nvim": {
-      "rev": "d29dec4c36be2b41aa10e70938b7b09a03f0bdba",
-      "src": "https://www.github.com/milanglacier/minuet-ai.nvim"
-    },
     "neogit": {
       "rev": "43ea1a0854052e583f647e0b35879f0158a70a78",
       "src": "https://www.github.com/NeogitOrg/neogit"
-    },
-    "noice.nvim": {
-      "rev": "7bfd942445fb63089b59f97ca487d605e715f155",
-      "src": "https://www.github.com/folke/noice.nvim"
-    },
-    "nui.nvim": {
-      "rev": "de740991c12411b663994b2860f1a4fd0937c130",
-      "src": "https://www.github.com/MunifTanjim/nui.nvim"
     },
     "nvim-lspconfig": {
       "rev": "4b2b045b8ceb035f5c8bc9cab19b95706bfa6a19",
@@ -128,10 +95,6 @@
     "nvim-treesitter-context": {
       "rev": "b311b30818951d01f7b4bf650521b868b3fece16",
       "src": "https://www.github.com/nvim-treesitter/nvim-treesitter-context"
-    },
-    "nvim-web-devicons": {
-      "rev": "dfbfaa967a6f7ec50789bead7ef87e336c1fa63c",
-      "src": "https://www.github.com/nvim-tree/nvim-web-devicons"
     },
     "oxocarbon.nvim": {
       "rev": "cf49e389c22dab56224e43ae16422ddcd5b61b28",

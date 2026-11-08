@@ -60,15 +60,4 @@ function M.set_agent(agent)
 	M.agent = agent
 end
 
-function M.statusline()
-	if M.state == "disconnected" then
-		return ""
-	end
-	local icons = { idle = "󰚩", working = "󰔟", blocked = "󰀦", unknown = "󰋗" }
-	local pane = M.agent and M.agent.pane_id or "pi"
-	-- Rex block IDs are long; the last six characters are what `rex block ls` shows
-	pane = pane:match("^block:") and pane:sub(-6) or pane
-	return string.format("%s Pi %s", icons[M.state] or icons.unknown, pane)
-end
-
 return M
