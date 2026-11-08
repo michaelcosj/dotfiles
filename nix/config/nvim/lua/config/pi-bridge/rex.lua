@@ -3,12 +3,17 @@
 -- pane; this finds those for this Rex session, and starts pi in the agent
 -- panel (config.agent-panel) when there are none.
 local rex = require("config.rex")
-local herdr = require("config.pi-bridge.herdr")
+local agents = require("config.pi-bridge.agents")
 local panel = require("config.agent-panel")
 
 local M = {}
 
-local last_used_pane_id = nil
+local picker = agents.picker({
+	cwd_of = function(agent) return agent.cwd end,
+	label = function(agent, last_used)
+		return string.format("%s%s  %s", last_used and "󰋚 " or "  ", agent.pane_id:gsub("^block:", ""):sub(-6), agent.cwd or "?")
+	end,
+})
 
 local function runtime_dir()
 	local tmp = (vim.env.TMPDIR or "/tmp"):gsub("/$", "")
@@ -17,17 +22,6 @@ end
 
 local function alive(pid)
 	return type(pid) == "number" and vim.uv.kill(pid, 0) == 0
-end
-
-local function canonical(path)
-	local real = path and vim.uv.fs_realpath(path)
-	return real and real:gsub("/$", "") or path
-end
-
-local function score(agent, cwd)
-	local a, b = canonical(agent.cwd), canonical(cwd)
-	if a == b then return 100000 end
-	return math.min(#(a or ""), #(b or ""))
 end
 
 local function read_agents()
@@ -56,13 +50,9 @@ function M.discover(callback)
 	end
 	local cwd = vim.uv.cwd()
 	local candidates = vim.tbl_filter(function(agent)
-		return herdr._overlaps(agent.cwd, cwd)
+		return agents.overlaps(agent.cwd, cwd)
 	end, read_agents())
-	table.sort(candidates, function(a, b)
-		local a_last, b_last = a.pane_id == last_used_pane_id, b.pane_id == last_used_pane_id
-		if a_last ~= b_last then return a_last end
-		return score(a, cwd) > score(b, cwd)
-	end)
+	picker.rank(candidates, cwd)
 	callback(candidates)
 end
 
@@ -94,33 +84,8 @@ function M.spawn(callback, opts)
 	end)
 end
 
-local function select_agent(candidates, callback)
-	if #candidates == 1 then return callback(candidates[1]) end
-	vim.ui.select(candidates, {
-		prompt = "Select Pi",
-		format_item = function(agent)
-			local mark = agent.pane_id == last_used_pane_id and "󰋚 " or "  "
-			return string.format("%s%s  %s", mark, agent.pane_id:gsub("^block:", ""):sub(-6), agent.cwd or "?")
-		end,
-	}, callback)
-end
-
 function M.ensure(callback)
-	local function use(agent, err)
-		if agent then last_used_pane_id = agent.pane_id end
-		callback(agent, err)
-	end
-	M.discover(function(candidates, err)
-		if not candidates then
-			use(nil, err)
-		elseif #candidates == 0 then
-			M.spawn(use)
-		else
-			select_agent(candidates, function(agent)
-				use(agent, agent == nil and "Pi selection cancelled" or nil)
-			end)
-		end
-	end)
+	picker.ensure(M.discover, M.spawn, callback)
 end
 
 function M.focus(agent)

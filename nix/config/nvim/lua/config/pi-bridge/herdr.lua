@@ -1,6 +1,15 @@
+local agents = require("config.pi-bridge.agents")
+
 local M = {}
 
-local last_used_pane_id = nil
+local picker = agents.picker({
+	cwd_of = function(agent) return agent.foreground_cwd or agent.cwd end,
+	label = function(agent, last_used)
+		local tokens = agent.tokens or {}
+		local instance_id = tokens.pi_instance_id or ("[?] " .. agent.pane_id)
+		return string.format("%s%s  %s  [%s]", last_used and "󰋚 " or "  ", instance_id, agent.foreground_cwd or agent.cwd or "?", agent.agent_status or "?")
+	end,
+})
 
 local function notify_error(message)
 	vim.notify("Pi control bridge: " .. message, vim.log.levels.ERROR)
@@ -17,31 +26,6 @@ local function run(args, callback)
 			callback(ok and value or result.stdout)
 		end)
 	end)
-end
-
-local function canonical(path)
-	if not path or path == "" then
-		return nil
-	end
-	local real = vim.uv.fs_realpath(path)
-	return (real or vim.fs.normalize(path)):gsub("/$", "")
-end
-
-local function overlaps(a, b)
-	a, b = canonical(a), canonical(b)
-	if not a or not b then
-		return false
-	end
-	return a == b or a:sub(1, #b + 1) == b .. "/" or b:sub(1, #a + 1) == a .. "/"
-end
-
-local function score(agent, cwd)
-	local agent_cwd = canonical(agent.foreground_cwd or agent.cwd)
-	cwd = canonical(cwd)
-	if agent_cwd == cwd then
-		return 100000
-	end
-	return math.min(#agent_cwd, #cwd)
 end
 
 local function snapshot_value(value)
@@ -67,37 +51,14 @@ function M.discover(callback)
 				agent.workspace_id == workspace
 				and agent.agent == "pi"
 				and agent.agent_status ~= "done"
-				and overlaps(agent.foreground_cwd or agent.cwd, cwd)
+				and agents.overlaps(agent.foreground_cwd or agent.cwd, cwd)
 			then
 				table.insert(candidates, agent)
 			end
 		end
-		table.sort(candidates, function(a, b)
-			local a_last = a.pane_id == last_used_pane_id
-			local b_last = b.pane_id == last_used_pane_id
-			if a_last ~= b_last then
-				return a_last
-			end
-			return score(a, cwd) > score(b, cwd)
-		end)
+		picker.rank(candidates, cwd)
 		callback(candidates)
 	end)
-end
-
-local function select_agent(candidates, callback)
-	if #candidates == 1 then
-		callback(candidates[1])
-		return
-	end
-	vim.ui.select(candidates, {
-		prompt = "Select Pi",
-		format_item = function(agent)
-			local tokens = agent.tokens or {}
-			local instance_id = tokens.pi_instance_id or ("[?] " .. agent.pane_id)
-			local last_used = agent.pane_id == last_used_pane_id and "󰋚 " or "  "
-			return string.format("%s%s  %s  [%s]", last_used, instance_id, agent.foreground_cwd or agent.cwd or "?", agent.agent_status or "?")
-		end,
-	}, callback)
 end
 
 local function find_pane_id(value)
@@ -164,28 +125,7 @@ local function spawn(callback)
 end
 
 function M.ensure(callback)
-	local function use_agent(agent, err)
-		if agent then
-			last_used_pane_id = agent.pane_id
-		end
-		callback(agent, err)
-	end
-
-	M.discover(function(candidates, err)
-		if not candidates then
-			use_agent(nil, err)
-		elseif #candidates == 0 then
-			spawn(use_agent)
-		else
-			select_agent(candidates, function(agent)
-				if agent then
-					use_agent(agent)
-				else
-					use_agent(nil, "Pi selection cancelled")
-				end
-			end)
-		end
-	end)
+	picker.ensure(M.discover, spawn, callback)
 end
 
 function M.focus(agent)
@@ -199,8 +139,5 @@ function M.focus(agent)
 		end
 	end)
 end
-
-M._overlaps = overlaps
-M._find_pane_id = find_pane_id
 
 return M
