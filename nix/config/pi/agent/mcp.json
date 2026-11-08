@@ -1,11 +1,5 @@
 {
   "mcpServers": {
-    "paper": {
-      "command": "/home/m/.paper/bin/paper",
-      "args": [
-        "mcp"
-      ]
-    },
     "doop": {
       "url": "https://devbox.danio-wezen.ts.net/mcp",
       "exposure": "codemode",

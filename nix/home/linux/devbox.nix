@@ -6,7 +6,6 @@
   ...
 }:
 let
-  piDir = "${config.home.homeDirectory}/.dotfiles/nix/config/pi/agent";
   desktopSettings = builtins.fromJSON (builtins.readFile ../../config/pi/agent/settings.json);
   piSettings = pkgs.writeText "pi-devbox-settings.json" (
     builtins.toJSON (
@@ -50,26 +49,9 @@ in
     }
   '';
 
-  # The desktop .pi symlink includes machine-local packages and Paper MCP.
-  # Keep remote runtime state outside the repo and share only portable config.
-  home.file = {
-    ".pi".enable = lib.mkForce false;
-    ".pi/agent/mcp.json".text = builtins.toJSON { mcpServers = { }; };
-  }
-  // builtins.listToAttrs (
-    map
-      (name: {
-        name = ".pi/agent/${name}";
-        value.source = config.lib.file.mkOutOfStoreSymlink "${piDir}/${name}";
-      })
-      [
-        "AGENTS.md"
-        "extensions"
-        "keybindings.json"
-        "prompts"
-        "skills"
-      ]
-  );
+  # home/pi.nix links Pi's config from the repo. The desktop settings name
+  # machine-local packages, so seed a portable copy here instead.
+  home.file.".pi/agent/settings.json".enable = false;
 
   # Pi changes its settings at runtime. Seed a private writable file once,
   # rather than linking a read-only Nix store file or overwriting user choices.

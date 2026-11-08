@@ -6,7 +6,8 @@ Home Manager manages user packages, dotfiles, and user services.
 ## Modules
 
 - `home/common.nix`: shared headless-safe packages and environment; imports the modules below.
-  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, btca, Pi).
+  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, btca).
+  - `home/pi.nix`: Pi config links; Pi's runtime state stays in `~/.pi` (see below).
   - `home/programs/fish.nix`: Fish, prompt, aliases, fzf, direnv, and Starship (off).
   - `home/programs/git.nix`: Git, delta, and lazygit.
   - `home/programs/tmux.nix`: tmux and the `tsm` session picker.
@@ -121,7 +122,7 @@ git config user.email 'you@company.example'
 ```
 
 Pi settings are seeded once into a private writable file, without desktop-local
-package paths, device identity, or Paper MCP. Portable npm and Git packages are
+package paths or device identity. Portable npm and Git packages are
 included. The personal Claude Code and cached-compaction forks are pinned to
 commits in `config/pi/agent/settings.json`.
 
@@ -129,6 +130,21 @@ Existing accounts keep their runtime settings during rebuilds. To add or change
 a package there, run `pi install <source>` with its pinned source from the shared
 settings. Auth and sessions remain separate per account; sign in to providers as
 needed. Shared extensions, skills, and prompts come from each account's own checkout.
+
+## Pi config and state
+
+`~/.pi` is a real directory for Pi's runtime state: auth, sessions, installed
+packages, trust, and caches. `home/pi.nix` links only the hand-written config
+into it from `config/pi/agent`: `AGENTS.md`, `extensions`, `prompts`, `skills`,
+`keybindings.json`, `mcp.json`, and `settings.json`. Pi writes its settings
+through that link, so settings changed in Pi appear in `git diff`.
+
+`~/.pi` used to be a single link to `config/pi`, which put runtime state in the
+checkout. The first switch with `home/pi.nix` runs `scripts/migrate-pi-state`
+before Home Manager checks its links. It replaces the link with a directory and
+moves everything except the config above into it. The move is a rename, so
+nothing is copied. It does nothing once `~/.pi` is a directory, and it stops
+without changes if a file exists on both sides. Close Pi before that switch.
 
 ## SSH and Rex
 

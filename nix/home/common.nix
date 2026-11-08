@@ -4,6 +4,7 @@
 {
   imports = [
     ./links.nix
+    ./pi.nix
     ./programs/fish.nix
     ./programs/git.nix
     ./programs/tmux.nix

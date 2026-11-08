@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# One-time move of Pi's runtime state out of the repo. ~/.pi used to be one
+# link to nix/config/pi, so Pi wrote auth, sessions, and packages into the
+# checkout. home/pi.nix runs this before Home Manager checks its links:
+# it turns ~/.pi into a real directory and moves everything except the
+# hand-written config (kept below) into it. Renames on one filesystem, so
+# nothing is copied. Safe to run again: it does nothing once ~/.pi is a real
+# directory, and resumes an interrupted move (marker file).
+#
+#   migrate-pi-state <repo pi dir>    e.g. ~/.dotfiles/nix/config/pi
+set -euo pipefail
+
+repo=$(cd "$1" && pwd -P)
+home_pi="$HOME/.pi"
+marker="$home_pi/.migrating-from-repo"
+
+# Hand-written config that stays in the repo (and is linked by home/pi.nix).
+keep_root=(agent biome.json)
+keep_agent=(AGENTS.md extensions keybindings.json mcp.json prompts settings.json skills)
+
+if [ -L "$home_pi" ]; then
+  target=$(cd "$home_pi" && pwd -P)
+  if [ "$target" != "$repo" ]; then
+    echo "migrate-pi-state: ~/.pi links to $target, not $repo; move it away and switch again" >&2
+    exit 1
+  fi
+  rm "$home_pi"
+  # private: it holds auth.json and sessions
+  mkdir -m 700 "$home_pi" "$home_pi/agent"
+  : >"$marker"
+elif [ ! -e "$marker" ]; then
+  exit 0 # already migrated, or never linked (devbox)
+fi
+
+# move <from> <to> <names to keep...>
+move() {
+  local from=$1 to=$2 path name
+  shift 2
+  shopt -s dotglob nullglob
+  for path in "$from"/*; do
+    name=${path##*/}
+    case " $* " in *" $name "*) continue ;; esac
+    if [ -e "$to/$name" ] || [ -L "$to/$name" ]; then
+      echo "migrate-pi-state: $to/$name already exists; left $path in place" >&2
+      exit 1
+    fi
+    mv "$path" "$to/$name"
+  done
+}
+
+move "$repo" "$home_pi" "${keep_root[@]}"
+move "$repo/agent" "$home_pi/agent" "${keep_agent[@]}"
+rm "$marker"
+echo "migrate-pi-state: moved Pi runtime state from $repo to $home_pi"

@@ -18,7 +18,8 @@ node_modules/
 /nix/config/herdr/plugins/github/
 /nix/config/opencode/plugins/herdr-agent-state.js
 
-# Pi credentials, runtime state, and package cache
+# Pi runtime state. home/pi.nix moves it to ~/.pi on the next switch
+# (scripts/migrate-pi-state); keep these until every machine has switched.
 /nix/config/pi/.agent/
 /nix/config/pi/pi-acp/session-map.json
 /nix/config/pi/agent/auth.json
@@ -26,6 +27,7 @@ node_modules/
 /nix/config/pi/agent/mcp.log*
 /nix/config/pi/agent/cached-compaction.jsonl
 /nix/config/pi/agent/fff/
+/nix/config/pi/agent/git/
 /nix/config/pi/agent/models-store.json
 /nix/config/pi/agent/npm/
 /nix/config/pi/agent/pi-web-access/
@@ -33,6 +35,7 @@ node_modules/
 /nix/config/pi/agent/sessions/
 /nix/config/pi/agent/state/
 /nix/config/pi/agent/trust.json
+/nix/config/pi/agent/workflow-plan.md
 /nix/config/herdr/*.sock*
 /nix/config/herdr/session-snapshots/
 
