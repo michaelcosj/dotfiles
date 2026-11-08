@@ -1,0 +1,35 @@
+#!/bin/sh
+# fzf pickers that Rex opens in a floating pane.
+#   rex-pick projects   choose a project to open or switch to
+#   rex-pick restore    choose which sessions to resume after a server restart
+set -u
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}/rex"
+
+case "${1:-}" in
+projects)
+	name=$(rex do -e 'io.write(rex.invoke("project_list"), "\n")' | fzf \
+		--delimiter '	' --with-nth 2 --no-multi \
+		--prompt 'project> ' --header '● open · enter switch or create · esc cancel' |
+		cut -f1)
+	[ -n "$name" ] && rex do project_open name="$name" >/dev/null
+	;;
+restore)
+	list="$state/pending.tsv"
+	[ -s "$list" ] || exit 0
+	ids=$(fzf <"$list" \
+		--delimiter '	' --with-nth 2 --multi --bind 'load:select-all' \
+		--prompt 'restore> ' \
+		--header 'Resume what these sessions were running? · tab toggle · enter resume · esc skip' |
+		cut -f1 | paste -sd, -)
+	if [ -n "$ids" ]; then
+		rex do restore_selected ids="$ids" >/dev/null
+	else
+		rex do restore_skip >/dev/null
+	fi
+	;;
+*)
+	echo "usage: rex-pick projects|restore" >&2
+	exit 2
+	;;
+esac
