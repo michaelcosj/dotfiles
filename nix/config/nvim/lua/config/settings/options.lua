@@ -82,7 +82,7 @@ vim.opt.shiftwidth = 0
 -- Global statusline
 vim.opt.laststatus = 3
 
--- exrc (I use this for overseer)
+-- exrc: per-project .nvim.lua
 vim.opt.exrc = true
 
 -- Copy through Herdr via OSC 52, but never query it (reads can time out).

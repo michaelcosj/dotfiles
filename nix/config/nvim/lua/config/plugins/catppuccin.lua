@@ -20,7 +20,6 @@ catppuccin.setup({
 		gitsigns = true,
 		mini = true,
 		neogit = true,
-		overseer = true,
 		render_markdown = true,
 		snacks = true,
 		treesitter_context = true,

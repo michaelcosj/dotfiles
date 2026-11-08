@@ -58,9 +58,6 @@ vim.pack.add({
 	-- Formatting
 	gh("stevearc/conform.nvim"),
 
-	-- Commands
-	gh("stevearc/overseer.nvim"),
-
 	-- Session
 	gh("stevearc/resession.nvim"),
 	gh("stevearc/quicker.nvim"),
@@ -93,7 +90,6 @@ require("config.plugins.nvim-origami")
 require("config.plugins.img-clip-nvim")
 require("config.plugins.todo-comments")
 require("config.plugins.conform")
-require("config.plugins.overseer")
 require("config.plugins.resession")
 require("config.plugins.quicker")
 require("config.plugins.pi-bridge")

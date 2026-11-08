@@ -21,7 +21,6 @@ resession.setup({
 	},
 
 	extensions = {
-		overseer_fix = {},
 		quickfix = {},
 	},
 })
