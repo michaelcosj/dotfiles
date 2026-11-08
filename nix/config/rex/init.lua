@@ -18,6 +18,7 @@ rex.bind("ctrl+a>shift+j", "pane.resize", { direction = "down" })
 rex.bind("ctrl+a>shift+k", "pane.resize", { direction = "up" })
 rex.bind("ctrl+a>shift+l", "pane.resize", { direction = "right" })
 rex.bind("ctrl+a>z", "pane.zoom")
+rex.bind("ctrl+a>m", "pane.minimize_floating")
 
 -- Accept both Herdr's p/n and tmux's Ctrl+P/Ctrl+N.
 rex.bind("ctrl+a>p", "client.tab.previous")
@@ -143,3 +144,66 @@ rex.action({
 })
 
 rex.bind("ctrl+a>f", "project_pick")
+
+-- Floating and docking panes (lua/rexkit/dock.lua).
+local dock = require("rexkit.dock")
+
+rex.action({
+	name = "pane_float_focused",
+	title = "Float Pane",
+	description = "Move the focused pane out of the layout into a floating pane.",
+	category = "Panes",
+	keywords = "float undock pop out",
+	run = function(ctx)
+		assert(ctx.session_id and ctx.block_id, "pane_float_focused needs a focused pane")
+		return dock.float(ctx.session_id, ctx.block_id)
+	end,
+})
+
+rex.action({
+	name = "pane_dock_focused",
+	title = "Dock Floating Pane",
+	description = "Put the focused floating pane back in the layout, along the edge it is nearest.",
+	category = "Panes",
+	keywords = "dock tile unfloat",
+	run = function(ctx)
+		assert(ctx.session_id and ctx.block_id, "pane_dock_focused needs a focused pane")
+		return dock.dock(ctx.session_id, ctx.block_id)
+	end,
+})
+
+-- Used by Neovim's agent panel: puts a pane (tiled, floating or detached)
+-- along one edge of a tab at its full height or width.
+rex.action({
+	name = "pane_dock_edge",
+	title = "Dock Pane at Edge",
+	category = "Panes",
+	args = {
+		block_id = "string",
+		side = "string?",
+		size = "number?",
+		window_id = "string?",
+		focus = "boolean?",
+		session_id = "string?",
+	},
+	run = function(ctx, args)
+		local session_id = args.session_id or ctx.session_id
+		assert(session_id, "pane_dock_edge needs a session")
+		return dock.edge(session_id, args.block_id, args)
+	end,
+})
+
+rex.action({
+	name = "pane_float_block",
+	title = "Float Pane by ID",
+	category = "Panes",
+	args = { block_id = "string", bounds = "array?", session_id = "string?" },
+	run = function(ctx, args)
+		local session_id = args.session_id or ctx.session_id
+		assert(session_id, "pane_float_block needs a session")
+		return dock.float(session_id, args.block_id, args.bounds)
+	end,
+})
+
+rex.bind("ctrl+a>shift+f", "pane_float_focused")
+rex.bind("ctrl+a>shift+d", "pane_dock_focused")
