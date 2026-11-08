@@ -129,6 +129,7 @@ chown root:doop /etc/doop
 chmod 0750 /etc/doop
 install -m 0750 "$self/config/doop-backup" /usr/local/sbin/doop-backup
 install -m 0755 "$self/bin/connect-doop-tailnet" /usr/local/sbin/connect-doop-tailnet
+install -m 0755 "$self/bin/connect-opencode-tailnet" /usr/local/sbin/connect-opencode-tailnet
 for unit in doop.service tailscaled.service doop-backup.service doop-backup.timer; do
   install -m 0644 "$self/config/$unit" "/etc/systemd/system/$unit"
 done

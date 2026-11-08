@@ -51,6 +51,16 @@ through apt or Home Manager.
    This uses **Serve**, not public **Funnel**. Review tailnet ACLs/grants: a
    tailnet's default policy can allow all members. Limit access to the intended
    people/devices; keep Doop's own account authentication enabled.
+
+   Optionally publish each account's OpenCode server (a Home Manager user
+   service, loopback ports 4096 for `work` and 4097 for `m`):
+
+   ```sh
+   sudo connect-opencode-tailnet   # work → :8443, m → :10000
+   ```
+
+   Clients log in as `opencode` with the password in that account's
+   `~/.config/opencode/service.json`.
 7. Install Ubuntu updates, then reboot in an agreed maintenance window:
 
    ```sh

@@ -67,6 +67,39 @@ EOF
     Install.WantedBy = [ "default.target" ];
   };
 
+  # Always-on OpenCode server, bound to loopback. Each account gets its own
+  # port; host Tailscale Serve (sudo connect-opencode-tailnet) publishes them
+  # tailnet-only. `--service` makes it the background server that local TUIs
+  # reuse. Its password stays in the gitignored config/opencode/service.json.
+  home.activation.seedOpencodeServicePassword = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    service_json="$HOME/.config/opencode/service.json"
+    if [ ! -e "$service_json" ]; then
+      password="$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
+      (umask 077; printf '{\n  "password": "%s"\n}\n' "$password" > "$service_json")
+    fi
+  '';
+
+  systemd.user.services.opencode-server = {
+    Unit = {
+      Description = "OpenCode server";
+      After = [ "network.target" ];
+    };
+    Service = {
+      WorkingDirectory = "%h";
+      # The server runs agent tools, so give it the same Nix profile as a login shell.
+      Environment = [
+        "PATH=${config.home.profileDirectory}/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin"
+        "OPENCODE_DISABLE_AUTOUPDATE=1"
+      ];
+      ExecStart = "${config.home.profileDirectory}/bin/opencode serve --service --hostname 127.0.0.1 --port ${
+        if config.home.username == "work" then "4096" else "4097"
+      }";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
   # Never install GUI apps, GNOME/Flatpak configuration, GPU integration or Kanata here.
   # Rex keeps its private Unix socket and joins the tailnet as a separate device
   # for each account. Rex needs no anonymous TCP listener or host daemon.
