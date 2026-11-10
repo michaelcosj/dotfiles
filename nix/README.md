@@ -44,13 +44,22 @@ also refreshes the non-NixOS GPU driver link through sudo when needed.
 To update packages:
 
 ```sh
-cd ~/.dotfiles/nix
-nix flake update
+nix-update
 nix-rebuild
 ```
 
-Prefer updating the lock file on the desktop, committing and pushing it, then
-pulling and rebuilding on each account so all machines use the same pins.
+`nix-update` runs `nix flake update` in this flake, then updates all npm binary
+pins (currently OpenCode and Vite Plus). It stops on the first error and does
+not rebuild. Earlier successful updates remain in the working tree.
+
+To update only npm binaries, run `update-npm-binary` with no arguments.
+Use `update-npm-binary opencode` for one package, or
+`update-npm-binary opencode 2.2.6` to select a version. Plain `nix flake update`
+still updates only flake inputs.
+
+Prefer updating the lock file and npm pins on the desktop, committing and
+pushing them, then pulling and rebuilding on each account so all machines use
+the same pins.
 Claude Code is installed through Nix on Linux, with its self-updater disabled.
 The work account has the executable but no personal credentials.
 

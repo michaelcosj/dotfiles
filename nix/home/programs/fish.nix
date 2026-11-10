@@ -17,6 +17,8 @@
   programs.direnv = {
     enable = true;
     nix-direnv.enable = true;
+    # Hide the "loading" lines and env diff; errors still print.
+    silent = true;
   };
 
   programs.fish = {

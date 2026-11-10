@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Update flake inputs and all npm binary pins. Rebuild separately with nix-rebuild.
+set -euo pipefail
+
+if [ $# -ne 0 ]; then
+  echo "usage: nix-update" >&2
+  exit 1
+fi
+
+cd "$HOME/.dotfiles/nix"
+nix flake update
+bash "$HOME/.dotfiles/nix/scripts/update-npm-binary"

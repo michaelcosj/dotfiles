@@ -15,7 +15,8 @@
 
   home.packages = with pkgs; [
     claude-code
-    codex # Linux tracks unstable; the Darwin pin lags behind.
+    # Use the official prebuilt release instead of compiling the Rust workspace.
+    (callPackage ../../pkgs/codex-bin.nix { })
     gcc
     # Pi installs extension packages with npm, even outside a project Node environment.
     nodejs

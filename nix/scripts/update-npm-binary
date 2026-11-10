@@ -3,6 +3,7 @@
 # npm release, or to the version given as $2, filling in each platform's hash from
 # the npm registry. Then nix-rebuild.
 #
+#   update-npm-binary                  # update all npm binary packages
 #   update-npm-binary opencode
 #   update-npm-binary vite-plus 1.0.0
 set -euo pipefail
@@ -20,10 +21,21 @@ set_field() {
   ' "$1" >"$tmp" && mv "$tmp" "$1"
 }
 
-if [ $# -lt 1 ]; then
-  echo "usage: update-npm-binary <name> [version]" >&2
-  echo "packages: $(grep -l 'npm-binary.nix' "$HOME"/.dotfiles/nix/pkgs/*.nix | xargs -n1 basename | sed 's/\.nix$//' | grep -vx npm-binary | tr '\n' ' ')" >&2
-  exit 1
+if [ $# -gt 2 ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  echo "usage: update-npm-binary [<name> [version]]"
+  echo "With no name, update all npm binary packages."
+  if [ $# -gt 2 ]; then exit 1; fi
+  exit 0
+fi
+
+if [ $# -eq 0 ]; then
+  for file in "$HOME"/.dotfiles/nix/pkgs/*.nix; do
+    if grep -qF 'callPackage ./npm-binary.nix' "$file"; then
+      name=${file##*/}
+      bash "$0" "${name%.nix}"
+    fi
+  done
+  exit 0
 fi
 
 file="$HOME/.dotfiles/nix/pkgs/$1.nix"
@@ -41,13 +53,18 @@ if [ "$version" = "$current" ]; then
   exit 0
 fi
 
+# Fetch every platform before changing this package's pins.
+hashes=()
 for suffix in "${suffixes[@]}"; do
   hash=$(curl -fsSL "$registry-$suffix/$version" | jq -r .dist.integrity)
   if [ -z "$hash" ] || [ "$hash" = "null" ]; then
     echo "no $suffix build found for $1 $version" >&2
     exit 1
   fi
-  set_field "$file" "$suffix" "$hash"
+  hashes+=("$hash")
+done
+for i in "${!suffixes[@]}"; do
+  set_field "$file" "${suffixes[$i]}" "${hashes[$i]}"
 done
 set_field "$file" "" "$version"
 

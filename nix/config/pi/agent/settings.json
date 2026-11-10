@@ -24,11 +24,12 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@ff-labs/pi-fff",
-    "git:github.com/michaelcosj/pi-claude-code@42d77ee622e1e8c23526522e03f7ece841f36f19",
+    "git:github.com/michaelcosj/pi-claude-code@personal",
     "git:github.com/michaelcosj/pi-cached-compaction@132e0da268def8f6ae18c25c8b100497a54a589e"
   ],
   "enabledModels": [
     "claude-code/claude-opus-5-5",
+    "claude-code/claude-fable-5-2",
     "claude-code/claude-haiku-5-5",
     "claude-code/claude-sonnet-5-5",
     "openai/gpt-6.1-terra",
