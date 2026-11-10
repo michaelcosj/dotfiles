@@ -5,20 +5,6 @@
   pkgs,
   ...
 }:
-let
-  desktopSettings = builtins.fromJSON (builtins.readFile ../../config/pi/agent/settings.json);
-  piSettings = pkgs.writeText "pi-devbox-settings.json" (
-    builtins.toJSON (
-      (builtins.removeAttrs desktopSettings [ "deviceId" ])
-      // {
-        # Keep portable registry/Git packages; never copy desktop-local paths.
-        packages = builtins.filter (
-          source: lib.hasPrefix "npm:" source || lib.hasPrefix "git:" source
-        ) desktopSettings.packages;
-      }
-    )
-  );
-in
 {
   imports = [ ./docker-rootless.nix ];
 
@@ -127,17 +113,5 @@ EOF
     set -gu dotfiles_directory_icon_color ${
       if config.home.username == "work" then "magenta" else "white"
     }
-  '';
-
-  # home/pi.nix links Pi's config from the repo. The desktop settings name
-  # machine-local packages, so seed a portable copy here instead.
-  home.file.".pi/agent/settings.json".enable = false;
-
-  # Pi changes its settings at runtime. Seed a private writable file once,
-  # rather than linking a read-only Nix store file or overwriting user choices.
-  home.activation.seedPiSettings = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    if [ ! -e "$HOME/.pi/agent/settings.json" ]; then
-      run install -Dm600 ${piSettings} "$HOME/.pi/agent/settings.json"
-    fi
   '';
 }

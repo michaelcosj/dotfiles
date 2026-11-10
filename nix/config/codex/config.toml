@@ -1,0 +1,8 @@
+# Portable Codex defaults. home/codex.nix seeds this once into ~/.codex as a
+# private writable file; Codex then adds machine state (project trust, hook
+# hashes, app MCP paths) there, which stays out of the repo.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+
+[features]
+hooks = true

@@ -3,8 +3,9 @@
 # installed packages, and caches. Only the hand-written config below is
 # linked from the repo, so edits apply without a rebuild and runtime files
 # never land in the checkout. Pi writes settings.json through its link, so
-# settings changed in Pi show up in git. linux/devbox.nix replaces settings
-# and MCP with portable copies.
+# settings changed in Pi show up in git. A git clean filter (.gitattributes,
+# programs/git.nix) keeps the per-machine deviceId and changelog versions out
+# of commits, so every machine can link the same file.
 {
   config,
   lib,

@@ -15,24 +15,6 @@
       "description": "Use for Effect implementation details"
     }
   },
-  "mcp": {
-    "servers": {
-      "open-computer-use": {
-        "type": "local",
-        "command": [
-          "open-computer-use",
-          "mcp"
-        ]
-      },
-      "open-browser-use": {
-        "type": "local",
-        "command": [
-          "obu",
-          "mcp"
-        ]
-      }
-    }
-  },
   "permission": {
     "bash": {}
   },

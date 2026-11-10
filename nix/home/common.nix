@@ -3,6 +3,9 @@
 { pkgs, ... }:
 {
   imports = [
+    ./agents.nix
+    ./claude.nix
+    ./codex.nix
     ./links.nix
     ./pi.nix
     ./programs/fish.nix

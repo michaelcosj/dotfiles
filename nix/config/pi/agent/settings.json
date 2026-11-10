@@ -1,9 +1,8 @@
 {
-  "lastChangelogVersion": "1.5.0",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "low",
-  "hideThinkingBlock": false,
+  "hideThinkingBlock": true,
   "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep -E '^[[:space:]]+alias[[:space:]]+' ~/.config/fish/config.fish | sed -E \"s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+'([^']*)'[[:space:]]*$/alias \\\\1='\\\\2'/;s/^[[:space:]]+alias[[:space:]]+([^ ]+)[[:space:]]+([^ ]+)[[:space:]]*$/alias \\\\1='\\\\2'/\")\"",
   "compaction": {
     "enabled": true,
@@ -15,7 +14,7 @@
       }
     }
   },
-  "quietStartup": false,
+  "quietStartup": "header",
   "collapseChangelog": true,
   "showCacheMissNotices": true,
   "terminal": {
@@ -38,12 +37,13 @@
     "openai-codex/gpt-6.1-sol"
   ],
   "tuiMode": "fullscreen",
-  "deviceId": "7515a2c8-3865-4ca1-b7dc-bd080a49d2de",
   "showHardwareCursor": false,
   "editorPaddingX": 0,
   "modelThinkingLevels": {
     "openai/gpt-6.1-sol": "medium",
-    "openai/gpt-6-astra": "low"
+    "openai/gpt-6-astra": "low",
+    "claude-code/claude-opus-5-5": "medium",
+    "openai-codex/gpt-6.1-sol": "high"
   },
   "images": {
     "blockImages": false
@@ -51,8 +51,6 @@
   "outputPad": 1,
   "cacheWarming": "idle",
   "theme": "dark",
-  "extensionChangelogVersions": {
-    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.47.0",
-    "{\"source\":\"git:github.com/michaelcosj/pi-cached-compaction@132e0da268def8f6ae18c25c8b100497a54a589e\",\"scope\":\"user\"}": "0.1.0"
-  }
+  "steeringMode": "all",
+  "fullscreenExitOutput": "resume-hint"
 }

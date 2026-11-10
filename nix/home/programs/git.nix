@@ -1,5 +1,5 @@
 # Git, delta, and lazygit.
-{ ... }:
+{ lib, pkgs, ... }:
 {
   programs.git = {
     enable = true;
@@ -8,6 +8,10 @@
       color.ui = true;
       pull.ff = "only";
       init.defaultBranch = "main";
+      # Pi writes per-machine state into config/pi/agent/settings.json, which
+      # every machine links (see .gitattributes). deviceId must stay unique
+      # per installation; the changelog versions change on every update.
+      filter.pi-settings.clean = "${lib.getExe pkgs.jq} 'del(.deviceId, .lastChangelogVersion, .extensionChangelogVersions)'";
       aliases = {
         sw = "switch";
         ci = "commit";

@@ -6,6 +6,9 @@ Home Manager manages user packages, dotfiles, and user services.
 ## Modules
 
 - `home/common.nix`: shared headless-safe packages and environment; imports the modules below.
+  - `home/agents.nix`: instructions and skills shared by all coding agents (`~/.agents`).
+  - `home/claude.nix`: Claude Code config links; runtime state stays in `~/.claude`.
+  - `home/codex.nix`: Codex instructions link and seeded portable `config.toml`.
   - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, btca).
   - `home/pi.nix`: Pi config links; Pi's runtime state stays in `~/.pi` (see below).
   - `home/programs/fish.nix`: Fish, prompt, aliases, fzf, direnv, and Starship (off).
@@ -18,7 +21,7 @@ Home Manager manages user packages, dotfiles, and user services.
 - `home/linux/desktop.nix`: Linux GUI apps, Flatpak, GPU integration, and Kanata.
 - `home/linux/gnome.nix`: GNOME packages and preferences.
 - `home/linux/fedora.nix`: Fedora-specific integration for the current desktop.
-- `home/linux/devbox.nix`: headless development environment and portable Pi configuration.
+- `home/linux/devbox.nix`: headless development environment.
 
 A new Linux desktop can compose `linux/common.nix` and `linux/desktop.nix`,
 with a separate distro module where needed. Fedora also imports `linux/gnome.nix`;
@@ -121,15 +124,11 @@ git config user.name 'Other Work Name'
 git config user.email 'you@company.example'
 ```
 
-Pi settings are seeded once into a private writable file, without desktop-local
-package paths or device identity. Portable npm and Git packages are
-included. The personal Claude Code and cached-compaction forks are pinned to
-commits in `config/pi/agent/settings.json`.
-
-Existing accounts keep their runtime settings during rebuilds. To add or change
-a package there, run `pi install <source>` with its pinned source from the shared
-settings. Auth and sessions remain separate per account; sign in to providers as
-needed. Shared extensions, skills, and prompts come from each account's own checkout.
+Pi settings are linked from each account's own checkout, like on desktops. The
+personal Claude Code and cached-compaction forks are pinned to commits in
+`config/pi/agent/settings.json`; Pi installs missing packages when it starts.
+Auth and sessions remain separate per account; sign in to providers as
+needed.
 
 ## Pi config and state
 
@@ -138,6 +137,12 @@ packages, trust, and caches. `home/pi.nix` links only the hand-written config
 into it from `config/pi/agent`: `AGENTS.md`, `extensions`, `prompts`, `skills`,
 `keybindings.json`, `mcp.json`, and `settings.json`. Pi writes its settings
 through that link, so settings changed in Pi appear in `git diff`.
+
+Every machine links the same file. Pi also writes per-machine state there: a
+`deviceId` that must stay unique per installation, and changelog versions. The
+`pi-settings` git clean filter (`.gitattributes`, `home/programs/git.nix`)
+strips those keys from what git stages and diffs, so they never reach a commit.
+When a pull changes the file, Pi creates a new `deviceId` for that machine.
 
 `~/.pi` used to be a single link to `config/pi`, which put runtime state in the
 checkout. The first switch with `home/pi.nix` runs `scripts/migrate-pi-state`
