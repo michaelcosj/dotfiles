@@ -5,7 +5,7 @@
     "./herdr-opencode"
   ],
   "theme": {
-    "name": "tokyonight",
+    "name": "system",
     "mode": "system"
   },
   "diffs": {

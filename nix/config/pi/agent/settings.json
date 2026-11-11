@@ -27,16 +27,6 @@
     "git:github.com/michaelcosj/pi-claude-code@personal",
     "git:github.com/michaelcosj/pi-cached-compaction@132e0da268def8f6ae18c25c8b100497a54a589e"
   ],
-  "enabledModels": [
-    "claude-code/claude-opus-5-5",
-    "claude-code/claude-fable-5-2",
-    "claude-code/claude-haiku-5-5",
-    "claude-code/claude-sonnet-5-5",
-    "openai/gpt-6.1-terra",
-    "openai-codex/gpt-6-astra",
-    "openai-codex/gpt-6-luna",
-    "openai-codex/gpt-6.1-sol"
-  ],
   "tuiMode": "fullscreen",
   "showHardwareCursor": false,
   "editorPaddingX": 0,
@@ -50,8 +40,17 @@
     "blockImages": false
   },
   "outputPad": 1,
-  "cacheWarming": "idle",
+  "cacheWarming": "streaming",
   "theme": "dark",
   "steeringMode": "all",
-  "fullscreenExitOutput": "resume-hint"
+  "fullscreenExitOutput": "resume-hint",
+  "enabledModels": [
+    "openai-codex/gpt-6.1-sol",
+    "claude-code/claude-opus-5-5",
+    "opencode/claude-fable-5-2",
+    "opencode-go/claude-haiku-5-5",
+    "opencode/claude-sonnet-5-5",
+    "openai-codex/gpt-6.1-terra",
+    "openai-codex/gpt-6-luna"
+  ]
 }

@@ -4,9 +4,9 @@
   "small_model": "opencode/big-pickle",
   "warming": true,
   "enabled_providers": [
+    "anthropic",
     "openai",
-    "opencode",
-    "opencode-go"
+    "opencode"
   ],
   "references": {
     "effect": {
