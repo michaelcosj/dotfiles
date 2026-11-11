@@ -15,7 +15,7 @@ function M.new()
 end
 
 function M:enabled()
-	return vim.bo.filetype == "pi_bridge_input"
+	return vim.bo.filetype == "agent_bridge_input"
 end
 
 function M:get_trigger_characters()

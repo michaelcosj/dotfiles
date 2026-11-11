@@ -1,5 +1,5 @@
 local uv = vim.uv or vim.loop
-local events = require("config.pi-bridge.events")
+local events = require("config.agent-bridge.events")
 
 local M = {
 	pipe = nil,
@@ -16,7 +16,7 @@ local function close(reason)
 	end
 	M.pipe = nil
 	for _, callback in pairs(M.pending) do
-		callback(nil, reason or "Pi control bridge disconnected")
+		callback(nil, reason or "Agent bridge disconnected")
 	end
 	M.pending = {}
 	events.emit("disconnected", { message = reason })
@@ -62,7 +62,7 @@ end
 
 function M.request(method, params, callback)
 	if not M.pipe then
-		callback(nil, "Pi control bridge is not connected")
+		callback(nil, "Agent bridge is not connected")
 		return
 	end
 	M.next_id = M.next_id + 1
@@ -81,7 +81,7 @@ function M.connect(agent, callback)
 	end
 	local tokens = agent.tokens or {}
 	if not tokens.pi_control_socket or not tokens.pi_control_token then
-		callback(nil, "Pi control bridge is unavailable; run /reload in the Pi pane")
+		callback(nil, "Agent bridge is unavailable; run /reload in the Pi pane")
 		return
 	end
 	M.agent = agent

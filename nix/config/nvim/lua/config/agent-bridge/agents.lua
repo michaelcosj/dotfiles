@@ -1,4 +1,4 @@
--- Backend-neutral agent selection for pi-bridge. The backends (herdr.lua,
+-- Backend-neutral agent selection for agent-bridge. The backends (herdr.lua,
 -- rex.lua) find and start pi panes; this decides which ones match the
 -- current directory, how to rank them, and which one to use.
 local M = {}

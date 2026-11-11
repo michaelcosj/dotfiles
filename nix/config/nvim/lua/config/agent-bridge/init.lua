@@ -1,20 +1,20 @@
 local M = {}
 
-local config = require("config.pi-bridge.config")
-local bridge = require("config.pi-bridge.bridge")
-local context = require("config.pi-bridge.context")
-local events = require("config.pi-bridge.events")
+local config = require("config.agent-bridge.config")
+local bridge = require("config.agent-bridge.bridge")
+local context = require("config.agent-bridge.context")
+local events = require("config.agent-bridge.events")
 -- herdr inside Herdr, Rex inside a Rex pane
 local backend = vim.env.HERDR_WORKSPACE_ID == nil and vim.env.REX_SESSION ~= nil
-		and require("config.pi-bridge.rex")
-	or require("config.pi-bridge.herdr")
-local ui = require("config.pi-bridge.ui")
-local requests = require("config.pi-bridge.requests")
-local ambient = require("config.pi-bridge.ambient")
+		and require("config.agent-bridge.rex")
+	or require("config.agent-bridge.herdr")
+local ui = require("config.agent-bridge.ui")
+local requests = require("config.agent-bridge.requests")
+local ambient = require("config.agent-bridge.ambient")
 
 local function report_error(err)
 	if err and err ~= "Pi selection cancelled" then
-		vim.notify("Pi control bridge: " .. err, vim.log.levels.ERROR)
+		vim.notify("Agent bridge: " .. err, vim.log.levels.ERROR)
 	end
 end
 
@@ -33,6 +33,8 @@ local function with_bridge(callback)
 		end)
 	end)
 end
+
+M.with_bridge = with_bridge
 
 function M.prompt(text, opts)
 	opts = vim.deepcopy(opts or {})
@@ -89,12 +91,12 @@ end
 
 -- lualine components for the agent, follow and changes to review.
 function M.lualine()
-	return require("config.pi-bridge.statusline").components()
+	return require("config.agent-bridge.statusline").components()
 end
 
 function M.operator(type)
 	if not type then
-		vim.go.operatorfunc = "v:lua.require'config.pi-bridge'._operator"
+		vim.go.operatorfunc = "v:lua.require'config.agent-bridge'._operator"
 		return "g@"
 	end
 	local first = vim.api.nvim_buf_get_mark(0, "[")[1]
@@ -115,9 +117,15 @@ local function visual_range()
 	return { bufnr = 0, first = first, last = last }
 end
 
+-- A Neovim with no UI (e.g. an --embed server left behind when its pane
+-- closed) must not act as the user's editor.
+local function has_ui()
+	return #vim.api.nvim_list_uis() > 0
+end
+
 -- Connects quietly to the best pi for this directory, if there is one.
 local function auto_connect()
-	if bridge.pipe or not config.values.auto_connect then return end
+	if bridge.pipe or not config.values.auto_connect or not has_ui() then return end
 	backend.discover(function(candidates)
 		local agent = candidates and candidates[1]
 		if agent and not bridge.pipe then
@@ -130,27 +138,64 @@ function M.setup(opts)
 	config.setup(opts)
 	requests.setup()
 	if config.values.ambient then ambient.setup() end
-	require("config.pi-bridge.follow").setup()
-	require("config.pi-bridge.changes").setup()
-	require("config.pi-bridge.statusline").setup()
+	require("config.agent-bridge.follow").setup()
+	require("config.agent-bridge.changes").setup()
+	require("config.agent-bridge.statusline").setup()
+	require("config.agent-bridge.comments").setup()
+	require("config.agent-bridge.comments").keys()
 	if config.values.auto_connect then
 		local timer = vim.uv.new_timer()
 		timer:start(1000, 5000, vim.schedule_wrap(auto_connect))
 		vim.api.nvim_create_autocmd("VimLeavePre", { callback = function() timer:stop() end })
 	end
-	vim.api.nvim_create_user_command("PiReview", requests.resume, { desc = "Show the pi review waiting for you" })
+	vim.api.nvim_create_autocmd("UILeave", {
+		callback = function()
+			-- UILeave runs before the UI is removed from the list; check after.
+			vim.schedule(function()
+				if not has_ui() and bridge.pipe then bridge.disconnect() end
+			end)
+		end,
+	})
+	vim.api.nvim_create_user_command("AgentReview", requests.resume, { desc = "Show the pi review waiting for you" })
 	vim.api.nvim_create_user_command("PlanComments", function()
 		require("config.criticmarkup").attach(0)
 		require("config.criticmarkup").keys(0)
 	end, { desc = "Hide CriticMarkup and comment inline in this buffer" })
 
-	vim.api.nvim_create_user_command("PiAsk", function(command)
+	vim.api.nvim_create_user_command("AgentAsk", function(command)
 		M.ask(command.args ~= "" and command.args or "@this: ")
 	end, { nargs = "*" })
-	vim.api.nvim_create_user_command("PiSelect", function()
+	vim.api.nvim_create_user_command("AgentSelect", function()
 		M.select()
 	end, {})
-	vim.api.nvim_create_user_command("PiFocus", M.focus, {})
+	vim.api.nvim_create_user_command("AgentFocus", M.focus, {})
+
+	-- Worktree sessions (Rex: worktree_new / worktree_remove, bin agent-worktree).
+	vim.api.nvim_create_user_command("AgentWorktree", function(command)
+		local rex = require("config.rex")
+		if command.bang then
+			return rex.action("worktree_remove", {}, function(res, err)
+				if err then vim.notify("Worktree: " .. err, vim.log.levels.ERROR) end
+			end)
+		end
+		local name, base = command.fargs[1], command.fargs[2]
+		if not name then return rex.action("worktree_pick", {}) end
+		rex.action("worktree_new", { name = name, base = base }, function(_, err)
+			if err then vim.notify("Worktree: " .. err, vim.log.levels.ERROR) end
+		end)
+	end, {
+		nargs = "*",
+		bang = true,
+		desc = "Open a worktree session: AgentWorktree [name [base]]; AgentWorktree! removes this session's worktree",
+		complete = function(lead, line)
+			if #vim.split(line, "%s+", { trimempty = false }) > 2 then
+				return vim.fn.systemlist({ "git", "for-each-ref", "--format=%(refname:short)", "refs/heads" })
+			end
+			local out = vim.fn.systemlist({ "agent-worktree", "ls" })
+			if vim.v.shell_error ~= 0 then return {} end
+			return vim.tbl_filter(function(n) return n:find(lead, 1, true) == 1 end, vim.tbl_map(function(l) return l:match("^(%S+)") end, out))
+		end,
+	})
 
 	vim.keymap.set("n", "<leader>aa", function()
 		M.ask("@this: ")
@@ -169,7 +214,7 @@ function M.setup(opts)
 	vim.keymap.set("n", "<leader>ao", M.operator, { expr = true, desc = "Agent: operator" })
 
 	vim.api.nvim_create_autocmd("User", {
-		pattern = "PiEvent:status",
+		pattern = "AgentEvent:status",
 		callback = function(args)
 			if args.data and args.data.state == "blocked" then
 				vim.notify("Pi is blocked: " .. (args.data.message or "interaction required") .. " (<leader>af to focus)", vim.log.levels.WARN)

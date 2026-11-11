@@ -50,7 +50,7 @@ function M.emit(event, data)
 
 	vim.schedule(function()
 		vim.api.nvim_exec_autocmds("User", {
-			pattern = "PiEvent:" .. (names[event] or event),
+			pattern = "AgentEvent:" .. (names[event] or event),
 			data = data,
 		})
 	end)

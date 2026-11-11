@@ -1,4 +1,4 @@
-local agents = require("config.pi-bridge.agents")
+local agents = require("config.agent-bridge.agents")
 
 local M = {}
 
@@ -12,7 +12,7 @@ local picker = agents.picker({
 })
 
 local function notify_error(message)
-	vim.notify("Pi control bridge: " .. message, vim.log.levels.ERROR)
+	vim.notify("Agent bridge: " .. message, vim.log.levels.ERROR)
 end
 
 local function run(args, callback)
@@ -89,7 +89,7 @@ local function wait_for_agent(pane_id, deadline, callback)
 			end
 		end
 		if vim.uv.now() >= deadline then
-			callback(nil, "Timed out waiting for Pi control bridge; run /reload in the Pi pane")
+			callback(nil, "Timed out waiting for Agent bridge; run /reload in the Pi pane")
 			return
 		end
 		vim.defer_fn(function()
@@ -119,7 +119,7 @@ local function spawn(callback)
 				callback(nil, start_err)
 				return
 			end
-			wait_for_agent(pane_id, vim.uv.now() + require("config.pi-bridge.config").values.spawn_timeout_ms, callback)
+			wait_for_agent(pane_id, vim.uv.now() + require("config.agent-bridge.config").values.spawn_timeout_ms, callback)
 		end)
 	end)
 end

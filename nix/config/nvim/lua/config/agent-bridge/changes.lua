@@ -1,10 +1,12 @@
 -- Review everything the agent changed, like Zed's agent review: pi saves
 -- each file as it was before its first edit (see trackBaseline in the
--- pi-control-bridge extension), and this diffs that baseline against the file
+-- agent-bridge extension), and this diffs that baseline against the file
 -- now, one file at a time, ignoring git entirely.
 --
--- In the review tab (left: before pi, right: the real file, editable):
+-- In the review tab (left: before the agent, right: the real file, editable):
 --   ]c / [c          next / previous hunk (built-in diff motions)
+--   <leader>rc       comment on the change (sent to the agent that made it
+--                    with <leader>rs; see comments.lua)
 --   ]f / [f          next / previous file;  <leader>rf  pick a file
 --   <leader>ra / rr  accept / reject the hunk under the cursor
 --   <leader>rA / rR  accept / reject the whole file
@@ -13,7 +15,9 @@
 -- diff; rejecting restores pi's baseline in the real file and tells pi.
 -- A file leaves the list once it matches its baseline, or once you commit
 -- it: committed changes count as reviewed (see committed() below).
-local config = require("config.pi-bridge.config")
+-- Each entry names the agent that changed the file first (`by`: "main" or
+-- a child agent's name); reject notes go to that agent.
+local config = require("config.agent-bridge.config")
 
 local M = {}
 
@@ -54,7 +58,7 @@ local function git(dir, ...)
 end
 
 local function entry_json(e)
-	return vim.json.encode({ version = 1, agent = e.agent, path = e.path, exists = e.exists, baseline = e.baseline, created = e.created, head = e.head })
+	return vim.json.encode({ version = 1, agent = e.agent, by = e.by, path = e.path, exists = e.exists, baseline = e.baseline, created = e.created, head = e.head })
 end
 
 -- Committing counts as reviewing. Each entry remembers the repo's HEAD
@@ -206,9 +210,15 @@ function M.count_async(callback)
 	end
 end
 
-local function note(text)
-	local bridge = require("config.pi-bridge.bridge")
-	if bridge.pipe then bridge.request("note", { text = text }, function() end) end
+-- agent: who made the change (entry.by); pi passes notes for a child agent on to it.
+local function note(text, agent)
+	local bridge = require("config.agent-bridge.bridge")
+	if bridge.pipe then bridge.request("note", { text = text, agent = agent }, function() end) end
+end
+
+-- " (by alpha)" for a child agent's change; nothing for the main pi.
+local function by(e)
+	return (e.by and e.by ~= "main") and (" (by " .. e.by .. ")") or ""
 end
 
 -- ---- the review tab ----
@@ -222,6 +232,7 @@ local function unmap(buf)
 	for _, lhs in ipairs(keys) do
 		pcall(vim.keymap.del, "n", lhs, { buffer = buf })
 	end
+	vim.b[buf].agent_review_by = nil
 end
 
 -- Scratch buffers are hidden, not wiped, when their window closes:
@@ -272,7 +283,7 @@ local function tell_pi(e, whole)
 	local rel = relative(e.path)
 	note(whole
 		and ("The user rejected all of your changes to " .. rel .. " in Neovim and restored the file to how it was before you edited it. Read it again before editing it further.")
-		or ("The user reverted some of your changes to " .. rel .. " in Neovim. Read it again before editing it further."))
+		or ("The user reverted some of your changes to " .. rel .. " in Neovim. Read it again before editing it further."), e.by)
 end
 
 -- Drops the current file from the list and shows the next one.
@@ -280,7 +291,7 @@ local function resolved()
 	local e = R.entries[R.index]
 	os.remove(e.entry)
 	table.remove(R.entries, R.index)
-	vim.schedule(function() require("config.pi-bridge.statusline").refresh() end)
+	vim.schedule(function() require("config.agent-bridge.statusline").refresh() end)
 	if #R.entries == 0 then
 		M.close()
 		return vim.notify("All agent changes reviewed", vim.log.levels.INFO)
@@ -392,6 +403,9 @@ local function map_buf(buf)
 	map("<leader>rR", function() whole(false) end, "Agent changes: reject file")
 	map("<leader>rq", M.close, "Agent changes: close review")
 	R.mapped[buf] = true
+	-- review comments on this file go to the agent that changed it
+	local e = R.entries[R.index]
+	if e and buf == R.right then vim.b[buf].agent_review_by = e.by or "main" end
 end
 
 local function scratch(name, lines, ft, modifiable)
@@ -426,12 +440,12 @@ show = function(i)
 			vim.cmd("silent! checktime")
 		end)
 	else
-		vim.api.nvim_win_set_buf(R.right_win, scratch("pi-changes://" .. rel .. " (deleted)", {}, ft, false))
+		vim.api.nvim_win_set_buf(R.right_win, scratch("agent-changes://" .. rel .. " (deleted)", {}, ft, false))
 	end
 	R.right = vim.api.nvim_win_get_buf(R.right_win)
 
 	-- left: the baseline; modifiable so accepted hunks can be put into it
-	local left_name = "pi-changes://" .. rel .. " (before pi)"
+	local left_name = "agent-changes://" .. rel .. " (before agent)"
 	R.left = scratch(nil, e.exists and split_lines(e.baseline) or {}, ft, true)
 	vim.bo[R.left].buftype = "nofile"
 	vim.api.nvim_win_set_buf(R.left_win, R.left)
@@ -448,10 +462,10 @@ show = function(i)
 		vim.api.nvim_win_call(win, function() vim.cmd("diffthis") end)
 	end
 	local label = rel:gsub("%%", "%%%%")
-	vim.wo[R.left_win].winbar = "%#Comment# before pi" .. (e.exists and "" or " (new file)") .. "%*"
+	vim.wo[R.left_win].winbar = "%#Comment# before agent" .. (e.exists and "" or " (new file)") .. "%*"
 	vim.wo[R.right_win].winbar = string.format(
-		"%%#DiagnosticWarn# 󰚩 %s%%* %%#Comment#(%d/%d)%%=]c hunk · ]f file · <leader>ra/rr hunk · rA/rR file · rq close %%*",
-		label, i, #R.entries)
+		"%%#DiagnosticWarn# 󰚩 %s%%*%%#Comment#%s (%d/%d)%%*",
+		label, (by(e):gsub("%%", "%%%%")), i, #R.entries)
 	vim.api.nvim_set_current_win(R.right_win)
 	vim.api.nvim_win_set_cursor(R.right_win, { 1, 0 })
 	if vim.fn.diff_hlID(1, 1) == 0 then pcall(vim.cmd, "normal! ]c") end
@@ -465,7 +479,7 @@ function M.pick()
 		prompt = "Agent changes",
 		format_item = function(i)
 			local e = R.entries[i]
-			return relative(e.path) .. (not e.exists and "  (new)" or not e.current_exists and "  (deleted)" or "")
+			return relative(e.path) .. by(e) .. (not e.exists and "  (new)" or not e.current_exists and "  (deleted)" or "")
 		end,
 	}, function(i) if i then show(i) end end)
 end
@@ -475,7 +489,7 @@ function M.open()
 	if #entries == 0 then return vim.notify("No agent changes to review", vim.log.levels.INFO) end
 	if R then M.close() end
 	vim.cmd("tabnew")
-	vim.t.pi_changes = true
+	vim.t.agent_changes = true
 	R = { tab = vim.api.nvim_get_current_tabpage(), entries = entries, mapped = {}, noted = {} }
 	R.left_win = vim.api.nvim_get_current_win()
 	local placeholder = vim.api.nvim_get_current_buf()
@@ -513,32 +527,58 @@ local function all(accept)
 		os.remove(e.entry)
 	end
 	if not accept then
-		local names = vim.tbl_map(function(e) return relative(e.path) end, entries)
-		note("The user rejected all of your changes in Neovim and restored these files to how they were before you edited them: "
-			.. table.concat(names, ", ") .. ". Read them again before editing further.")
+		-- one note per agent, listing only its files
+		local per = {}
+		for _, e in ipairs(entries) do
+			local who = e.by or "main"
+			per[who] = per[who] or {}
+			table.insert(per[who], relative(e.path))
+		end
+		for who, names in pairs(per) do
+			note("The user rejected all of your changes in Neovim and restored these files to how they were before you edited them: "
+				.. table.concat(names, ", ") .. ". Read them again before editing further.", who)
+		end
 	end
 	vim.notify(string.format("%sed changes to %d file(s)", verb, #entries), vim.log.levels.INFO)
-	require("config.pi-bridge.statusline").refresh()
+	require("config.agent-bridge.statusline").refresh()
 end
 
 function M.setup()
-	local group = vim.api.nvim_create_augroup("pi_bridge_changes", { clear = true })
+	local group = vim.api.nvim_create_augroup("agent_bridge_changes", { clear = true })
 	vim.api.nvim_create_autocmd("TabClosed", {
 		group = group,
 		callback = function()
 			if R and not vim.api.nvim_tabpage_is_valid(R.tab) then cleanup() end
 		end,
 	})
+	-- The review keys are buffer-local; a buffer that is reloaded or opened
+	-- again in a diff window would otherwise lose them, and <leader>rA would
+	-- fall through to `r`. Re-apply them whenever a review window shows one.
+	vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
+		group = group,
+		callback = function(a)
+			if not R or vim.api.nvim_get_current_tabpage() ~= R.tab then return end
+			local win = vim.api.nvim_get_current_win()
+			if win ~= R.left_win and win ~= R.right_win then return end
+			if win == R.right_win and a.buf ~= R.right then
+				-- the file was wiped and opened again: a new buffer for the same path
+				local e = R.entries[R.index]
+				if not e or vim.fs.normalize(vim.api.nvim_buf_get_name(a.buf)) ~= vim.fs.normalize(e.path) then return end
+				R.right = a.buf
+			end
+			if a.buf == R.left or a.buf == R.right then map_buf(a.buf) end
+		end,
+	})
 	local last
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = "PiEvent:agent_settled",
+		pattern = "AgentEvent:agent_settled",
 		callback = function()
 			if not config.values.changes.notify then return end
 			vim.defer_fn(function()
 				local n = #M.list()
 				if n > 0 and n ~= last then
-					vim.notify(string.format("pi changed %d file%s · <leader>ad to review", n, n == 1 and "" or "s"), vim.log.levels.INFO)
+					vim.notify(string.format("agent changed %d file%s · <leader>ad to review", n, n == 1 and "" or "s"), vim.log.levels.INFO)
 				end
 				last = n
 			end, 200)
@@ -549,7 +589,7 @@ function M.setup()
 		if c.args == "accept-all" then return all(true) end
 		if c.args == "reject-all" then return all(false) end
 		if c.args == "list" then
-			local lines = vim.tbl_map(function(e) return relative(e.path) end, M.list())
+			local lines = vim.tbl_map(function(e) return relative(e.path) .. by(e) end, M.list())
 			return vim.notify(#lines > 0 and table.concat(lines, "\n") or "No agent changes", vim.log.levels.INFO)
 		end
 		vim.notify("AgentChanges: review | list | accept-all | reject-all", vim.log.levels.ERROR)

@@ -38,7 +38,7 @@ lualine.setup({
 				draw_empty = false,
 			},
 			-- 󰚩 pi ○/●/⏳ · 󰁌 follow · Δn files to review (all clickable)
-			unpack(require("config.pi-bridge").lualine()),
+			unpack(require("config.agent-bridge").lualine()),
 		},
 		lualine_y = {
 			"progress",

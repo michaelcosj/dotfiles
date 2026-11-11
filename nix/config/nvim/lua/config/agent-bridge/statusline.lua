@@ -7,15 +7,15 @@
 --   Δ3                3 files pi changed to review; click to review
 --
 -- Clicking the agent toggles the agent panel.
-local config = require("config.pi-bridge.config")
-local events = require("config.pi-bridge.events")
+local config = require("config.agent-bridge.config")
+local events = require("config.agent-bridge.events")
 
 local M = { count = 0 }
 
 -- Tells pi our follow and review settings (and to recount changes), for
 -- its footer.
 function M.sync(changes_updated)
-	local bridge = require("config.pi-bridge.bridge")
+	local bridge = require("config.agent-bridge.bridge")
 	if not bridge.pipe then return end
 	bridge.request("set_prefs", {
 		follow = config.values.follow,
@@ -27,7 +27,7 @@ end
 -- Recounts the files waiting for review in the background, and tells pi
 -- and lualine when the count changed. The statusline only reads M.count.
 function M.refresh()
-	require("config.pi-bridge.changes").count_async(function(n)
+	require("config.agent-bridge.changes").count_async(function(n)
 		if n == M.count then return end
 		M.count = n
 		M.sync(true)
@@ -36,7 +36,7 @@ function M.refresh()
 end
 
 local function waiting()
-	local req = require("config.pi-bridge.requests").active
+	local req = require("config.agent-bridge.requests").active
 	if req then return req.kind == "review_plan" and "plan" or "edit" end
 	if events.state == "blocked" then return events.message and events.message:sub(1, 20) or "you" end
 end
@@ -55,7 +55,7 @@ function M.agent_color()
 end
 
 function M.agent_click()
-	if waiting() then return require("config.pi-bridge.requests").resume() end
+	if waiting() then return require("config.agent-bridge.requests").resume() end
 	require("config.agent-panel").toggle()
 end
 
@@ -72,23 +72,23 @@ function M.components()
 		{
 			function() return "󰁌" end,
 			color = "DiagnosticInfo",
-			on_click = function() require("config.pi-bridge.follow").toggle() end,
+			on_click = function() require("config.agent-bridge.follow").toggle() end,
 			cond = function() return config.values.follow end,
 		},
 		{
 			function() return "Δ" .. M.count end,
 			color = "DiagnosticWarn",
-			on_click = function() require("config.pi-bridge.changes").open() end,
+			on_click = function() require("config.agent-bridge.changes").open() end,
 			cond = function() return M.count > 0 end,
 		},
 	}
 end
 
 function M.setup()
-	local group = vim.api.nvim_create_augroup("pi_bridge_statusline", { clear = true })
+	local group = vim.api.nvim_create_augroup("agent_bridge_statusline", { clear = true })
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = "PiEvent:connected",
+		pattern = "AgentEvent:connected",
 		callback = function()
 			M.sync(false)
 			M.refresh()
@@ -96,7 +96,7 @@ function M.setup()
 	})
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = { "PiEvent:file_edited", "PiEvent:agent_settled" },
+		pattern = { "AgentEvent:file_edited", "AgentEvent:agent_settled" },
 		callback = function() vim.defer_fn(M.refresh, 100) end,
 	})
 	-- you might revert a file yourself, or switch branches

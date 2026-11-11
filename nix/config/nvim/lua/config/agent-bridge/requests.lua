@@ -2,13 +2,13 @@
 -- time. While one is open, Neovim's Rex pane reports `blocked` so Rex marks
 -- the tab, and a floating agent panel is hidden so it doesn't cover the
 -- review; it comes back once the queue is empty.
-local bridge = require("config.pi-bridge.bridge")
+local bridge = require("config.agent-bridge.bridge")
 
 local M = { queue = {}, active = nil }
 
 local handlers = {
-	review_edit = require("config.pi-bridge.edit-review"),
-	review_plan = require("config.pi-bridge.plan-review"),
+	review_edit = require("config.agent-bridge.edit-review"),
+	review_plan = require("config.agent-bridge.plan-review"),
 }
 
 local panel_hidden = false
@@ -26,7 +26,7 @@ end
 
 local function respond(request_id, result)
 	bridge.request("respond", { request_id = request_id, result = result }, function(_, err)
-		if err then vim.notify("Pi control bridge: " .. err, vim.log.levels.ERROR) end
+		if err then vim.notify("Agent bridge: " .. err, vim.log.levels.ERROR) end
 	end)
 end
 
@@ -54,7 +54,7 @@ next_request = function()
 	local handler = handlers[req.kind]
 	local what = req.kind == "review_plan" and "Review pi's plan" or ("Review pi's edit to " .. vim.fn.fnamemodify(req.path, ":t"))
 	program_status(true, what)
-	local cfg = require("config.pi-bridge.config").values.review
+	local cfg = require("config.agent-bridge.config").values.review
 	local function start()
 		if M.active ~= req then return end
 		if cfg.focus ~= false then focus_editor() end
@@ -122,25 +122,25 @@ function M.reset()
 end
 
 function M.setup()
-	local group = vim.api.nvim_create_augroup("pi_bridge_requests", { clear = true })
+	local group = vim.api.nvim_create_augroup("agent_bridge_requests", { clear = true })
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = "PiEvent:request",
+		pattern = "AgentEvent:request",
 		callback = function(args) M.on_request(args.data) end,
 	})
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = "PiEvent:request_done",
+		pattern = "AgentEvent:request_done",
 		callback = function(args) M.on_done(args.data) end,
 	})
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = { "PiEvent:disconnected", "PiEvent:shutdown" },
+		pattern = { "AgentEvent:disconnected", "AgentEvent:shutdown" },
 		callback = function() M.reset() end,
 	})
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = "PiEvent:open",
+		pattern = "AgentEvent:open",
 		callback = function(args) M.open(args.data) end,
 	})
 end

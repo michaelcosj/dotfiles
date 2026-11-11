@@ -1,7 +1,7 @@
 -- Autofollow: when on, Neovim shows each file pi reads or edits, at the line
 -- it's working on. Focus stays where it is (usually the agent pane), so you
 -- can keep typing to pi while Neovim follows along.
-local config = require("config.pi-bridge.config")
+local config = require("config.agent-bridge.config")
 
 local M = {}
 
@@ -21,9 +21,9 @@ local function busy()
 	local mode = vim.api.nvim_get_mode().mode
 	if not mode:match("^n") then return true end -- typing, selecting or in the cmdline
 	if vim.fn.getcmdwintype() ~= "" then return true end
-	if require("config.pi-bridge.requests").active then return true end
+	if require("config.agent-bridge.requests").active then return true end
 	-- don't pull the rug out from a review tab
-	return vim.t.pi_review or vim.t.pi_changes or vim.wo.diff
+	return vim.t.agent_changes or vim.wo.diff
 end
 
 function M.show(data)
@@ -47,14 +47,14 @@ function M.toggle(on)
 	if on == nil then on = not config.values.follow end
 	config.values.follow = on
 	vim.notify("Agent follow " .. (on and "on" or "off"), vim.log.levels.INFO)
-	require("config.pi-bridge.statusline").sync()
+	require("config.agent-bridge.statusline").sync()
 	pcall(function() require("lualine").refresh({ place = { "statusline" } }) end)
 end
 
 function M.setup()
 	vim.api.nvim_create_autocmd("User", {
-		group = vim.api.nvim_create_augroup("pi_bridge_follow", { clear = true }),
-		pattern = "PiEvent:follow",
+		group = vim.api.nvim_create_augroup("agent_bridge_follow", { clear = true }),
+		pattern = "AgentEvent:follow",
 		-- after files_changed's checktime, so an edited buffer is reloaded first
 		callback = function(args) vim.schedule(function() M.show(args.data) end) end,
 	})

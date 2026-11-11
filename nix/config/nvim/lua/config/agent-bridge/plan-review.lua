@@ -5,13 +5,7 @@ local cm = require("config.criticmarkup")
 local M = {}
 
 function M.wants()
-	return require("config.pi-bridge.config").values.review.plans ~= false
-end
-
-local function banner(req)
-	local summary = req.summary and req.summary ~= "" and ("  " .. req.summary:gsub("%%", "%%%%")) or ""
-	return "%#DiagnosticWarn# 󰚩 Plan review%*" .. summary
-		.. "%=%#Comment#<leader>rc comment · ]c/[c · <leader>ra approve · <leader>rr request changes %*"
+	return require("config.agent-bridge.config").values.review.plans ~= false
 end
 
 -- Opens the review; done(result) once the user decides.
@@ -22,9 +16,8 @@ function M.open(req, done)
 	if not vim.bo[buf].modified then vim.cmd("silent! checktime") end
 	local tab = vim.api.nvim_get_current_tabpage()
 	local original = cm.strip(table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n"))
-	local win = vim.api.nvim_get_current_win()
-	vim.wo[win].winbar = banner(req)
 	cm.attach(buf)
+	if req.summary and req.summary ~= "" then vim.notify("Plan review: " .. req.summary, vim.log.levels.INFO) end
 
 	local decided = false
 	local function finish(decision, message)
@@ -67,9 +60,6 @@ function M.close(req)
 	if buf and vim.api.nvim_buf_is_valid(buf) then
 		for _, lhs in ipairs({ "<leader>ra", "<leader>rr" }) do
 			pcall(vim.keymap.del, "n", lhs, { buffer = buf })
-		end
-		for _, win in ipairs(vim.fn.win_findbuf(buf)) do
-			vim.wo[win].winbar = ""
 		end
 	end
 	if tab and vim.api.nvim_tabpage_is_valid(tab) and #vim.api.nvim_list_tabpages() > 1 then

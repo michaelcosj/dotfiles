@@ -1,9 +1,9 @@
--- The Rex backend for pi-bridge, with the same functions as herdr.lua.
--- pi-control-bridge writes <tmpdir>/pi-control-<uid>/<block>.json in a Rex
+-- The Rex backend for agent-bridge, with the same functions as herdr.lua.
+-- pi's agent-bridge writes <tmpdir>/pi-control-<uid>/<block>.json in a Rex
 -- pane; this finds those for this Rex session, and starts pi in the agent
 -- panel (config.agent-panel) when there are none.
 local rex = require("config.rex")
-local agents = require("config.pi-bridge.agents")
+local agents = require("config.agent-bridge.agents")
 local panel = require("config.agent-panel")
 
 local M = {}
@@ -67,7 +67,7 @@ local function wait_for_agent(block_id, deadline, callback)
 			if agent.pane_id == block_id then return callback(agent) end
 		end
 		if vim.uv.now() >= deadline then
-			return callback(nil, "Timed out waiting for Pi control bridge; run /reload in the Pi pane")
+			return callback(nil, "Timed out waiting for Agent bridge; run /reload in the Pi pane")
 		end
 		vim.defer_fn(function() wait_for_agent(block_id, deadline, callback) end, 500)
 	end)
@@ -79,7 +79,7 @@ function M.spawn(callback, opts)
 	opts = opts or {}
 	panel.open({ agent = "pi", focus = opts.focus == true }, function(block_id, err)
 		if not block_id then return callback(nil, err) end
-		local timeout = require("config.pi-bridge.config").values.spawn_timeout_ms
+		local timeout = require("config.agent-bridge.config").values.spawn_timeout_ms
 		wait_for_agent(block_id, vim.uv.now() + timeout, callback)
 	end)
 end
@@ -90,7 +90,7 @@ end
 
 function M.focus(agent)
 	if not agent then
-		vim.notify("Pi control bridge: No Pi pane selected", vim.log.levels.ERROR)
+		vim.notify("Agent bridge: No Pi pane selected", vim.log.levels.ERROR)
 		return
 	end
 	rex.reveal(agent.pane_id)

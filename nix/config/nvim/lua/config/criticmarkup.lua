@@ -162,10 +162,7 @@ function M.show_comments(buf)
 		local _, er = item_rows(st, item)
 		local hl = item.author == "pi" and "CriticReply" or "CriticComment"
 		local who = item.author == "pi" and "pi" or "you"
-		local lines = {}
-		for i, line in ipairs(vim.split(item.comment, "\n")) do
-			table.insert(lines, { { (i == 1 and ("  ▎ " .. who .. ": ") or "  ▎ ") .. line, hl } })
-		end
+		local lines = require("config.virtlines").lines(buf, who, item.comment, hl)
 		pcall(vim.api.nvim_buf_set_extmark, buf, ns_show, er, 0, { virt_lines = lines })
 	end
 	if st.show_all then
@@ -192,7 +189,7 @@ local function set_conceal(buf)
 end
 
 function M.attach(buf)
-	buf = buf or vim.api.nvim_get_current_buf()
+	if not buf or buf == 0 then buf = vim.api.nvim_get_current_buf() end
 	if state[buf] then
 		render(buf)
 		return
@@ -215,6 +212,13 @@ function M.attach(buf)
 		callback = function() M.show_comments(buf) end,
 	})
 	vim.api.nvim_create_autocmd("BufWinEnter", { group = group, buffer = buf, callback = function() set_conceal(buf) end })
+	-- re-wrap comments to the new width
+	vim.api.nvim_create_autocmd("WinResized", {
+		group = group,
+		callback = function()
+			if vim.api.nvim_buf_is_valid(buf) then M.show_comments(buf) end
+		end,
+	})
 	vim.api.nvim_create_autocmd("BufWipeout", { group = group, buffer = buf, callback = function() M.detach(buf) end })
 	set_conceal(buf)
 	render(buf)
@@ -360,6 +364,7 @@ end
 
 -- Buffer-local keys for commenting; `extra` adds more.
 function M.keys(buf, extra)
+	if not buf or buf == 0 then buf = vim.api.nvim_get_current_buf() end
 	local function map(mode, lhs, fn, desc)
 		vim.keymap.set(mode, lhs, fn, { buffer = buf, desc = desc, nowait = true })
 	end
@@ -372,8 +377,8 @@ function M.keys(buf, extra)
 	map("n", "<leader>rd", M.delete_at_cursor, "Review: delete comment")
 	map("n", "<leader>rv", function() M.toggle_all(buf) end, "Review: show all comments")
 	map("n", "<leader>rm", function() M.toggle_raw(buf) end, "Review: show raw markup")
-	map("n", "]c", function() M.jump(1) end, "Review: next comment")
-	map("n", "[c", function() M.jump(-1) end, "Review: previous comment")
+	map("n", "]r", function() M.jump(1) end, "Review: next comment")
+	map("n", "[r", function() M.jump(-1) end, "Review: previous comment")
 	for _, k in ipairs(extra or {}) do map(k[1], k[2], k[3], k[4]) end
 end
 

@@ -8,7 +8,7 @@ local function relative(path)
 end
 
 function M.wants(req)
-	local mode = require("config.pi-bridge.config").values.review.edits
+	local mode = require("config.agent-bridge.config").values.review.edits
 	if mode == "always" then return true end
 	if mode == "open" then
 		local bufnr = vim.fn.bufnr(req.path)
@@ -47,20 +47,19 @@ function M.open(req, done)
 	local tab = vim.api.nvim_get_current_tabpage()
 	local left_win = vim.api.nvim_get_current_win()
 	local placeholder = vim.api.nvim_get_current_buf()
-	local left = scratch("pi-review://" .. rel .. " (current)", old_lines, ft, false)
+	local left = scratch("agent-review://" .. rel .. " (current)", old_lines, ft, false)
 	vim.api.nvim_win_set_buf(left_win, left)
 	pcall(vim.api.nvim_buf_delete, placeholder, { force = true })
 	vim.cmd("rightbelow vsplit")
 	local right_win = vim.api.nvim_get_current_win()
-	local right = scratch("pi-review://" .. rel .. " (pi)", new_lines, ft, true)
+	local right = scratch("agent-review://" .. rel .. " (pi)", new_lines, ft, true)
 	vim.api.nvim_win_set_buf(right_win, right)
 	for _, win in ipairs({ left_win, right_win }) do
 		vim.api.nvim_win_call(win, function() vim.cmd("diffthis") end)
 	end
 	local what = req.exists and "edit" or "new file"
 	vim.wo[left_win].winbar = "%#Comment# " .. rel .. " now%*"
-	vim.wo[right_win].winbar = "%#DiagnosticWarn# 󰚩 pi " .. what .. ": " .. rel:gsub("%%", "%%%%") .. "%*"
-		.. "%=%#Comment#<leader>ra accept · <leader>rr reject · <leader>rR reject with note · edit this side to adjust %*"
+	vim.wo[right_win].winbar = "%#DiagnosticWarn# 󰚩 " .. rel:gsub("%%", "%%%%") .. "%*%#Comment# (agent " .. what .. ")%*"
 	vim.api.nvim_set_current_win(right_win)
 	pcall(vim.cmd, "normal! gg]c")
 

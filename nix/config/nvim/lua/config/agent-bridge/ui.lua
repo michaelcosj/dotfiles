@@ -20,12 +20,12 @@ end
 
 function M.input(default, callback)
 	Snacks.input({
-		prompt = require("config.pi-bridge.config").values.prompt,
+		prompt = require("config.agent-bridge.config").values.prompt,
 		default = default,
 		highlight = highlights,
 		win = {
 			b = { completion = true },
-			bo = { filetype = "pi_bridge_input" },
+			bo = { filetype = "agent_bridge_input" },
 		},
 	}, function(value)
 		if value and vim.trim(value) ~= "" then
@@ -35,7 +35,7 @@ function M.input(default, callback)
 end
 
 function M.select_prompt(callback)
-	local prompts = require("config.pi-bridge.config").values.prompts
+	local prompts = require("config.agent-bridge.config").values.prompts
 	local items = {}
 	for name, prompt in pairs(prompts) do
 		table.insert(items, { name = name, prompt = prompt })

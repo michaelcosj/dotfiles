@@ -1,7 +1,7 @@
 -- Tells pi where you are in Neovim (file, cursor, visible lines and the last
 -- selection while the cursor stays in it), so a prompt like "why does this
 -- fail?" works without @this. pi adds it to the next prompt when it changed.
-local bridge = require("config.pi-bridge.bridge")
+local bridge = require("config.agent-bridge.bridge")
 
 local M = {}
 
@@ -61,7 +61,7 @@ local function schedule()
 end
 
 function M.setup()
-	local group = vim.api.nvim_create_augroup("pi_bridge_ambient", { clear = true })
+	local group = vim.api.nvim_create_augroup("agent_bridge_ambient", { clear = true })
 	vim.api.nvim_create_autocmd({ "BufEnter", "CursorHold", "WinScrolled" }, { group = group, callback = schedule })
 	vim.api.nvim_create_autocmd("ModeChanged", {
 		group = group,
@@ -74,7 +74,7 @@ function M.setup()
 	})
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
-		pattern = "PiEvent:connected",
+		pattern = "AgentEvent:connected",
 		callback = function()
 			last_sent = nil
 			M.send(true)
