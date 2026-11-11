@@ -37,7 +37,9 @@ import * as path from "node:path";
 import { Type } from "typebox";
 import { askQuestionnaire } from "../questionnaire/index.js";
 import * as ask from "./ask.js";
+import * as rex from "../lib/rex.js";
 import { formatLog } from "./format-log.js";
+import { JobList, sortJobs } from "./job-list.js";
 import { JobPopup } from "./job-popup.js";
 
 const ROOT = path.join(process.env.TMPDIR || os.tmpdir(), "pi-bg");
@@ -287,7 +289,7 @@ function withTail(head: string, logPath: string, lines: number): string {
 
 const Params = Type.Object({
   action: StringEnum(["start", "restart", "status", "wait", "stop"] as const, {
-    description: "start a job; restart by name with saved launch settings (no overrides); status of one job (or all when name is omitted); wait for exit or a log match; stop",
+    description: "start a job; restart by name with saved launch settings (no overrides); status of one job (or all when name is omitted); wait for exit or a log match (blocks the user until it returns; prefer notify); stop",
   }),
   name: Type.Optional(Type.String({ description: "Job label: letters, digits, . _ - (e.g. web, tests)" })),
   command: Type.Optional(Type.String({ description: "start: shell command, run with bash -c" })),
@@ -295,15 +297,15 @@ const Params = Type.Object({
   persist: Type.Optional(Type.Boolean({ description: "start: keep running after Pi exits (default false)" })),
   notify: Type.Optional(
     Type.Boolean({
-      description: "start: post a message when the job exits, waking you if idle. For tests/builds/subagents you don't want to block on (default false)",
+      description: "start: post a message when the job exits, waking you if idle. Use this for long jobs instead of waiting (default false)",
     }),
   ),
   wait: Type.Optional(
-    Type.Number({ minimum: 0, description: "start: wait up to N seconds for exit or until match; default returns immediately. Timeout leaves the job running" }),
+    Type.Number({ minimum: 0, description: "start: wait up to N seconds for exit or until match; default returns immediately. Prefer notify for long jobs; a timeout leaves the job running" }),
   ),
   until: Type.Optional(Type.String({ description: "start (requires wait) / wait: regex; return when a log line matches instead of on exit" })),
   timeout: Type.Optional(
-    Type.Number({ description: "wait: seconds (default 60 with until, 300 otherwise). Timing out leaves the job running" }),
+    Type.Number({ description: "wait: seconds (default 60 with until, 300 otherwise). Keep it short; timing out leaves the job running" }),
   ),
   lines: Type.Optional(
     Type.Number({ description: `status/wait/start with wait: include the last N log lines (max ${MAX_LINES}); start with wait defaults to ${FAIL_LINES}` }),
@@ -312,6 +314,41 @@ const Params = Type.Object({
 
 function text(t: string) {
   return { content: [{ type: "text" as const, text: t }], details: undefined };
+}
+
+const FORMATTER = path.join(path.dirname(new URL(import.meta.url).pathname), "format-log-cli.ts");
+
+/** Opens (or raises) a Rex float that follows the job's log. Scroll and search with Rex; Ctrl+C closes it. */
+async function openFloat(dir: string, name: string) {
+  const label = `bg:${name}`;
+  const window = await rex.windowOf(rex.REX_BLOCK!);
+  const view = await rex.call("session.view");
+  for (const w of view?.windows ?? []) {
+    for (const layer of w.layers ?? []) {
+      if (layer.kind !== "tiled" && layer.blocks?.some((b: any) => b.label === label)) {
+        await rex.call("session.set_layer_state", { layer_id: layer.layer_id, state: "normal", focus: true });
+        return;
+      }
+    }
+  }
+  const meta = readMeta(dir, name);
+  const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  const header = [`${name}`, meta ? `Command: ${meta.command}` : "", meta ? `Cwd: ${meta.cwd}` : "", `Log: ${file(dir, name, "log")}`, ""]
+    .filter((l, i, a) => l || i === a.length - 1)
+    .join("\n");
+  const script =
+    `trap 'exit 0' INT; printf '%s\\n' ${q(header)} ${q("(following; Ctrl+C closes this float, the job keeps running)")} ''; ` +
+    `tail -n +1 -F ${q(file(dir, name, "log"))} 2>/dev/null | bun ${q(FORMATTER)}`;
+  await rex.call("session.new_layer", {
+    ...(window ? { window_id: window } : {}),
+    bounds: [0.08, 0.08, 0.84, 0.84],
+    focus: true,
+    layout: { block: { flavor: "com.superlogical.terminal.shell", label, options: {
+      command: ["sh", "-c", script],
+      cwd: meta?.cwd ?? process.cwd(),
+      exit: { on_completion: true, quick_exit_threshold_ms: 0 },
+    } } },
+  });
 }
 
 /** True when job is running and pid is in its process group (so the request really comes from it). */
@@ -518,7 +555,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("bg_status", {
-    description: "Inspect a background job's status and recent output (UI only)",
+    description: "Inspect a background job's status and live output (UI only)",
     handler: async (args, ctx) => {
       if (ctx.mode !== "tui") {
         ctx.ui.notify("/bg_status requires the terminal UI.", "warning");
@@ -530,16 +567,33 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("No background jobs.", "info");
         return;
       }
-      let name = args.trim();
+      let name: string | undefined = args.trim();
       if (!name) {
-        const choices = names.map((name) => describe(dir, name));
-        const selected = await ctx.ui.select("Inspect background job", choices);
-        if (selected === undefined) return;
-        name = names[choices.indexOf(selected)];
+        const items = sortJobs(
+          names.map((n) => {
+            const meta = readMeta(dir, n);
+            const label = describe(dir, n).replace(`${n}: `, "") + (meta ? ` — ${meta.command.split("\n")[0]}` : "");
+            return { name: n, label, running: jobState(dir, n).kind === "running", startedAt: meta?.startedAt ?? 0 };
+          }),
+        );
+        name = await ctx.ui.custom<string | undefined>((tui, theme, _kb, done) => new JobList(tui, theme, items, done), {
+          overlay: true,
+          overlayOptions: { anchor: "center", width: "80%", maxHeight: "80%", margin: 1 },
+        });
+        if (!name) return;
       }
       if (!names.includes(name)) {
         ctx.ui.notify(`No such background job: ${name}`, "error");
         return;
+      }
+      // In Rex, follow the log live in a float; closing it never stops the job.
+      if (rex.inRex()) {
+        try {
+          await openFloat(dir, name);
+          return;
+        } catch (e) {
+          ctx.ui.notify(`Rex float failed (${(e as Error).message}); showing a snapshot instead.`, "warning");
+        }
       }
       const snapshot = () => {
         const meta = readMeta(dir, name);
@@ -560,16 +614,17 @@ export default function (pi: ExtensionAPI) {
     label: "Background",
     description:
       "Run long-lived, non-interactive commands (dev servers, watchers, long builds/tests, subagents) in the background. " +
-      "No stdin. Add wait: seconds to start for an initial wait, or use action: wait later; until matches a readiness regex. No polling needed. " +
-      "Results are concise; logs are shown on failure, on timeout, on initial-wait completion, or with lines=N. " +
-      "notify: true posts a message when the job exits, so you can keep working instead of waiting. " +
+      "No stdin. start returns immediately by default. For long jobs, set notify: true and end your turn; a message wakes you when the job exits. " +
+      "Use wait only when you need the result now: a quick job, or a readiness check with until (e.g. 'ready|listening'). No polling. " +
+      "Results are concise; logs are shown on failure, on timeout, on wait completion, or with lines=N. " +
       "Restart by name stops the previous job and starts it with its saved launch settings, including initial wait; no overrides. " +
       "Jobs stop when Pi exits or switches session unless persist is true.",
     promptSnippet: "Run and manage long-running background commands (servers, watchers, long tests)",
     promptGuidelines: [
       "Use bash for short commands; use the background tool for dev servers, watchers, long builds/tests and subagents. Never use `&` or `nohup` in bash.",
-      "Use background start with wait: seconds, or background wait later (until: 'ready|listening' for servers), instead of sleep loops or repeated status calls.",
-      "For long jobs whose result you need later but not now, start with notify: true and carry on; you will get a message when it exits.",
+      "Start long jobs with notify: true, then end your turn (or keep doing other work); the exit message wakes you. Never call wait on a job you started with notify: wait holds the turn open, and the user cannot send follow-ups until it returns.",
+      "Use wait only when you need the result now: a quick command, or a readiness check for a server (until: 'ready|listening'). A timeout leaves the job running.",
+      "Do not poll with repeated status calls; when notified, read the result with background status and lines=N.",
     ],
     parameters: Params,
 
@@ -657,7 +712,7 @@ export default function (pi: ExtensionAPI) {
         });
         refreshStatus();
         const extra = params.persist ? `\nPersistent. Manage after Pi exits: PI_BG_DIR=${dir} bg.sh status|kill ${name}` : "";
-        const n = params.notify ? " Will notify on exit." : "";
+        const n = params.notify ? " Will notify on exit. End your turn unless you have other work; do not wait for it." : "";
         if (!initialWait) return text(`${name}: ${restarting ? "restarted" : "started"} (pid ${pid}).${n} Log: ${logPath}${extra}`);
         startNote = extra;
       }
@@ -776,7 +831,7 @@ export default function (pi: ExtensionAPI) {
       const state = context.state;
       if (context.executionStarted && state.startedAt === undefined) state.startedAt = Date.now();
       if (!context.isPartial && state.startedAt !== undefined) state.endedAt ??= Date.now();
-      let t = theme.fg("toolTitle", theme.bold("background ")) + theme.fg("muted", args.action ?? "");
+      let t = theme.fg("toolTitle", theme.bold("background ")) + theme.fg("muted", String(args.action ?? ""));
       if (args.name) t += ` ${theme.fg("accent", args.name)}`;
       if (args.command) t += ` ${theme.fg("dim", args.command)}`;
       if (args.wait !== undefined) t += ` ${theme.fg("dim", `(wait ${args.wait}s)`)}`;

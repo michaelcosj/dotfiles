@@ -202,7 +202,7 @@ describe("end to end", () => {
       `const { execFileSync } = await import("node:child_process");
        const { captureRelay } = await import(${JSON.stringify(path.join(import.meta.dir, "ask.ts"))});
        captureRelay();
-       console.log(execFileSync(process.execPath, ["-e", "console.log('NESTED ' + process.env.PI_BG_ASK_UNAVAILABLE + ' ' + (process.env.PI_BG_ASK_DIR ?? 'none'))"]).toString());
+       console.log(execFileSync(process.execPath, ["-e", "console.log('NESTED ' + process.env.PI_BG_ASK_UNAVAILABLE + ' ' + (process.env.PI_BG_ASK_DIR ?? 'none'))"], { env: process.env }).toString());
        process.exit(0);`,
     );
     await run({ action: "start", name: "nest", command: nested });
