@@ -74,6 +74,16 @@ function M.list()
 		table.insert(items, item)
 	end
 
+	-- each project's worktrees, as <project>:<name>
+	local worktrees = require("rexkit.worktrees")
+	local all = worktrees.all()
+	for _, item in ipairs(found) do
+		for _, w in ipairs(worktrees.items(item, all)) do
+			names[w.name] = true
+			table.insert(items, w)
+		end
+	end
+
 	-- open sessions that aren't projects are listed too, to switch to
 	local live = sessions_by_label()
 	for _, item in ipairs(items) do item.session = live[item.name] end
@@ -125,14 +135,18 @@ local function create(item)
 	return res.session_id
 end
 
+-- Switches to the item's session (by label), creating it first if needed.
+function M.open_item(item, from_session)
+	local live = sessions_by_label()[item.name]
+	local sid = live and live.session_id or create(item)
+	ui.select(sid, from_session)
+	return sid
+end
+
 -- Switches to the project's session, creating it first if needed.
 function M.open(name, from_session)
 	for _, item in ipairs(M.list()) do
-		if item.name == name then
-			local sid = item.session and item.session.session_id or create(item)
-			ui.select(sid, from_session)
-			return sid
-		end
+		if item.name == name then return M.open_item(item, from_session) end
 	end
 	error("no project named " .. tostring(name))
 end

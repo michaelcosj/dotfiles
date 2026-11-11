@@ -145,6 +145,53 @@ rex.action({
 
 rex.bind("ctrl+a>f", "project_pick")
 
+-- Worktree sessions (lua/rexkit/worktrees.lua, bin/agent-worktree): a git
+-- worktree of this session's project, opened as session <project>:<name>.
+local worktrees = require("rexkit.worktrees")
+
+rex.action({
+	name = "worktree_pick",
+	title = "Open Worktree",
+	description = "Pick or name a git worktree of this project and open it as its own session.",
+	category = "Projects",
+	keywords = "git worktree branch",
+	run = function(ctx)
+		assert(ctx.session_id, "worktree_pick needs a session")
+		local project = worktrees.project_of(ctx.session_id)
+		assert(project, "this session is not in a git repository")
+		ui.float(ctx.session_id, { "/bin/sh", ui.bin .. "/rex-pick", "worktree" }, {
+			label = "worktrees",
+			bounds = { 0.25, 0.2, 0.5, 0.5 },
+			cwd = project.root,
+		})
+	end,
+})
+
+rex.action({
+	name = "worktree_new",
+	title = "New Worktree Session",
+	category = "Projects",
+	args = { type = "object", properties = { name = { type = "string" }, base = { type = "string" } }, required = { "name" } },
+	run = function(ctx, args)
+		assert(ctx.session_id, "worktree_new needs a session")
+		return { session_id = worktrees.open(ctx.session_id, args.name, args.base) }
+	end,
+})
+
+rex.action({
+	name = "worktree_remove",
+	title = "Remove This Worktree",
+	description = "Remove this session's worktree and its branch, then close the session. Refuses uncommitted or unmerged work.",
+	category = "Projects",
+	keywords = "git worktree delete close",
+	run = function(ctx)
+		assert(ctx.session_id, "worktree_remove needs a session")
+		return { removed = worktrees.remove(ctx.session_id, false) }
+	end,
+})
+
+rex.bind("ctrl+a>w", "worktree_pick")
+
 -- Floating and docking panes (lua/rexkit/dock.lua).
 local dock = require("rexkit.dock")
 

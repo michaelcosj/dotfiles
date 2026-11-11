@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Git worktrees for agents and orchestrators, in one place:
+#   $AGENT_WORKTREES/<repo>/<name> on branch agent/<name>
+# AGENT_WORKTREES defaults to ~/.local/share/worktrees. Used by Rex
+# (worktree sessions), pi (agent start with worktree) and by hand.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  agent-worktree new <name> [--base <ref>] [--repo <dir>]   create it (or find it); prints the path
+  agent-worktree ls [--repo <dir>] [--json]                 this repo's worktrees
+  agent-worktree path <name> [--repo <dir>]                 print the path
+  agent-worktree rm <name> [--force] [--keep-branch] [--repo <dir>]
+  agent-worktree root [--repo <dir>]                        the main checkout
+
+--repo defaults to the current directory, and may be any worktree of the repo.
+new runs the repo's executable .worktree-setup inside the new worktree, with
+AGENT_WORKTREE_SOURCE set to the main checkout (for .env, node_modules, ...).
+rm refuses a worktree with uncommitted changes or unmerged commits unless --force.
+EOF
+}
+
+die() { printf 'agent-worktree: %s\n' "$*" >&2; exit 1; }
+
+BASE_DIR="${AGENT_WORKTREES:-$HOME/.local/share/worktrees}"
+
+cmd="${1:-}"
+[ -n "$cmd" ] || { usage >&2; exit 1; }
+shift
+case "$cmd" in -h | --help | help) usage; exit 0 ;; esac
+
+name="" base="" repo="." json=0 force=0 keep_branch=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) base="${2:?--base needs a ref}"; shift 2 ;;
+    --repo) repo="${2:?--repo needs a directory}"; shift 2 ;;
+    --json) json=1; shift ;;
+    --force) force=1; shift ;;
+    --keep-branch) keep_branch=1; shift ;;
+    -h | --help) usage; exit 0 ;;
+    -*) die "unknown option $1" ;;
+    *) [ -z "$name" ] || die "unexpected argument $1"; name="$1"; shift ;;
+  esac
+done
+
+# The main checkout, from any of its worktrees.
+common=$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || die "not a git repository: $repo"
+case "$common" in
+  */.git) root="${common%/.git}" ;;
+  *) die "bare repositories are not supported: $common" ;;
+esac
+repo_name=$(basename "$root")
+repo_name="${repo_name#.}"
+# Resolved like git resolves worktree paths (on macOS /var is /private/var).
+mkdir -p "$BASE_DIR"
+dir="$(cd -P "$BASE_DIR" && pwd)/$repo_name"
+g() { git -C "$root" "$@"; }
+
+need_name() {
+  [ -n "$name" ] || die "$cmd needs a name"
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "bad name '$name': use letters, digits, . _ -"
+}
+
+# The worktree at a path, if git knows one there.
+registered() {
+  g worktree list --porcelain | grep -qxF "worktree $1"
+}
+
+# Prints the base ref recorded at creation (falls back to the main checkout's branch).
+base_of() {
+  g config --get "branch.agent/$1.agentbase" 2>/dev/null || g symbolic-ref --quiet --short HEAD 2>/dev/null || echo HEAD
+}
+
+case "$cmd" in
+  root)
+    echo "$root"
+    ;;
+
+  path)
+    need_name
+    p="$dir/$name"
+    registered "$p" || die "no worktree $name for $repo_name"
+    echo "$p"
+    ;;
+
+  new)
+    need_name
+    p="$dir/$name"
+    branch="agent/$name"
+    if registered "$p"; then echo "$p"; exit 0; fi
+    [ ! -e "$p" ] || die "$p exists but is not a worktree of $repo_name"
+    g show-ref --verify --quiet "refs/heads/$branch" && die "branch $branch already exists; pick another name or delete it"
+    # Branch from where the caller is, by name when on a branch.
+    if [ -z "$base" ]; then
+      base=$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null || git -C "$repo" rev-parse HEAD)
+    fi
+    g rev-parse --verify --quiet "$base^{commit}" >/dev/null || die "unknown base $base"
+    mkdir -p "$dir"
+    g worktree add --quiet -b "$branch" "$p" "$base" >&2
+    g config "branch.$branch.agentbase" "$base"
+    if [ -x "$p/.worktree-setup" ]; then
+      (cd "$p" && AGENT_WORKTREE_SOURCE="$root" ./.worktree-setup) >&2 || echo "agent-worktree: .worktree-setup failed (worktree kept)" >&2
+    fi
+    echo "$p"
+    ;;
+
+  ls)
+    first=1
+    [ "$json" = 1 ] && printf '['
+    while IFS= read -r line; do
+      case "$line" in "worktree $dir/"*) ;; *) continue ;; esac
+      p="${line#worktree }"
+      n="${p#"$dir/"}"
+      case "$n" in */*) continue ;; esac
+      br=$(git -C "$p" symbolic-ref --quiet --short HEAD 2>/dev/null || echo "(detached)")
+      dirty=false
+      [ -n "$(git -C "$p" status --porcelain 2>/dev/null | head -1)" ] && dirty=true
+      b=$(base_of "$n")
+      ahead=$(g rev-list --count "$b..agent/$n" 2>/dev/null || echo 0)
+      behind=$(g rev-list --count "agent/$n..$b" 2>/dev/null || echo 0)
+      if [ "$json" = 1 ]; then
+        [ $first = 1 ] || printf ','
+        printf '{"name":"%s","path":"%s","branch":"%s","base":"%s","dirty":%s,"ahead":%s,"behind":%s}' "$n" "$p" "$br" "$b" "$dirty" "$ahead" "$behind"
+      else
+        flag=""; [ "$dirty" = true ] && flag=" (uncommitted changes)"
+        printf '%-20s %-28s +%s -%s vs %s%s\n' "$n" "$br" "$ahead" "$behind" "$b" "$flag"
+      fi
+      first=0
+    done < <(g worktree list --porcelain)
+    [ "$json" = 1 ] && printf ']\n'
+    ;;
+
+  rm)
+    need_name
+    p="$dir/$name"
+    branch="agent/$name"
+    registered "$p" || die "no worktree $name for $repo_name"
+    b=$(base_of "$name")
+    if [ "$force" = 0 ]; then
+      [ -z "$(git -C "$p" status --porcelain | head -1)" ] || die "$name has uncommitted changes (use --force to discard them)"
+      if [ "$keep_branch" = 0 ]; then
+        ahead=$(g rev-list --count "$b..$branch" 2>/dev/null || echo 0)
+        [ "$ahead" = 0 ] || die "$branch has $ahead commit(s) not in $b (merge it, use --keep-branch, or --force)"
+      fi
+    fi
+    case "$PWD/" in "$p/"*) cd "$root" ;; esac
+    if [ "$force" = 1 ]; then g worktree remove --force "$p"; else g worktree remove "$p"; fi
+    if [ "$keep_branch" = 0 ]; then
+      g branch --quiet -D "$branch"
+      g config --unset "branch.$branch.agentbase" 2>/dev/null || true
+    fi
+    rmdir "$dir" 2>/dev/null || true
+    echo "removed $name"
+    ;;
+
+  *)
+    die "unknown command $cmd (see --help)"
+    ;;
+esac

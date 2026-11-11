@@ -1,6 +1,7 @@
 #!/bin/sh
 # fzf pickers that Rex opens in a floating pane.
 #   rex-pick projects   choose a project to open or switch to
+#   rex-pick worktree   pick or name a worktree of this project to open
 #   rex-pick restore    choose which sessions to resume after a server restart
 set -u
 
@@ -13,6 +14,19 @@ projects)
 		--prompt 'project> ' --header '● open · enter switch or create · esc cancel' |
 		cut -f1)
 	[ -n "$name" ] && rex do project_open name="$name" >/dev/null
+	;;
+worktree)
+	# cwd is the project's main checkout (see worktree_pick)
+	out=$(agent-worktree ls | fzf --print-query --no-multi \
+		--prompt 'worktree> ' --header 'enter open · type a new name to create it · esc cancel') || [ $? = 1 ]
+	query=$(printf '%s\n' "$out" | sed -n 1p)
+	picked=$(printf '%s\n' "$out" | sed -n 2p | awk '{print $1}')
+	name=${picked:-$query}
+	[ -n "$name" ] || exit 0
+	if ! err=$(rex do worktree_new name="$name" 2>&1 >/dev/null); then
+		printf '%s\n\npress enter' "$err"
+		read -r _
+	fi
 	;;
 restore)
 	list="$state/pending.tsv"
