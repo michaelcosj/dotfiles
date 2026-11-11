@@ -184,6 +184,69 @@ function M.focus_block(block_id)
 	M.call("session.focus_block", { session_id = M.session, block_id = block_id })
 end
 
+-- Names the Rex tab after the current file ("nvim flake.nix"), like Claude
+-- Code names it after its task. Special buffers (pickers, help, terminals)
+-- keep the last file's name. On exit the tab gets its old label back.
+function M.setup_tab_label()
+	if not M.available() then return end
+	local window_id, last, timer
+	local originals = {} -- window_id -> label before Neovim changed it
+	local quiet = function() end
+
+	local function wanted()
+		local buf = vim.api.nvim_get_current_buf()
+		if vim.bo[buf].buftype ~= "" then return nil end
+		local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":t")
+		return name ~= "" and ("nvim " .. name) or "nvim"
+	end
+
+	local function apply()
+		-- a Neovim with no UI is not what the user looks at
+		if #vim.api.nvim_list_uis() == 0 then return end
+		local label = wanted()
+		if not label then return end
+		M.call("session.view", { session_id = M.session }, function(view)
+			local win
+			walk_layers(view or {}, function(w, layer)
+				for _, b in ipairs(layer.blocks or {}) do
+					if b.block_id == M.block then win = w return true end
+				end
+			end)
+			-- a hidden (detached) pane has no tab
+			if not win then return end
+			if win.window_id ~= window_id then window_id, last = win.window_id, nil end
+			if label == last and win.label == label then return end
+			if originals[window_id] == nil then originals[window_id] = win.label or "" end
+			last = label
+			M.call("session.set_window_label", { session_id = M.session, window_id = window_id, label = label }, quiet)
+		end)
+	end
+
+	local group = vim.api.nvim_create_augroup("rex_tab_label", { clear = true })
+	vim.api.nvim_create_autocmd({ "VimEnter", "UIEnter", "BufEnter", "BufFilePost", "FocusGained" }, {
+		group = group,
+		callback = function()
+			if timer then timer:stop() end
+			timer = vim.defer_fn(apply, 150)
+		end,
+	})
+	vim.api.nvim_create_autocmd("VimLeavePre", {
+		group = group,
+		callback = function()
+			if timer then timer:stop() end
+			local original = window_id and originals[window_id]
+			if original == nil then return end
+			-- synchronous: Neovim exits right after this
+			pcall(function()
+				vim.system({
+					"rex", "--autostart=false", "api", "call", "session.set_window_label",
+					vim.json.encode({ session_id = M.session, window_id = window_id, label = original }),
+				}):wait(1000)
+			end)
+		end,
+	})
+end
+
 -- Shows and focuses the float labelled `label`, creating it with `cmd` if
 -- needed, or hides it when it is showing. Inside the float, Ctrl+A m (Rex's
 -- pane.minimize_floating) hides it again.

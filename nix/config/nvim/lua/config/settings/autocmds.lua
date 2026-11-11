@@ -44,6 +44,9 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 
+-- Name the Rex tab after the current file (no-op outside Rex)
+require("config.rex").setup_tab_label()
+
 -- PHP comment string config
 vim.api.nvim_create_autocmd("FileType", {
 	pattern = "php",
