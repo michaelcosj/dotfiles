@@ -3,7 +3,11 @@
 // against that baseline instead of git. Neovim removes an entry once you
 // accept or reject the file, and moves its baseline forward when you commit
 // it. Shared by every pi, keyed by absolute path. Neovim's side is
-// nvim/lua/config/pi-bridge/changes.lua.
+// nvim/lua/config/agent-bridge/changes.lua.
+//
+// `by` names the pi that edited the file first: "main", or a child agent's
+// name (PI_AGENT_NAME). If several agents edit one file, the review shows
+// all their changes under the first one's name.
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -41,7 +45,7 @@ export function trackBaseline(file: string) {
     fs.mkdirSync(CHANGES_DIR, { recursive: true, mode: 0o700 });
     fs.writeFileSync(
       tmp,
-      JSON.stringify({ version: 1, agent: "pi", path: file, exists, baseline, created: Date.now() }),
+      JSON.stringify({ version: 1, agent: "pi", by: process.env.PI_AGENT_NAME || "main", path: file, exists, baseline, created: Date.now() }),
       { mode: 0o600 },
     );
     fs.linkSync(tmp, entry);

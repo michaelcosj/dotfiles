@@ -45,7 +45,8 @@ function clear() {
 }
 
 export default function (pi: any) {
-  if (!block) return;
+  // Child agents (agent-bridge) live and die with their parent; never resume them.
+  if (!block || process.env.PI_BRIDGE_PARENT) return;
   // session_start also fires for /new, /resume and forks, so the file follows the session
   pi.on("session_start", (_event: any, ctx: any) => record(ctx));
   pi.on("agent_settled", (_event: any, ctx: any) => record(ctx));
