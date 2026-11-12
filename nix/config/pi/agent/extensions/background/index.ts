@@ -42,7 +42,12 @@ import { formatLog } from "./format-log.js";
 import { JobList, sortJobs } from "./job-list.js";
 import { JobPopup } from "./job-popup.js";
 
-const ROOT = path.join(process.env.TMPDIR || os.tmpdir(), "pi-bg");
+// macOS gives each user a private TMPDIR. Linux usually shares /tmp, so add the
+// uid: the first account to make /tmp/pi-bg would lock the others out (EACCES).
+const ROOT = path.join(
+  process.env.TMPDIR || os.tmpdir(),
+  process.env.TMPDIR || typeof process.getuid !== "function" ? "pi-bg" : `pi-bg-${process.getuid()}`,
+);
 const NAME_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const FAIL_LINES = 20;
 const TIMEOUT_LINES = 10;

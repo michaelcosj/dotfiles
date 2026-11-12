@@ -3,7 +3,8 @@
 # so any later shell can inspect or stop it.
 set -euo pipefail
 
-dir="${PI_BG_DIR:-${TMPDIR:-/tmp}/pi-bg}"
+# Per user when TMPDIR is unset: a shared /tmp/pi-bg locks other accounts out.
+if [[ -n ${TMPDIR:-} ]]; then dir="${PI_BG_DIR:-$TMPDIR/pi-bg}"; else dir="${PI_BG_DIR:-/tmp/pi-bg-$(id -u)}"; fi
 dir="${dir%/}"
 mkdir -p "$dir"
 
