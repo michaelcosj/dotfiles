@@ -1,6 +1,7 @@
 ---
 name: gws-sheets-append
 description: "Google Sheets: Append a row to a spreadsheet."
+disable-model-invocation: true
 metadata:
   version: 0.22.5
   openclaw:

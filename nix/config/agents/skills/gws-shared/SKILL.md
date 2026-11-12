@@ -1,6 +1,7 @@
 ---
 name: gws-shared
 description: "gws CLI: Shared patterns for authentication, global flags, and output formatting."
+disable-model-invocation: true
 metadata:
   version: 0.22.5
   openclaw:

@@ -1,6 +1,7 @@
 ---
 name: gws-sheets-read
 description: "Google Sheets: Read values from a spreadsheet."
+disable-model-invocation: true
 metadata:
   version: 0.22.5
   openclaw:

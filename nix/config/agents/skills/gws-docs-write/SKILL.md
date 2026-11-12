@@ -1,6 +1,7 @@
 ---
 name: gws-docs-write
 description: "Google Docs: Append text to a document."
+disable-model-invocation: true
 metadata:
   version: 0.22.5
   openclaw:

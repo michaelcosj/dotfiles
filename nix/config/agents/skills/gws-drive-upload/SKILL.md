@@ -1,6 +1,7 @@
 ---
 name: gws-drive-upload
 description: "Google Drive: Upload a file with automatic metadata."
+disable-model-invocation: true
 metadata:
   version: 0.22.5
   openclaw:
