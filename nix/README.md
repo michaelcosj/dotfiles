@@ -10,7 +10,7 @@ nix-darwin (`darwin.nix`) also manages system settings and Homebrew casks.
   - `home/agents.nix`: instructions and skills shared by all coding agents (`~/.agents`).
   - `home/claude.nix`: Claude Code config links; runtime state stays in `~/.claude`.
   - `home/codex.nix`: Codex instructions link and seeded portable `config.toml`.
-  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, Rex, rex-web).
+  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, Rex, rex-view).
   - `home/pi.nix`: Pi config links; Pi's runtime state stays in `~/.pi` (see below).
   - `home/programs/fish.nix`: Fish, prompt, aliases, fzf, direnv, and the Vite+ shell hook.
   - `home/programs/git.nix`: Git, delta, and lazygit.
