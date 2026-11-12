@@ -1,7 +1,13 @@
-/** Pure rendering of the usage line. Shows remaining %, fitted to the available width. */
+/**
+ * Pure rendering of the usage line. Shows remaining %, fitted to the available width.
+ *
+ * Pace: the used % and the time to reset give the use rate so far, and so the used %
+ * at reset if the rate holds. Near full use (80-105%) is on pace (green), more runs
+ * out before the reset (ahead, yellow), less leaves capacity unused (under, dim).
+ */
 import { PROVIDERS, type ProviderId, type Snapshot, type UsageState, type Window } from "./model.ts";
 
-export type Tone = "dim" | "warning" | "error";
+export type Tone = "dim" | "success" | "warning" | "error";
 export type Paint = (tone: Tone, text: string) => string;
 
 export const STALE_MS = 15 * 60_000;
@@ -18,41 +24,89 @@ export function duration(ms: number): string {
   return `${Math.floor(hours / 24)}d${hours % 24}h`;
 }
 
-interface View { left: number; tone: Tone; resetIn?: number; expired: boolean }
+type WindowKind = "session" | "weekly";
+const LENGTH: Record<WindowKind, number> = { session: 5 * 3600_000, weekly: 7 * 86_400_000 };
+/** Too early to judge: before this part of the window has passed, or below this used %. */
+const MIN_ELAPSED = 0.1;
+const MIN_USED = 3;
+const ON_PACE = [80, 105] as const;
+const URGENT_MS = 30 * 60_000;
 
-/** A window whose reset time has passed is assumed reset (100% left) but marked as old. */
-function view(window: Window, now: number): View {
-  const expired = window.resetsAt !== undefined && window.resetsAt <= now;
-  const left = expired ? 100 : Math.max(0, Math.round(100 - window.usedPct));
-  const tone: Tone = left <= 0 ? "error" : left < 30 ? "warning" : "dim";
-  return { left, tone, resetIn: !expired && window.resetsAt ? window.resetsAt - now : undefined, expired };
+export type Pace = "ahead" | "on" | "under";
+
+interface View {
+  left: number;
+  tone: Tone;
+  resetIn?: number;
+  expired: boolean;
+  pace?: Pace;
+  /** Ahead only: time until the window is used up at the current rate. */
+  emptyIn?: number;
+  /** % left now on a full-use pace; where the meter's tick goes. */
+  due?: number;
 }
 
-function meter(left: number, paint: Paint, tone: Tone): string {
+/** A window whose reset time has passed is assumed reset (100% left) but marked as old. */
+function view(window: Window, kind: WindowKind, now: number): View {
+  const expired = window.resetsAt !== undefined && window.resetsAt <= now;
+  const left = expired ? 100 : Math.max(0, Math.round(100 - window.usedPct));
+  const resetIn = !expired && window.resetsAt ? window.resetsAt - now : undefined;
+  const v: View = { left, tone: "dim", resetIn, expired };
+  const elapsed = resetIn !== undefined ? LENGTH[kind] - resetIn : 0;
+  const part = elapsed / LENGTH[kind];
+  if (left > 0 && part >= MIN_ELAPSED && part <= 1 && window.usedPct >= MIN_USED) {
+    const projected = window.usedPct / part;
+    v.pace = projected > ON_PACE[1] ? "ahead" : projected >= ON_PACE[0] ? "on" : "under";
+    v.due = 100 * (1 - part);
+    if (v.pace === "ahead") v.emptyIn = ((100 - window.usedPct) * elapsed) / window.usedPct;
+  }
+  v.tone =
+    left <= 0 || (v.emptyIn !== undefined && v.emptyIn < URGENT_MS) ? "error"
+    : v.pace === "ahead" ? "warning"
+    : v.pace === "on" ? "success"
+    : v.pace === undefined && left < 30 ? "warning" // no reset time, or too early: fall back to the level
+    : "dim";
+  return v;
+}
+
+/** Five cells of % left, with a tick at the full-use pace: fill past the tick is under pace. */
+function meter(v: View, paint: Paint): string {
   const cells = 5;
-  const full = Math.max(0, Math.min(cells, Math.round((left / 100) * cells)));
-  return paint(tone, "▰".repeat(full)) + paint("dim", "▱".repeat(cells - full));
+  const cell = (pct: number) => Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)));
+  const full = cell(v.left);
+  // Cells from..to: filled ones in the window's tone, empty ones dim.
+  const draw = (from: number, to: number) => {
+    const split = Math.max(from, Math.min(to, full));
+    return (split > from ? paint(v.tone, "▰".repeat(split - from)) : "") + (to > split ? paint("dim", "▱".repeat(to - split)) : "");
+  };
+  if (v.due === undefined) return draw(0, cells);
+  const tick = cell(v.due);
+  return draw(0, tick) + paint("dim", "┃") + draw(tick, cells);
 }
 
 type Tier = "full" | "medium" | "narrow";
 
 function provider(id: ProviderId, s: Snapshot, active: boolean, tier: Tier, paint: Paint, now: number): string {
-  const session = s.session && view(s.session, now);
-  const weekly = s.weekly && view(s.weekly, now);
+  const session = s.session && view(s.session, "session", now);
+  const weekly = s.weekly && view(s.weekly, "weekly", now);
   const stale = now - s.fetchedAt > STALE_MS || !!session?.expired || !!weekly?.expired;
   const nameTone: Tone = s.blocked ? "error" : "dim";
   const mark = stale ? paint("warning", "~") : "";
-  // Show the countdown where it matters: the active session, and any window that is low.
+  // Ahead: when it runs out (↑). Otherwise the reset countdown, for the active
+  // session and any window that is low or empty.
   const clock = (v: View, always: boolean) =>
-    v.resetIn !== undefined && (always || v.tone !== "dim") ? " " + paint(v.tone, duration(v.resetIn)) : "";
+    v.emptyIn !== undefined ? " " + paint(v.tone, "↑" + duration(v.emptyIn))
+    : v.resetIn !== undefined && (always || v.tone === "warning" || v.tone === "error") ? " " + paint(v.tone, duration(v.resetIn))
+    : "";
+  const num = (v: View | undefined) => (v ? paint(v.tone, String(v.left) + (v.pace === "ahead" ? "↑" : "")) : paint("dim", "-"));
 
   if (tier === "narrow") {
-    const nums = [session, weekly].map((v) => (v ? paint(v.tone, String(v.left)) : paint("dim", "-")));
+    const nums = [session, weekly].map(num);
     return paint(nameTone, NAMES[id][1]) + " " + nums.join(paint("dim", "/")) + mark;
   }
   const parts: string[] = [];
   if (tier === "full") {
-    if (session) parts.push(paint("dim", "5h ") + (active ? meter(session.left, paint, session.tone) + " " : "") + paint(session.tone, `${session.left}%`) + clock(session, active));
+    if (session) parts.push(paint("dim", "5h ") + (active ? meter(session, paint) + " " : "") + paint(session.tone, `${session.left}%`) + clock(session, active));
     if (weekly) parts.push(paint("dim", "wk ") + paint(weekly.tone, `${weekly.left}%`) + clock(weekly, false));
     return paint(nameTone, NAMES[id][0]) + " " + parts.join(paint("dim", " · ")) + mark;
   }
@@ -62,7 +116,7 @@ function provider(id: ProviderId, s: Snapshot, active: boolean, tier: Tier, pain
     if (weekly) parts.push(paint(weekly.tone, `${weekly.left}%`) + clock(weekly, false));
     return paint(nameTone, NAMES[id][0]) + " " + parts.join(paint("dim", " · ")) + mark;
   }
-  const nums = [session, weekly].map((v) => (v ? paint(v.tone, String(v.left)) : paint("dim", "-")));
+  const nums = [session, weekly].map(num);
   return paint(nameTone, NAMES[id][0]) + " " + nums.join(paint("dim", "/")) + mark;
 }
 
@@ -104,12 +158,13 @@ export function describe(state: UsageState, errors: Partial<Record<ProviderId, s
       lines.push(`${name}: ${errors[id] ?? "no data"}`);
       continue;
     }
-    const windows = ([["5h", s.session], ["week", s.weekly]] as const)
+    const windows = ([["5h", s.session, "session"], ["week", s.weekly, "weekly"]] as const)
       .filter(([, w]) => w)
-      .map(([label, w]) => {
-        const v = view(w!, now);
+      .map(([label, w, kind]) => {
+        const v = view(w!, kind, now);
+        const pace = v.pace === "ahead" ? `ahead, empty in ${duration(v.emptyIn!)}` : v.pace === "on" ? "on pace" : v.pace === "under" ? "under pace" : "";
         const reset = v.expired ? "reset passed" : w!.resetsAt ? `resets ${clockTime(w!.resetsAt, now)} (${duration(w!.resetsAt - now)})` : "";
-        return `${label}: ${v.left}% left${reset ? `, ${reset}` : ""}`;
+        return `${label}: ${v.left}% left${pace ? `, ${pace}` : ""}${reset ? `, ${reset}` : ""}`;
       });
     const age = duration(now - s.fetchedAt);
     lines.push(`${name}: ${windows.join(" · ")}${s.blocked ? " · BLOCKED" : ""} — ${s.source}, ${age} ago${errors[id] ? ` (last poll: ${errors[id]})` : ""}`);

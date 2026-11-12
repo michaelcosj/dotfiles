@@ -156,13 +156,13 @@ group("format", () => {
   });
 
   test("full tier, active provider first with meter", () => {
-    expect(renderUsage(state, 200, plain, "claude", NOW)).toBe("Claude 5h ▰▰▰▰▱ 78% 1h12m · wk 41%   GPT 5h 92% · wk 63%");
-    expect(renderUsage(state, 200, plain, "codex", NOW)).toBe("GPT 5h ▰▰▰▰▰ 92% · wk 63%   Claude 5h 78% · wk 41%");
+    expect(renderUsage(state, 200, plain, "claude", NOW)).toBe("Claude 5h ▰┃▰▰▰▱ 78% 1h12m · wk 41% ↑1d9h   GPT 5h 92% · wk 63%");
+    expect(renderUsage(state, 200, plain, "codex", NOW)).toBe("GPT 5h ▰▰▰▰▰ 92% · wk 63%   Claude 5h 78% · wk 41% ↑1d9h");
   });
 
   test("medium and narrow tiers by width", () => {
-    expect(renderUsage(state, 45, plain, "claude", NOW)).toBe("Claude 78% 1h12m · 41%   GPT 92/63");
-    expect(renderUsage(state, 25, plain, "claude", NOW)).toBe("C 78/41 · G 92/63");
+    expect(renderUsage(state, 45, plain, "claude", NOW)).toBe("Claude 78% 1h12m · 41% ↑1d9h   GPT 92/63");
+    expect(renderUsage(state, 25, plain, "claude", NOW)).toBe("C 78/41↑ · G 92/63");
     for (const width of [25, 45, 200]) expect(visible(renderUsage(state, width, plain, "claude", NOW)!)).toBeLessThanOrEqual(width);
   });
 
@@ -173,6 +173,30 @@ group("format", () => {
     expect(text).toContain("<error>0%");
     expect(text).toContain("<error>13h00m");
     expect(text).toStartWith("<error>GPT");
+  });
+
+  test("pace: on is success, under is dim, ahead is warning with when it runs out", () => {
+    const at = (usedPct: number, resetIn: number) => ({ usedPct, resetsAt: NOW + resetIn });
+    const h = 3600_000;
+    const pace = (usedPct: number, resetIn: number) =>
+      renderUsage({ claude: { session: at(usedPct, resetIn), fetchedAt: NOW, source: "poll" } }, 200, tagged, "claude", NOW)!;
+    // 3h of 5h gone: 60% used is on pace, 30% under, 90% ahead (empty in 20m: urgent).
+    expect(pace(60, 2 * h)).toBe("<dim>Claude <dim>5h <success>▰▰<dim>┃<dim>▱▱▱ <success>40% <success>2h00m");
+    expect(pace(30, 2 * h)).toContain("<dim>70% <dim>2h00m");
+    expect(pace(90, 2 * h)).toContain("<error>10% <error>↑20m");
+    // 1h of 5h gone, 40% used: ahead, empty in 1h30m, before the reset in 4h.
+    expect(pace(40, 4 * h)).toContain("<warning>60% <warning>↑1h30m");
+    // Too early (under 30m gone) or too little used: no pace, so low % left still warns.
+    expect(pace(50, 4.75 * h)).toContain("<dim>50% <dim>4h45m");
+    expect(pace(2, 2 * h)).toContain("<dim>98%");
+    // 20% left near the end of the window is on pace, not a warning.
+    expect(pace(80, 15 * 60_000)).toContain("<success>20%");
+  });
+
+  test("pace in the narrow tier and details", () => {
+    const ahead: UsageState = { codex: { weekly: { usedPct: 50, resetsAt: NOW + 5 * 86_400_000 }, fetchedAt: NOW, source: "poll" } };
+    expect(renderUsage(ahead, 8, plain, undefined, NOW)).toBe("G -/50↑");
+    expect(describe(ahead, {}, NOW)).toContain("week: 50% left, ahead, empty in 2d0h, resets");
   });
 
   test("stale data and passed resets get ~", () => {
@@ -186,7 +210,7 @@ group("format", () => {
 
   test("details", () => {
     const text = describe(state, { codex: "HTTP 500" }, NOW);
-    expect(text).toContain("Claude: 5h: 78% left, resets");
+    expect(text).toContain("Claude: 5h: 78% left, under pace, resets");
     expect(text).toContain("(last poll: HTTP 500)");
   });
 });
