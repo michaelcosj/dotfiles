@@ -33,6 +33,7 @@ mock.module("../../lib/rex.js", () => ({
   },
 }));
 
+process.env.PI_AGENT_TASK_START_MS = "300";
 const { registerParent, remoteCwd } = await import("./parent.ts");
 
 const g = globalThis as { __piAgents?: Map<string, Agent> };
@@ -68,13 +69,24 @@ function setup() {
     onClient: (kind: string, fn: any) => {
       if (kind === "connect") onConnect = fn;
     },
-    event: (client: any, event: string, data: any) => events.push({ client, event, data }),
+    event: (client: any, event: string, data: any) => {
+      events.push({ client, event, data });
+      if (event === "shutdown" && client.socket) client.socket.destroyed = true; // the child leaves
+    },
     broadcast: () => {},
     ctx: undefined,
   };
   const pi: any = { on: () => {}, registerTool: (t: any) => tools.set(t.name, t), sendMessage: () => {}, appendEntry: () => {} };
   const parent = registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: () => {} });
-  return { parent, events, tools, methods, connect: (client: any) => onConnect!(client) };
+  return {
+    parent, events, tools, methods,
+    connect: (client: any) => onConnect!(client),
+    /** The child connects and begins its task, as a healthy one does. */
+    begin: (client: any) => {
+      onConnect!(client);
+      methods.get("started")(client, {});
+    },
+  };
 }
 
 beforeEach(() => {
@@ -156,11 +168,11 @@ describe("remote agents", () => {
   }
 
   test("start opens a tab on the host and sends the task once on connect", async () => {
-    const { tools, events, connect } = setup();
+    const { tools, events, connect, begin } = setup();
     const client = { role: "agent", info: {} as any, socket: { destroyed: false } };
     fakeHost((id) => {
       client.info.id = id;
-      connect(client);
+      begin(client);
     });
 
     const r = await tools.get("agent").execute("1", { action: "start", host: "devbox", name: "beta", task: "do it", cwd: "~/code" }, undefined, undefined, {});
@@ -318,12 +330,8 @@ describe("worktree", () => {
   });
 
   test("start creates the worktree and runs the child in it", async () => {
-    const { tools, connect } = setup();
-    const client = { role: "agent", info: {} as any, socket: { destroyed: false } };
-    const { dir, repo, opened } = repoAndPane((id) => {
-      client.info.id = id;
-      connect(client);
-    });
+    const { tools, begin } = setup();
+    const { dir, repo, opened } = repoAndPane((id) => begin({ role: "agent", info: { id }, socket: { destroyed: false } }));
     try {
       const r = await tools.get("agent").execute("1", { action: "start", name: "alt-a", task: "try it", worktree: true }, undefined, undefined, { cwd: repo });
       const wt = path.join(dir, "wt", "repo", "alt-a");
@@ -362,5 +370,103 @@ describe("worktree", () => {
   test("remote agents refuse worktree", async () => {
     const { tools } = setup();
     await expect(tools.get("agent").execute("1", { action: "start", name: "r", host: "devbox", task: "x", worktree: true }, undefined, undefined, {})).rejects.toThrow("not supported");
+  });
+});
+
+describe("start", () => {
+  const fakeClient = () => {
+    const socket = { destroyed: false, destroy: () => void (socket.destroyed = true) };
+    return { role: "agent", info: {} as any, socket };
+  };
+  /** A local pane that runs `onOpen` with the child's id; `alive` sets whether its program runs. */
+  function pane(onOpen: (id: string) => void, alive = true) {
+    rexReplies.push((args) => {
+      if (args.includes("session.new_block")) {
+        const params = JSON.parse(args[args.length - 1]);
+        const id = (params.options.command as string[]).find((x) => x.startsWith("PI_AGENT_ID="))!.split("=")[1];
+        setTimeout(() => onOpen(id), 0);
+        return JSON.stringify({ block_id: "block:child" });
+      }
+      if (args[0] === "block" && args[1] === "call" && args.includes("process")) return alive ? JSON.stringify({ child: { pid: 1 } }) : "{}";
+      if (args[0] === "capture") return "pi v1\nNo API key found for openai.\n";
+      return undefined;
+    });
+  }
+  const start = (tools: Map<string, any>) =>
+    tools.get("agent").execute("1", { action: "start", name: "kid", task: "do it" }, undefined, undefined, { cwd: "/tmp" });
+
+  test("waits for the child to begin its task; idle while ready is not idle", async () => {
+    const { tools, methods, connect } = setup();
+    const client = fakeClient();
+    pane((id) => {
+      client.info.id = id;
+      connect(client);
+      methods.get("state")(client, { status: "idle" });
+      expect(g.__piAgents!.get("kid")!.status).toBe("starting");
+      setTimeout(() => methods.get("started")(client, {}), 20);
+    });
+    const r = await start(tools);
+    expect(r.content[0].text).toContain("Started agent kid");
+    expect(g.__piAgents!.get("kid")!.status).toBe("working");
+  });
+
+  test("a child that reports a failure fails the start with its error", async () => {
+    const { tools, methods, connect } = setup();
+    const client = fakeClient();
+    pane((id) => {
+      client.info.id = id;
+      connect(client);
+      methods.get("failed")(client, { error: "no model selected" });
+    });
+    await expect(start(tools)).rejects.toThrow("did not start its task: no model selected");
+    expect(g.__piAgents!.has("kid")).toBe(false);
+  });
+
+  test("a child that never begins fails with its last screen lines", async () => {
+    const { tools, connect } = setup();
+    const client = fakeClient();
+    pane((id) => {
+      client.info.id = id;
+      connect(client);
+    });
+    const t0 = Date.now();
+    await expect(start(tools)).rejects.toThrow(/did not start its task\.\nIts screen:\npi v1\nNo API key found for openai\./);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(g.__piAgents!.has("kid")).toBe(false);
+  });
+
+  test("a child that exits before hello fails fast", async () => {
+    const { tools } = setup();
+    pane(() => {}, false);
+    const t0 = Date.now();
+    await expect(start(tools)).rejects.toThrow(/did not connect[\s\S]*No API key found/);
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
+
+  test("resume without text does not wait for a task", async () => {
+    const pi: any = { on: (ev: string, fn: any) => ev === "session_start" && (pi.start = fn), registerTool: () => {}, sendMessage: () => {}, appendEntry: () => {} };
+    const methods = new Map<string, any>();
+    const bridge: any = {
+      running: true, socketPath: "/tmp/t.sock", token: "t",
+      registerMethod: (_r: string, name: string, fn: any) => methods.set(name, fn),
+      onShutdown: () => {}, broadcast: () => {}, event: () => {},
+      onClient: (k: string, fn: any) => k === "connect" && (bridge.connect = fn),
+    };
+    const file = path.join(require("node:os").tmpdir(), `pi-agent-test-${process.pid}.jsonl`);
+    fs.writeFileSync(file, "");
+    try {
+      const p2 = registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: () => {} });
+      pi.start({}, { sessionManager: { getBranch: () => [{ type: "custom", customType: "agent-child", data: { name: "kid", title: "K", cwd: "/tmp", sessionFile: file } }] } });
+      const client = fakeClient();
+      pane((id) => {
+        client.info.id = id;
+        bridge.connect(client);
+        methods.get("state")(client, { status: "idle" });
+      });
+      await p2.resume("kid");
+      expect(g.__piAgents!.get("kid")!.status).toBe("idle");
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
   });
 });

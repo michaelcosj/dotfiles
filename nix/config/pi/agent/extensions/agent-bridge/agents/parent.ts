@@ -18,6 +18,8 @@ import { type AgentStatus, ENV, type Roster } from "./protocol.js";
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const START_TIMEOUT_MS = 30_000;
+/** After hello, how long a child has to begin its first task. */
+const TASK_START_MS = Number(process.env.PI_AGENT_TASK_START_MS) || 15_000;
 const REMOTE_START_TIMEOUT_MS = 60_000;
 /** A remote child outlives a lost connection this long (sleep, network). */
 const REMOTE_PARENT_GONE_MS = 5 * 60_000;
@@ -38,6 +40,10 @@ export interface Agent {
   remote?: { session: string; window: string };
   /** a remote child's first prompt, sent when it first connects */
   firstPrompt?: string;
+  /** started with a task that has not begun yet */
+  pendingStart?: boolean;
+  /** why the child could not begin its first task */
+  startError?: string;
   /** cwd on its machine (for a remote child, may start with ~) */
   cwd: string;
   model?: string;
@@ -266,7 +272,9 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     const a = [...agents.values()].find((x) => x.id === c.info.id);
     if (!a) return void c.socket.destroy();
     a.client = c;
-    if (a.status === "starting" || a.status === "crashed") setStatus(a, "working");
+    // A new child stays "starting" until it says its task began.
+    if (a.status === "crashed") setStatus(a, "working");
+    else wake();
     bridge.event(c, "roster", roster() as any);
     for (const n of a.pendingNotes?.splice(0) ?? [])
       bridge.event(c, "note", typeof n === "string" ? { text: n } : { text: n.text, review: true });
@@ -318,7 +326,20 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
 
   agentMethod("state", (a, p) => {
     const status = (["working", "idle", "blocked"] as const).find((s) => s === p.status);
+    if (status === "idle" && a.pendingStart) return; // ready, but its task has not begun
     if (status) setStatus(a, status, typeof p.message === "string" ? p.message : undefined);
+  });
+  agentMethod("started", (a) => {
+    a.pendingStart = false;
+    if (a.status === "starting") setStatus(a, "working");
+    else wake();
+  });
+  agentMethod("failed", (a, p) => {
+    const error = typeof p.error === "string" && p.error.trim() ? p.error.trim() : "unknown error";
+    if (a.pendingStart) {
+      a.startError = error;
+      wake();
+    } else report(a, `Agent ${a.name} could not run its message: ${error}`);
   });
   agentMethod("usage", (a, p) => {
     if (typeof p.tokens === "number") a.tokens = p.tokens;
@@ -328,6 +349,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     a.lastMessage = typeof p.last_message === "string" ? p.last_message : undefined;
     a.lastAborted = !!p.aborted;
     a.unreported = true;
+    a.pendingStart = false;
     setStatus(a, "idle");
     if (a.notify) {
       // A wait in progress reports it instead (it checks after this tick).
@@ -442,7 +464,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     const a: Agent = {
       id, name, title, block: "", host, cwd, model, thinking, status: "starting", startedAt: Date.now(),
       unreported: false, notify: p.notify !== false, promptFile: "", sessionFile: resume?.sessionFile,
-      firstPrompt: first?.trim() ? first : undefined,
+      firstPrompt: first?.trim() ? first : undefined, pendingStart: !!first?.trim(),
     };
     // Register before any await: a wait or send in the same batch of tool calls runs in parallel.
     agents.set(name, a);
@@ -501,13 +523,34 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       if (await gone(a)) break;
     }
     if (!a.client) {
-      const screen = await rex.capture(a.block, targetOf(a)).catch(() => "");
+      const screen = await lastLines(a);
       await stop(a);
-      throw new Error(
-        `agent ${name} on ${host} did not connect.${screen.trim() ? `\nIts screen:\n${screen.trim().split("\n").slice(-15).join("\n")}` : ""}`,
-      );
+      throw new Error(`agent ${name} on ${host} did not connect.${screen}`);
     }
+    await taskStarted(a);
     return a;
+  }
+
+  /** The end of a child's screen, for an error message. */
+  async function lastLines(a: Agent) {
+    const screen = (await rex.capture(a.block, targetOf(a)).catch(() => "")).trim();
+    return screen ? `\nIts screen:\n${screen.split("\n").slice(-15).join("\n")}` : "";
+  }
+
+  /** Waits for a connected child to begin its first task; stops it and throws if it can't. */
+  async function taskStarted(a: Agent) {
+    if (!a.pendingStart) return;
+    const done = () => !a.pendingStart || !!a.startError || a.status === "crashed" || !agents.has(a.name);
+    const deadline = Date.now() + TASK_START_MS;
+    while (!done() && Date.now() < deadline) {
+      await until(done, Math.min(2000, deadline - Date.now()));
+      if (!done() && (await gone(a))) break;
+    }
+    if (!a.pendingStart || !agents.has(a.name)) return;
+    const why = a.startError ? `: ${a.startError}` : ".";
+    const screen = a.startError ? "" : await lastLines(a);
+    await stop(a);
+    throw new Error(`agent ${a.name} did not start its task${why}${screen}`);
   }
 
   async function start(p: any, ctx: any, resume?: SavedAgent): Promise<Agent> {
@@ -547,6 +590,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     const a: Agent = {
       id, name, title, block: "", cwd, model, thinking, status: "starting", startedAt: Date.now(),
       unreported: false, notify: p.notify !== false, promptFile, sessionFile: resume?.sessionFile, worktree,
+      pendingStart: !!first.trim(),
     };
     agents.set(name, a);
     try {
@@ -564,15 +608,20 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       wake();
       throw new Error(`could not open a Rex pane for ${name}: ${(e as Error).message}`);
     }
-    const block = a.block;
     publish();
-    // Ready when it says hello.
-    const ok = await until(() => !!a.client || a.status === "crashed", START_TIMEOUT_MS);
-    if (!ok) {
-      const screen = await rex.capture(block).catch(() => "");
-      await stop(a);
-      throw new Error(`agent ${name} did not connect within ${START_TIMEOUT_MS / 1000}s.${screen.trim() ? `\nIts screen:\n${screen.trim().split("\n").slice(-15).join("\n")}` : ""}`);
+    // Ready when it says hello; a pane whose program ended will never say it.
+    const deadline = Date.now() + START_TIMEOUT_MS;
+    while (!a.client && a.status !== "crashed" && Date.now() < deadline) {
+      await until(() => !!a.client || a.status === "crashed", Math.min(2000, deadline - Date.now()));
+      if (a.client || !agents.has(name)) break;
+      if (await gone(a)) break;
     }
+    if (!a.client) {
+      const screen = await lastLines(a);
+      await stop(a);
+      throw new Error(`agent ${name} did not connect within ${START_TIMEOUT_MS / 1000}s.${screen}`);
+    }
+    await taskStarted(a);
     return a;
   }
 

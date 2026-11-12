@@ -4,6 +4,8 @@
 //   hello { protocol, token, role: "agent", id, name }
 // then sends requests (child -> parent):
 //   state { status: "working" | "idle" | "blocked", message? }
+//   started                                a run began (the parent's start waits for it)
+//   failed { error }                       a prompt could not run
 //   usage { tokens }                       context tokens, for the list
 //   settled { last_message, aborted }      a run ended; the parent's result
 //   files_changed { paths }                for Neovim's change review

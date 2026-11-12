@@ -51,12 +51,18 @@ export function registerChild(pi: any, opts: { onRoster: (r: Roster) => void }) 
     else if (method !== "usage") queue.push(line);
   }
 
+  /** Runs a prompt from the parent; with no model it can't, so say why. */
+  function run(text: string) {
+    if (ctxRef?.isIdle?.() === false) return pi.sendUserMessage(text, { deliverAs: "followUp" });
+    if (ctxRef && !ctxRef.model) return write("failed", { error: "no model selected; pass a model or set a default with /login and /model" });
+    pi.sendUserMessage(text);
+  }
+
   function onEvent(event: string, data: any) {
     switch (event) {
       case "prompt":
         if (typeof data?.text !== "string" || !data.text.trim()) return;
-        if (ctxRef?.isIdle?.() === false) pi.sendUserMessage(data.text, { deliverAs: "followUp" });
-        else pi.sendUserMessage(data.text);
+        run(data.text);
         return;
       case "note":
         if (typeof data?.text !== "string" || !data.text.trim()) return;
@@ -149,7 +155,7 @@ export function registerChild(pi: any, opts: { onRoster: (r: Roster) => void }) 
     if (promptFile && fs.existsSync(promptFile)) {
       const task = fs.readFileSync(promptFile, "utf8");
       fs.rmSync(promptFile, { force: true });
-      if (task.trim()) setTimeout(() => pi.sendUserMessage(task), 0);
+      if (task.trim()) setTimeout(() => run(task), 0);
     }
   });
   // Prompts from the parent arrive through sendUserMessage (source "extension");
@@ -184,6 +190,7 @@ export function registerChild(pi: any, opts: { onRoster: (r: Roster) => void }) 
     ctxRef = ctx;
     typed = false;
     lastText = undefined;
+    write("started", {});
     write("state", { status: "working" });
   });
   pi.on("message_end", (event: any, ctx: any) => {
