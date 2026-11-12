@@ -7,14 +7,13 @@
 -- `rex do project_snippet` prints the current session as a projects entry.
 local L = require("rexkit.layout")
 
-local edit = {
-	name = "edit",
-	layout = L.col(L.pane({ cmd = "nvim" }), L.pane(), 0.75),
+local main = {
+	name = "main",
+	layout = L.col(L.pane({ cmd = "nvim" }), L.pane({ cmd = "pi" }), 0.75),
 }
-local agent = { name = "agent", layout = L.pane({ cmd = "pi" }) }
 
 return {
-	default = { tabs = { edit, agent } },
+	default = { tabs = { main } },
 	groups = {
 		{ dir = "~/Projects/personal" },
 		{ dir = "~/Projects/work" },
