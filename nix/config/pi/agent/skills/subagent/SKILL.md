@@ -62,8 +62,8 @@ background({ action: "start", name: "scout-auth", notify: true, command: 'pi -p 
 ## Recommended Picks
 
 Opus: claude-code/claude-opus-5-5
-Sol: openai/gpt-6.1-sol
-Luna: openai/gpt-6-luna
+Sol: openai-codex/gpt-6.1-sol
+Luna: openai-codex/gpt-6-luna
 
 - For code-related tasks, use Opus at low or medium thinking.
 - For reviews, use Sol at medium or high thinking.

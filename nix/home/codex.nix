@@ -7,8 +7,9 @@ let
   repo = "${config.home.homeDirectory}/.dotfiles/nix/config/codex";
 in
 {
+  # Codex has no @import, so its AGENTS.md is the shared file itself.
   home.file.".codex/AGENTS.md".source =
-    config.lib.file.mkOutOfStoreSymlink "${repo}/AGENTS.md";
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/agents/AGENTS.md";
 
   # Codex writes machine-local state into config.toml, so seed the portable
   # defaults once instead of linking it. Existing files are left alone.

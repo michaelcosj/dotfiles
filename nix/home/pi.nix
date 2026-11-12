@@ -16,14 +16,17 @@ let
   repo = "${config.home.homeDirectory}/.dotfiles/nix/config/pi";
 in
 {
-  home.file = builtins.listToAttrs (
+  home.file = {
+    # Pi has no @import, so its AGENTS.md is the shared file itself.
+    ".pi/agent/AGENTS.md".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/agents/AGENTS.md";
+  } // builtins.listToAttrs (
     map
       (name: {
         name = ".pi/agent/${name}";
         value.source = config.lib.file.mkOutOfStoreSymlink "${repo}/agent/${name}";
       })
       [
-        "AGENTS.md"
         "extensions"
         "keybindings.json"
         "mcp.json"

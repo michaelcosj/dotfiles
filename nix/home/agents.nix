@@ -2,9 +2,9 @@
 # edits apply without a rebuild. ~/.agents stays a real directory: skill
 # installers keep runtime state there (.skill-lock.json).
 #
-# Each agent's own instruction file is one line that points to
-# ~/.agents/AGENTS.md (Claude Code uses its native @ import). Pi, OpenCode,
-# and Codex discover ~/.agents/skills themselves.
+# Pi and Codex link their AGENTS.md to the shared file; Claude Code uses
+# an @ import; OpenCode's own file points to it. Pi, OpenCode, and Codex
+# discover ~/.agents/skills themselves.
 { config, ... }:
 let
   repo = "${config.home.homeDirectory}/.dotfiles/nix/config";
