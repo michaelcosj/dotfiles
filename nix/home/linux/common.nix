@@ -47,7 +47,13 @@
       Restart = "on-failure";
       RestartSec = 15;
     };
-    Install.WantedBy = [ "rex.service" ];
+    # rex.service: starts with the server. default.target: home-manager switch
+    # (sd-switch) starts new units through targets, so a switch starts it too
+    # without restarting the server.
+    Install.WantedBy = [
+      "rex.service"
+      "default.target"
+    ];
   };
   programs.ssh = {
     enable = true;
