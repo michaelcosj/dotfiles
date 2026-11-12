@@ -163,6 +163,12 @@ export function registerChild(pi: any, opts: { onRoster: (r: Roster) => void }) 
   pi.on("before_agent_start", (event: any) => {
     const sections = event?.systemPromptOptions?.sections;
     if (sections) sections.parent_agent = PARENT_SECTION;
+    // Children can't start agents.
+    const skills = event?.systemPromptOptions?.skills;
+    if (Array.isArray(skills)) {
+      const i = skills.findIndex((s: any) => s?.name === "subagent");
+      if (i >= 0) skills.splice(i, 1);
+    }
     if (event?.messageType !== "user" || !typed) return;
     typed = false;
     return {
