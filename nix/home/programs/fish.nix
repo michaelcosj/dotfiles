@@ -1,10 +1,36 @@
-# Fish shell, prompt, aliases, and the shell tools it integrates (fzf, direnv, starship).
-{ ... }:
+# Fish shell, prompt, aliases, and the shell tools it integrates (fzf, direnv, Vite+).
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  # Shell hooks generated at build time, so a new shell sources a file instead
+  # of running fzf and direnv.
+  fzfFish = pkgs.runCommand "fzf-init.fish" { } ''
+    ${lib.getExe config.programs.fzf.package} --fish > $out
+  '';
+  direnvFish = pkgs.runCommand "direnv-hook.fish" { } ''
+    ${lib.getExe config.programs.direnv.package} hook fish > $out
+  '';
+  vitePlus = pkgs.callPackage ../../pkgs/vite-plus.nix { };
+in
+{
+  imports = [
+    {
+      programs.fish.interactiveShellInit = lib.mkMerge [
+        # Early, like Home Manager's own fzf integration.
+        (lib.mkOrder 200 "source ${fzfFish}")
+        (lib.mkAfter "source ${direnvFish}")
+      ];
+    }
+  ];
+
   programs.fzf = {
     enable = true;
-    # enableZshIntegration = true;
-    enableFishIntegration = true;
+    # fzfFish, sourced above.
+    enableFishIntegration = false;
     defaultOptions = [
       "--height 80%"
       "--layout"
@@ -13,9 +39,11 @@
     ];
   };
 
-  # Fish integration is on by default; nix-direnv caches `use flake` shells.
+  # nix-direnv caches `use flake` shells.
   programs.direnv = {
     enable = true;
+    # direnvFish, sourced above.
+    enableFishIntegration = false;
     nix-direnv.enable = true;
     # Hide the "loading" lines and env diff; errors still print.
     silent = true;
@@ -40,14 +68,16 @@
         set_color cyan
         printf '%s' (string replace "$HOME" '~' "$PWD")
 
-        set -l git_branch (command git branch --show-current 2>/dev/null)
-        if test -z "$git_branch"
-          set git_branch (command git rev-parse --short HEAD 2>/dev/null)
+        # One git call for the branch, commit and dirty state. -uno skips the
+        # untracked-file scan, the slow part in big repos.
+        set -l git_status (command git status --porcelain=v2 --branch -uno 2>/dev/null)
+        set -l git_branch (string replace -rf '^# branch\.head (.*)$' '$1' -- $git_status)
+        if test "$git_branch" = '(detached)'
+          set git_branch (string replace -rf '^# branch\.oid (.{7}).*$' '$1' -- $git_status)
         end
         if test -n "$git_branch"
           set -l dirty
-          set -l git_status (command git status --porcelain 2>/dev/null)
-          if test -n "$git_status"
+          if string match -qv '#*' -- $git_status
             set dirty '*'
           end
           set_color normal
@@ -80,8 +110,6 @@
       # reload home-manager's session variables instead of trusting the inherited ones.
       reload-shell = ''
         set -e __HM_SESS_VARS_SOURCED
-        # Leftover from the old fnm setup, still inherited by long-running sessions.
-        set -gx PATH (string match -v '*fnm_multishells*' $PATH)
         exec fish
       '';
     };
@@ -136,17 +164,11 @@
       set -g fish_pager_color_selected_completion yellow
       set -g fish_pager_color_selected_description yellow
 
-      fish_add_path "$HOME/.dotfiles/nix/scripts"
-      fish_add_path "$HOME/.local/bin"
-
-      # Node tooling via Vite+ (`vp env`): node/npm/pnpm/bun shims that pick the
-      # version per project (.node-version, package.json, .nvmrc). vp writes this
-      # file the first time it runs.
-      if test -f "$HOME/.config/vite-plus/env.fish"
-        source "$HOME/.config/vite-plus/env.fish"
-      end
+      # -g: keep these out of the universal fish_user_paths.
+      fish_add_path -g "$HOME/.dotfiles/nix/scripts"
+      fish_add_path -g "$HOME/.config/composer/vendor/bin"
       set -gx BUN_INSTALL "$HOME/.bun"
-      fish_add_path "$BUN_INSTALL/bin"
+      fish_add_path -g "$BUN_INSTALL/bin"
 
       # load .env file if it exists
       function load_env
@@ -183,16 +205,49 @@
     '';
   };
 
-  # Home Manager writes this to the right place on each OS (macOS:
+  # Vite+ (pkgs/vite-plus.nix): node/npm/pnpm/bun shims that pick the version
+  # per project. Replaces the hook vp's setup writes to this path (it sources
+  # ~/.vite-plus/env.fish), with the same PATH: the shims first, the
+  # system-first ones (fallback-bin) last. force: take over vp's file.
+  xdg.configFile."fish/conf.d/vite-plus.fish".force = true;
+  xdg.configFile."fish/conf.d/vite-plus.fish".text = ''
+    set -gx VP_HOME "$HOME/.vite-plus"
+    for dir in "$VP_HOME/bin" "$VP_HOME/fallback-bin"
+      while set -l i (contains -i -- $dir $PATH)
+        set -e PATH[$i]
+      end
+    end
+    set -gx PATH "$VP_HOME/bin" $PATH "$VP_HOME/fallback-bin"
 
-  programs.starship = {
-    enable = false;
-    # enableZshIntegration = true;
-    enableFishIntegration = true;
-    settings = {
-      format = "$directory$git_branch$git_metrics$git_status$line_break$character";
-      git_commit.tag_symbol = "  ";
-      git_branch.symbol = " ";
-    };
-  };
+    # Always run the Nix vp, so a new version sets itself up on first use.
+    # `vp env use` prints commands that set VP_NODE_VERSION; eval them here.
+    function vp
+      set -l vp ${lib.getExe vitePlus}
+      set -l i 1
+      if test "$argv[1]" = -C
+        set i 3
+      else if string match -qr '^-C.+' -- "$argv[1]"
+        set i 2
+      end
+      if test "$argv[$i]" = env; and test "$argv[(math $i + 1)]" = use
+        and not contains -- -h $argv; and not contains -- --help $argv
+        set -l out (VP_ENV_USE_EVAL_ENABLE=1 VP_SHELL=fish $vp $argv); or return
+        for line in $out
+          eval $line; or return
+        end
+      else
+        $vp $argv
+      end
+    end
+  '';
+
+  # What `VP_COMPLETE=fish vp` prints; vp computes the completions when asked.
+  # Running vp at build time would start its first-run setup, so it's copied.
+  programs.fish.completions.vp = ''
+    complete --keep-order --exclusive --command vp --arguments "(VP_COMPLETE=fish command vp -- (commandline --current-process --tokenize --cut-at-cursor) (commandline --current-token))"
+  '';
+  # vpr is `vp run`.
+  programs.fish.completions.vpr = ''
+    complete --keep-order --exclusive --command vpr --arguments "(VP_COMPLETE=fish command vp -- vp run (commandline --current-process --tokenize --cut-at-cursor)[2..] (commandline --current-token))"
+  '';
 }
