@@ -10,7 +10,7 @@
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import * as rex from "../../lib/rex.js";
-import { duration } from "./parent.js";
+import { duration } from "../../lib/duration.js";
 import type { Roster, RosterEntry } from "./protocol.js";
 
 const WIDGET = "agents";

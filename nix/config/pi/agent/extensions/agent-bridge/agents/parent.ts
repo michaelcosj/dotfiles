@@ -11,6 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Type } from "typebox";
+import { duration } from "../../lib/duration.js";
 import * as rex from "../../lib/rex.js";
 import { type Bridge, type Client, programStatus } from "../core.js";
 import { deliverNote, deliverReview } from "../notes.js";
@@ -149,13 +150,6 @@ function text(t: string, details?: unknown) {
 function clip(s: string | undefined) {
   if (!s) return "(no reply)";
   return Buffer.byteLength(s) > MAX_RESULT_BYTES ? `${Buffer.from(s).subarray(0, MAX_RESULT_BYTES).toString("utf8")}\n[…truncated]` : s;
-}
-
-export function duration(ms: number): string {
-  const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m${s % 60}s`;
-  return `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m`;
 }
 
 export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: (paths: string[]) => void; onRoster: (r: Roster) => void }) {

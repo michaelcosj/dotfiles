@@ -37,6 +37,7 @@ import * as path from "node:path";
 import { Type } from "typebox";
 import { askQuestionnaire } from "../questionnaire/index.js";
 import * as ask from "./ask.js";
+import { duration } from "../lib/duration.js";
 import * as rex from "../lib/rex.js";
 import { formatLog } from "./format-log.js";
 import { JobList, sortJobs } from "./job-list.js";
@@ -267,13 +268,6 @@ function tail(logPath: string, lines: number, readable = false): string {
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
   }
-}
-
-function duration(ms: number): string {
-  const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m${s % 60}s`;
-  return `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m`;
 }
 
 function describe(dir: string, name: string): string {
