@@ -33,5 +33,8 @@
     };
   };
 
-  programs.fish.shellAliases.nix-rebuild = "darwin-rebuild switch --flake ~/.dotfiles/nix#macbook";
+  # nix-darwin activates as root.
+  programs.fish.functions.nix-rebuild.body = ''
+    sudo darwin-rebuild switch --flake "$HOME/.dotfiles/nix#macbook" $argv
+  '';
 }
