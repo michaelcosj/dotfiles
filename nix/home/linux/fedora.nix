@@ -14,7 +14,10 @@
   home.packages = [
     pkgs.gnome-power-manager
     # Rex Linux client. Vulkan comes from the host driver (genericLinux.gpu, desktop.nix).
-    rex-rune.packages.${pkgs.stdenv.hostPlatform.system}.default
+    # Its check runs `cargo clippy -D warnings`, and new lints fail the build
+    # (0.7.4: question_mark, chunks_exact_to_as_chunks). Lints are upstream's
+    # gate; keep the tests and the connection smoke test, skip fmt and clippy.
+    (rex-rune.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs { preCheck = ""; })
   ];
   dconf.settings."org/gnome/shell".enabled-extensions = lib.mkBefore [
     "background-logo@fedorahosted.org"
