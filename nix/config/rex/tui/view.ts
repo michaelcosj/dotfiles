@@ -462,13 +462,16 @@ readTheme().then(changed => changed && build());
 if (stateDir) startControl();
 watchFile();
 
-// Theme: OpenTUI re-reads the palette on Rex's light/dark notification; a
-// new pane reports defaults first, and dark→dark switches send nothing, so
-// also re-read now and then (cheap: one OSC round trip).
+// Theme: OpenTUI re-reads the palette on Rex's light/dark notification. A
+// new pane reports defaults first, so also re-read a few times at start.
+// Rex sends nothing for a dark-to-dark switch: reopen the page for that.
+// OpenTUI handles the CSI ? 997 reply but doesn't ask for it: turn on
+// theme notifications (mode 2031), and off again on quit.
+process.stdout.write("\x1b[?2031h");
+process.on("exit", () => { try { process.stdout.write("\x1b[?2031l"); } catch {} });
 r.on("palette", async () => { if (await readTheme()) build(); });
 r.on("theme_mode", async () => { if (await readTheme()) build(); });
 for (const ms of [300, 1200, 3000]) setTimeout(async () => { if (!quitting && await readTheme()) build(); }, ms);
-setInterval(async () => { if (!quitting && await readTheme()) build(); }, 4000);
 
 // Resize: text reflows by itself; diagrams are drawn for a width, so redraw them.
 let resizeTimer: any;

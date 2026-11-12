@@ -338,7 +338,7 @@ async function queryTheme() {
   for (let k = 0; k < 16; k++) q += `${ESC}]4;${k};?\x07`;
   await query(q);
   // A new pane reports a default palette first and gets the real theme a
-  // moment later, so this runs again on a timer; apply only real changes.
+  // moment later, so this runs a few times at start; apply only real changes.
   const key = JSON.stringify(theme);
   if (key === appliedTheme) return;
   appliedTheme = key;
@@ -854,7 +854,7 @@ await probeFiles();
 await resize();
 await navigate(url);
 if (serveControl) startControl();
-setInterval(() => { if (!quitting) queryTheme(); }, 2000); // see queryTheme
+for (const ms of [300, 1200, 3000]) setTimeout(() => { if (!quitting) queryTheme(); }, ms); // see queryTheme
 
 let resizeTimer;
 out.on("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 60); });
