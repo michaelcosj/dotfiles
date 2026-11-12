@@ -42,6 +42,18 @@
 
   # Lets Nix Chromium find the fonts above; desktop.nix sets it too.
   fonts.fontconfig.enable = true;
+  # A complete fontconfig file. Home Manager's conf.d is read only through
+  # /etc/fonts/fonts.conf, and a headless host may have no /etc/fonts. rex-web
+  # points Chromium here (FONTCONFIG_FILE) when /etc/fonts/fonts.conf is missing.
+  xdg.configFile."fontconfig/fonts.conf".text = ''
+    <?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+    <fontconfig>
+      <include ignore_missing="yes">${pkgs.fontconfig.out}/etc/fonts/fonts.conf</include>
+      <include ignore_missing="yes">${config.xdg.configHome}/fontconfig/conf.d</include>
+      <dir>${config.home.profileDirectory}/share/fonts</dir>
+    </fontconfig>
+  '';
 
   programs.rex.enable = true;
   services.rex.enable = true;

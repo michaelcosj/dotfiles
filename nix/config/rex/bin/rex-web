@@ -289,6 +289,19 @@ async function queryTheme() {
 // --- Chrome ----------------------------------------------------------------
 
 const profile = mkdtempSync(join(tmpdir(), "rex-web-profile-"));
+// Fonts: Nix Chromium reads /etc/fonts/fonts.conf. A headless host may have
+// none, and pages then render without text. Use the complete config Home
+// Manager writes (home/linux/common.nix) unless the system has its own or
+// FONTCONFIG_FILE is already set.
+function chromeEnv() {
+  const env = { ...process.env };
+  const own = join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "fontconfig", "fonts.conf");
+  if (!env.FONTCONFIG_FILE && process.platform === "linux" && !existsSync("/etc/fonts/fonts.conf") && existsSync(own)) {
+    env.FONTCONFIG_FILE = own;
+  }
+  return env;
+}
+
 const chrome = Bun.spawn([CHROME, "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
   "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "--mute-audio",
   // No --allow-file-access-from-files: with it, any shown page could read
@@ -296,7 +309,7 @@ const chrome = Bun.spawn([CHROME, "--headless=new", "--remote-debugging-port=0",
   // Software rendering: the page is small and the GPU readback per frame
   // costs far more than drawing on the CPU. REX_WEB_GPU=1 turns it back on.
   ...(process.env.REX_WEB_GPU ? [] : ["--disable-gpu", "--disable-gpu-compositing"]),
-  "about:blank"], { stdout: "ignore", stderr: "pipe" });
+  "about:blank"], { stdout: "ignore", stderr: "pipe", env: chromeEnv() });
 
 async function browserWS() {
   const dec = new TextDecoder(); let acc = "";
