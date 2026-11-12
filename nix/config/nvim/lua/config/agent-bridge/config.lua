@@ -14,6 +14,10 @@ M.defaults = {
 	-- Review everything pi changed since you last reviewed (<leader>ad or
 	-- :AgentChanges), against the file as it was before pi touched it.
 	changes = {
+		-- "inline": one window, the agent's changes drawn over the file
+		-- (needs mini.diff). "side-by-side": before | after. <leader>rt
+		-- switches while reviewing.
+		layout = "inline",
 		-- Only list files under Neovim's working directory.
 		cwd_only = true,
 		-- Say how many files pi changed when it finishes a turn.

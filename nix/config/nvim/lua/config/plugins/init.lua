@@ -28,6 +28,7 @@ vim.pack.add({
 	gh("m00qek/baleia.nvim"),
 	gh("esmuellert/codediff.nvim"), -- diff viewer
 	gh("lewis6991/gitsigns.nvim"),
+	{ src = gh("echasnovski/mini.diff"), version = vim.version.range("*") }, -- agent review inline layout
 	gh("NeogitOrg/neogit"),
 
 	-- Editing

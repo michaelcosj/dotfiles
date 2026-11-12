@@ -3,8 +3,14 @@
 -- agent-bridge extension), and this diffs that baseline against the file
 -- now, one file at a time, ignoring git entirely.
 --
--- In the review tab (left: before the agent, right: the real file, editable):
---   ]c / [c          next / previous hunk (built-in diff motions)
+-- Two layouts (changes.layout in config.lua; <leader>rt switches):
+--   inline        one window: the real file, editable, with the agent's
+--                 changes drawn over it by mini.diff's overlay (added lines
+--                 highlighted, removed lines as virtual lines above them)
+--   side-by-side  left: before the agent, right: the real file, editable
+-- Keys in the review tab:
+--   ]c / [c          next / previous hunk
+--   <leader>rt       switch between inline and side-by-side
 --   <leader>rc       comment on the change (sent to the agent that made it
 --                    with <leader>rs; see comments.lua)
 --   ]f / [f          next / previous file;  <leader>rf  pick a file
@@ -241,15 +247,40 @@ end
 
 -- ---- the review tab ----
 
-local R -- { tab, entries, index, left_win, right_win, left, right, mapped = { [buf] = true }, noted = {} }
+-- R: { tab, entries, index, layout, left_win (side-by-side only), right_win,
+--      left (the baseline buffer, hidden when inline), right (the real file),
+--      mapped = { [buf] = true }, saved = { [buf] = { [lhs] = mapping } }, noted = {} }
+local R
 
-local keys = { "]f", "[f", "<leader>rf", "<leader>ra", "<leader>rr", "<leader>rA", "<leader>rR", "<leader>rq" }
+local keys = { "]f", "[f", "]c", "[c", "<leader>rf", "<leader>rt", "<leader>ra", "<leader>rr", "<leader>rA", "<leader>rR", "<leader>rq" }
 
+-- The inline layout needs mini.diff (see plugins/mini.lua).
+local function layout()
+	if config.values.changes.layout == "inline" and _G.MiniDiff then return "inline" end
+	return "side-by-side"
+end
+
+local function mapping(buf, lhs)
+	return vim.api.nvim_buf_call(buf, function() return vim.fn.maparg(lhs, "n", false, true) end)
+end
+
+local function ours(buf, lhs)
+	local m = mapping(buf, lhs)
+	return m.buffer == 1 and type(m.desc) == "string" and m.desc:find("^Agent changes") ~= nil
+end
+
+-- Removes the review's keys and overlay from buf, and puts back the
+-- buffer-local mappings they replaced (gitsigns' ]c / [c).
 local function unmap(buf)
-	if not vim.api.nvim_buf_is_valid(buf) then return end
+	if not (buf and vim.api.nvim_buf_is_valid(buf)) then return end
 	for _, lhs in ipairs(keys) do
-		pcall(vim.keymap.del, "n", lhs, { buffer = buf })
+		if ours(buf, lhs) then pcall(vim.keymap.del, "n", lhs, { buffer = buf }) end
 	end
+	for _, m in pairs(R and R.saved[buf] or {}) do
+		if m then pcall(vim.api.nvim_buf_call, buf, function() vim.fn.mapset("n", false, m) end) end
+	end
+	if R then R.saved[buf] = nil end
+	if _G.MiniDiff then pcall(MiniDiff.disable, buf) end
 	vim.b[buf].agent_review_by = nil
 end
 
@@ -262,7 +293,7 @@ local function drop_scratch()
 	for buf in pairs(scratch_bufs) do
 		if not vim.api.nvim_buf_is_valid(buf) then
 			scratch_bufs[buf] = nil
-		elseif vim.fn.bufwinid(buf) == -1 then
+		elseif vim.fn.bufwinid(buf) == -1 and not (R and buf == R.left) then -- inline keeps R.left hidden
 			pcall(vim.api.nvim_buf_delete, buf, { force = true })
 			scratch_bufs[buf] = nil
 		end
@@ -335,6 +366,57 @@ local function save_baseline()
 	vim.bo[R.left].modified = false
 end
 
+-- Hunks between the baseline (R.left) and the file (R.right), as
+-- { start_a, count_a, start_b, count_b }. Computed here rather than with
+-- :diffget/:diffput, which misapply blocks that diffopt's linematch splits
+-- up. Inline uses mini.diff's options, so these are the hunks it draws.
+local function diff_hunks()
+	local function text(buf)
+		local l = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		if #l == 1 and l[1] == "" then return {}, "" end
+		return l, table.concat(l, "\n") .. "\n"
+	end
+	local a, at = text(R.left)
+	local b, bt = text(R.right)
+	local opts = { result_type = "indices", algorithm = "histogram" }
+	if R.layout == "inline" then
+		local o = MiniDiff.config.options
+		opts.algorithm, opts.indent_heuristic, opts.linematch = o.algorithm, o.indent_heuristic, o.linematch
+	end
+	return (vim.text and vim.text.diff or vim.diff)(at, bt, opts), a, b
+end
+
+-- Inline: shows the baseline as mini.diff's reference text, with the overlay on.
+local function overlay()
+	if not R or R.layout ~= "inline" or not vim.api.nvim_buf_is_valid(R.right) then return end
+	-- A string: an empty table means "no reference" in mini.diff 0.18.
+	local lines = vim.api.nvim_buf_get_lines(R.left, 0, -1, false)
+	local empty = #lines == 1 and lines[1] == "" -- an empty file, not one blank line
+	MiniDiff.set_ref_text(R.right, empty and "" or table.concat(lines, "\n") .. "\n")
+	local function on()
+		if not R or R.layout ~= "inline" or not vim.api.nvim_buf_is_valid(R.right) then return end
+		local d = MiniDiff.get_buf_data(R.right)
+		if d and not d.overlay then MiniDiff.toggle_overlay(R.right) end
+	end
+	on()
+	-- mini.diff turns the overlay off in a scheduled BufWinEnter callback
+	-- (e.g. after the baseline window closes); turn it on again after that.
+	vim.schedule(on)
+end
+
+-- Inline ]c / [c: the next hunk starting after the cursor line (or at it,
+-- with `at`), or the previous one before it. No wrap, like Vim's ]c.
+local function goto_hunk(dir, at)
+	local line = vim.api.nvim_win_get_cursor(R.right_win)[1]
+	local target
+	for _, h in ipairs((diff_hunks())) do
+		local start = math.max(h[3], 1)
+		if dir == "next" and (start > line or (at and start == line)) then target = target or start end
+		if dir == "prev" and start < line then target = start end
+	end
+	if target then vim.api.nvim_win_set_cursor(R.right_win, { target, 0 }) end
+end
+
 local function hunk(accept)
 	local e = R.entries[R.index]
 	if not e.current_exists then
@@ -343,16 +425,7 @@ local function hunk(accept)
 	local win = vim.api.nvim_get_current_win()
 	local in_right = win == R.right_win
 	if not in_right and win ~= R.left_win then return end
-	-- Hunks are computed here rather than with :diffget/:diffput, which
-	-- misapply blocks that diffopt's linematch splits up.
-	local function text(buf)
-		local l = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-		if #l == 1 and l[1] == "" then return {}, "" end
-		return l, table.concat(l, "\n") .. "\n"
-	end
-	local a, at = text(R.left)
-	local b, bt = text(R.right)
-	local hs = (vim.text and vim.text.diff or vim.diff)(at, bt, { result_type = "indices", algorithm = "histogram" })
+	local hs, a, b = diff_hunks()
 	if #hs == 0 then return resolved() end
 	-- the hunk at the cursor, or the nearest one above it (like :diffget)
 	local line = vim.api.nvim_win_get_cursor(win)[1]
@@ -379,10 +452,24 @@ local function hunk(accept)
 		vim.api.nvim_win_call(R.right_win, function() vim.cmd("silent write") end)
 		tell_pi(e, false)
 	end
-	vim.cmd("diffupdate")
 	if same() then return resolved() end
 	-- land on the next hunk
-	pcall(vim.cmd, "normal! ]c")
+	if R.layout == "inline" then
+		overlay()
+		goto_hunk("next", true)
+	else
+		vim.cmd("diffupdate")
+		pcall(vim.cmd, "normal! ]c")
+	end
+end
+
+local function toggle_layout()
+	R.layout = R.layout == "inline" and "side-by-side" or "inline"
+	if R.layout == "inline" and not _G.MiniDiff then
+		R.layout = "side-by-side"
+		return vim.notify("The inline layout needs mini.diff", vim.log.levels.WARN)
+	end
+	show(R.index, vim.api.nvim_win_get_cursor(R.right_win))
 end
 
 local function whole(accept)
@@ -415,6 +502,19 @@ local function map_buf(buf)
 	map("]f", function() show(R.index % #R.entries + 1) end, "Agent changes: next file")
 	map("[f", function() show((R.index - 2) % #R.entries + 1) end, "Agent changes: previous file")
 	map("<leader>rf", function() M.pick() end, "Agent changes: pick file")
+	map("<leader>rt", toggle_layout, "Agent changes: inline / side-by-side")
+	if R.layout == "inline" and buf == R.right then
+		-- Vim's ]c needs two diff windows; save what these replace (gitsigns')
+		R.saved[buf] = R.saved[buf] or {}
+		for _, lhs in ipairs({ "]c", "[c" }) do
+			if R.saved[buf][lhs] == nil and not ours(buf, lhs) then
+				local m = mapping(buf, lhs)
+				R.saved[buf][lhs] = m.buffer == 1 and m or false
+			end
+		end
+		map("]c", function() goto_hunk("next") end, "Agent changes: next hunk")
+		map("[c", function() goto_hunk("prev") end, "Agent changes: previous hunk")
+	end
 	map("<leader>ra", function() hunk(true) end, "Agent changes: accept hunk")
 	map("<leader>rr", function() hunk(false) end, "Agent changes: reject hunk")
 	map("<leader>rA", function() whole(true) end, "Agent changes: accept file")
@@ -438,17 +538,31 @@ local function scratch(name, lines, ft, modifiable)
 	return buf
 end
 
-show = function(i)
+-- cursor: keep this { line, col } (switching layouts) instead of jumping
+-- to the first hunk.
+show = function(i, cursor)
 	R.index = i
 	local e = R.entries[i]
 	local rel = relative(e.path)
 	local ft = vim.filetype.match({ filename = e.path })
 	for _, win in ipairs({ R.left_win, R.right_win }) do
-		vim.api.nvim_win_call(win, function() vim.cmd("diffoff") end)
+		if win and vim.api.nvim_win_is_valid(win) then
+			vim.api.nvim_win_call(win, function() vim.cmd("diffoff") end)
+		end
 	end
-	if R.right and R.right ~= vim.fn.bufnr(e.path) then
-		unmap(R.right)
-		R.mapped[R.right] = nil
+	for _, buf in pairs({ R.left, R.right }) do
+		unmap(buf)
+		R.mapped[buf] = nil
+	end
+
+	-- windows: the baseline's only in side-by-side
+	if R.layout == "inline" and R.left_win and vim.api.nvim_win_is_valid(R.left_win) then
+		vim.api.nvim_win_close(R.left_win, true)
+		R.left_win = nil
+	elseif R.layout == "side-by-side" and not (R.left_win and vim.api.nvim_win_is_valid(R.left_win)) then
+		vim.api.nvim_set_current_win(R.right_win)
+		vim.cmd("leftabove vsplit")
+		R.left_win = vim.api.nvim_get_current_win()
 	end
 
 	-- right: the real file (or a placeholder if pi deleted it)
@@ -466,7 +580,7 @@ show = function(i)
 	local left_name = "agent-changes://" .. rel .. " (before agent)"
 	R.left = scratch(nil, e.exists and split_lines(e.baseline) or {}, ft, true)
 	vim.bo[R.left].buftype = "nofile"
-	vim.api.nvim_win_set_buf(R.left_win, R.left)
+	if R.left_win then vim.api.nvim_win_set_buf(R.left_win, R.left) end
 	-- named once the old baseline (which may have the same name) is gone
 	local left = R.left
 	vim.schedule(function()
@@ -476,17 +590,29 @@ show = function(i)
 
 	map_buf(R.left)
 	map_buf(R.right)
-	for _, win in ipairs({ R.left_win, R.right_win }) do
-		vim.api.nvim_win_call(win, function() vim.cmd("diffthis") end)
+	if R.layout == "inline" then
+		overlay()
+	else
+		for _, win in ipairs({ R.left_win, R.right_win }) do
+			vim.api.nvim_win_call(win, function() vim.cmd("diffthis") end)
+		end
+		vim.wo[R.left_win].winbar = "%#Comment# before agent" .. (e.exists and "" or " (new file)") .. "%*"
 	end
 	local label = rel:gsub("%%", "%%%%")
-	vim.wo[R.left_win].winbar = "%#Comment# before agent" .. (e.exists and "" or " (new file)") .. "%*"
 	vim.wo[R.right_win].winbar = string.format(
-		"%%#DiagnosticWarn# 󰚩 %s%%*%%#Comment#%s (%d/%d)%%*",
-		label, (by(e):gsub("%%", "%%%%")), i, #R.entries)
+		"%%#DiagnosticWarn# 󰚩 %s%%*%%#Comment#%s%s (%d/%d)%%*",
+		label, (by(e):gsub("%%", "%%%%")), (R.layout == "inline" and not e.exists) and " (new file)" or "", i, #R.entries)
 	vim.api.nvim_set_current_win(R.right_win)
-	vim.api.nvim_win_set_cursor(R.right_win, { 1, 0 })
-	if vim.fn.diff_hlID(1, 1) == 0 then pcall(vim.cmd, "normal! ]c") end
+	if cursor then
+		pcall(vim.api.nvim_win_set_cursor, R.right_win, cursor)
+	else
+		vim.api.nvim_win_set_cursor(R.right_win, { 1, 0 })
+		if R.layout == "inline" then
+			goto_hunk("next", true)
+		elseif vim.fn.diff_hlID(1, 1) == 0 then
+			pcall(vim.cmd, "normal! ]c")
+		end
+	end
 end
 
 function M.pick()
@@ -508,11 +634,9 @@ function M.open()
 	if R then M.close() end
 	vim.cmd("tabnew")
 	vim.t.agent_changes = true
-	R = { tab = vim.api.nvim_get_current_tabpage(), entries = entries, mapped = {}, noted = {} }
-	R.left_win = vim.api.nvim_get_current_win()
-	local placeholder = vim.api.nvim_get_current_buf()
-	vim.cmd("rightbelow vsplit")
+	R = { tab = vim.api.nvim_get_current_tabpage(), entries = entries, layout = layout(), mapped = {}, saved = {}, noted = {} }
 	R.right_win = vim.api.nvim_get_current_win()
+	local placeholder = vim.api.nvim_get_current_buf()
 	show(1)
 	if vim.api.nvim_buf_is_valid(placeholder) and placeholder ~= R.right then
 		pcall(vim.api.nvim_buf_delete, placeholder, { force = true })
@@ -585,6 +709,11 @@ function M.setup()
 				R.right = a.buf
 			end
 			if a.buf == R.left or a.buf == R.right then map_buf(a.buf) end
+			-- a reload (:edit) disables mini.diff in the buffer; turn it back on
+			if a.buf == R.right and R.layout == "inline" then
+				local d = MiniDiff.get_buf_data(a.buf)
+				if not (d and d.ref_text and d.overlay) then overlay() end
+			end
 		end,
 	})
 	local last
