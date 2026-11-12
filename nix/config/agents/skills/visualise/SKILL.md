@@ -1,9 +1,9 @@
 ---
-name: rex-web
+name: visualise
 description: >-
-  Show Markdown, diagrams, tables, charts, or HTML pages in a Rex pane beside
-  the agent, and ask the user questions through clickable forms. Use in Rex
-  when a visual explains better than text.
+  Use in Rex when a visual explains better than text: diagrams, results or
+  wide tables, side-by-side comparisons, UI or color previews, or a question
+  the user answers with a click.
 ---
 
 # rex-web
