@@ -1,10 +1,3 @@
-local mini_comment_ok, mini_comment = pcall(require, "mini.comment")
-
-if not mini_comment_ok then
-	return
-end
-
-mini_comment.setup({})
 local mini_pairs_ok, mini_pairs = pcall(require, "mini.pairs")
 
 if not mini_pairs_ok then

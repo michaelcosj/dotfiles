@@ -9,36 +9,38 @@ treesitter.setup({})
 vim.api.nvim_create_autocmd("PackChanged", {
 	callback = function(ev)
 		local name, kind = ev.data.spec.name, ev.data.kind
-		if name == "nvim-treesitter" and kind == "update" then
+		if name == "nvim-treesitter" and (kind == "install" or kind == "update") then
 			if not ev.data.active then
 				vim.cmd.packadd("nvim-treesitter")
 			end
+			-- the usual parsers; the FileType autocmd below installs others on demand
+			require("nvim-treesitter").install({
+				"bash",
+				"c",
+				"cpp",
+				"css",
+				"dockerfile",
+				"go",
+				"html",
+				"javascript",
+				"json",
+				"lua",
+				"markdown",
+				"python",
+				"regex",
+				"rust",
+				"sql",
+				"svelte",
+				"typescript",
+				"tsx",
+				"yaml",
+			})
 			vim.cmd("TSUpdate")
 		end
 	end,
 })
 
-treesitter.install({
-	"bash",
-	"c",
-	"cpp",
-	"css",
-	"dockerfile",
-	"go",
-	"html",
-	"javascript",
-	"json",
-	"lua",
-	"markdown",
-	"python",
-	"regex",
-	"rust",
-	"sql",
-	"svelte",
-	"typescript",
-	"tsx",
-	"yaml",
-})
+local available -- parsers nvim-treesitter can install (a Lua local: a g: var copies it on every read)
 
 -- https://github.com/nvim-treesitter/nvim-treesitter/discussions/8621#discussioncomment-16411732
 vim.api.nvim_create_autocmd("FileType", {
@@ -51,10 +53,7 @@ vim.api.nvim_create_autocmd("FileType", {
 		end
 
 		if not vim.treesitter.language.add(lang) then
-			local available = vim.g.ts_available or treesitter.get_available()
-			if not vim.g.ts_available then
-				vim.g.ts_available = available
-			end
+			available = available or treesitter.get_available()
 			if vim.tbl_contains(available, lang) then
 				treesitter.install(lang)
 			end

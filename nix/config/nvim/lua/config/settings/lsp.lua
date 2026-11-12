@@ -38,11 +38,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
 		vim.keymap.set("n", "gl", function()
 			vim.diagnostic.setloclist({})
-		end, vim.tbl_extend("force", opts, { desc = "Diagnostics in quickfix list" }))
-
-		vim.keymap.set("n", "gq", function()
-			vim.diagnostic.setloclist({})
-		end, vim.tbl_extend("force", opts, { desc = "Diagnostics in quickfix list" }))
+		end, vim.tbl_extend("force", opts, { desc = "Diagnostics in location list" }))
 
 		vim.keymap.set("n", "<leader>d", function()
 			vim.diagnostic.open_float(nil, {

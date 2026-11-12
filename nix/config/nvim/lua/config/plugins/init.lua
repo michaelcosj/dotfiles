@@ -25,7 +25,6 @@ vim.pack.add({
 	gh("folke/snacks.nvim"),
 
 	-- Git
-	gh("m00qek/baleia.nvim"),
 	gh("esmuellert/codediff.nvim"), -- diff viewer
 	gh("lewis6991/gitsigns.nvim"),
 	{ src = gh("echasnovski/mini.diff"), version = vim.version.range("*") }, -- agent review inline layout
@@ -33,7 +32,6 @@ vim.pack.add({
 
 	-- Editing
 	gh("echasnovski/mini.icons"),
-	{ src = gh("echasnovski/mini.comment"), version = vim.version.range("*") },
 	{ src = gh("echasnovski/mini.pairs"), version = vim.version.range("*") },
 	{ src = gh("echasnovski/mini.surround"), version = vim.version.range("*") },
 

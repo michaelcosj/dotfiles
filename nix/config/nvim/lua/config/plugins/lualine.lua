@@ -14,11 +14,18 @@ lualine.setup({
 	},
 	sections = {
 		lualine_a = { "mode" },
+		-- branch and diff from gitsigns: lualine's own run git on every BufEnter
 		lualine_b = {
-			"branch",
+			{ "b:gitsigns_head", icon = "" },
 		},
 		lualine_c = {
-			"diff",
+			{
+				"diff",
+				source = function()
+					local g = vim.b.gitsigns_status_dict
+					return g and { added = g.added, modified = g.changed, removed = g.removed }
+				end,
+			},
 			"diagnostics",
 		},
 		lualine_x = {

@@ -23,8 +23,6 @@ _G.bt = function()
 	Snacks.debug.backtrace()
 end
 
-vim.print = _G.dd
-
 Snacks.toggle.diagnostics():map("<leader>ud")
 Snacks.toggle.treesitter():map("<leader>uT")
 

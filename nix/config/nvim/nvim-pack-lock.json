@@ -8,10 +8,6 @@
       "rev": "d0ea94323207abcdee717d76bb57b38d46055664",
       "src": "https://www.github.com/dense-analysis/ale"
     },
-    "baleia.nvim": {
-      "rev": "710537ff5cd669c5a76c5f5b6a9169fd9b913d18",
-      "src": "https://www.github.com/m00qek/baleia.nvim"
-    },
     "blink.cmp": {
       "rev": "78336bc89ee5365633bcf754d93df01678b5c08f",
       "src": "https://www.github.com/saghen/blink.cmp",
@@ -56,11 +52,6 @@
     "lualine.nvim": {
       "rev": "221ce6b2d999187044529f49da6554a92f740a96",
       "src": "https://www.github.com/nvim-lualine/lualine.nvim"
-    },
-    "mini.comment": {
-      "rev": "4677392f091e8b5c18d4b535130220a6d1da4aca",
-      "src": "https://www.github.com/echasnovski/mini.comment",
-      "version": ">=0.0.0"
     },
     "mini.diff": {
       "rev": "0743d26bd858ebe32efcf5c86a91a422a000f273",
