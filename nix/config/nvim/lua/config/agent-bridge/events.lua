@@ -2,6 +2,7 @@ local M = {
 	state = "disconnected",
 	message = nil,
 	agent = nil,
+	busy = 0, -- subagents and background jobs still running
 }
 
 local names = {
@@ -13,10 +14,13 @@ function M.emit(event, data)
 	if event == "status" then
 		M.state = data.state or "unknown"
 		M.message = data.message
+		local b = data.busy or {}
+		M.busy = (tonumber(b.agents) or 0) + (tonumber(b.background) or 0)
 	elseif event == "connected" then
 		M.state = data.state or "idle"
 	elseif event == "shutdown" or event == "disconnected" then
 		M.state = "disconnected"
+		M.busy = 0
 	end
 
 	if event == "files_changed" then
