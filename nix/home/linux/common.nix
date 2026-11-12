@@ -20,6 +20,12 @@
     chromium
     # rex-web is a Bun script. macOS has Bun in ~/.bun (fish.nix).
     bun
+    # Fonts for headless Chromium: a headless host has none, and pages render
+    # without text. Desktops add their own on top (desktop.nix).
+    dejavu_fonts
+    noto-fonts
+    noto-fonts-color-emoji
+    jetbrains-mono
     claude-code
     # Use the official prebuilt release instead of compiling the Rust workspace.
     (callPackage ../../pkgs/codex-bin.nix { })
@@ -33,6 +39,9 @@
 
   # Nix owns the installed Claude Code version.
   home.sessionVariables.DISABLE_AUTOUPDATER = "1";
+
+  # Lets Nix Chromium find the fonts above; desktop.nix sets it too.
+  fonts.fontconfig.enable = true;
 
   programs.rex.enable = true;
   services.rex.enable = true;
