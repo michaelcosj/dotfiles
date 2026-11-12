@@ -1,5 +1,5 @@
-// Parent side of delegation: the `agent` and `remote_agent` tools, the
-// roster, and child lifecycle. A local child is an interactive pi in a
+// Parent side of delegation: the `agent` tool, the roster, and child
+// lifecycle. A local child is an interactive pi in a
 // detached Rex block; it connects to this pi's bridge socket as role "agent"
 // (see child.ts). A remote child runs in a tab of a `pi-agents` session on
 // another Rex host and connects back over Tailscale (bridge.listenRemote).
@@ -80,28 +80,12 @@ export interface SavedAgent {
 }
 const SAVED_TYPE = "agent-child";
 
-const RemoteParams = Type.Object({
-  action: StringEnum(["start", "hosts"] as const, {
-    description: "start a child agent on another Rex host; hosts lists the hosts and whether each answers",
-  }),
-  host: Type.Optional(Type.String({ description: "start: the host's full label from hosts, e.g. devbox-work" })),
-  name: Type.Optional(Type.String({ description: "start: agent name: lowercase letters, digits, - (shared with local agents)" })),
-  task: Type.Optional(Type.String({ description: "start: the full task prompt. Put everything the child needs in it" })),
-  title: Type.Optional(Type.String({ description: "start: a short title for the agent list (default: name)" })),
-  model: Type.Optional(Type.String({ description: "start: model, as named on that host (default: the host's pi default)" })),
-  thinking: Type.Optional(StringEnum(["off", "minimal", "low", "medium", "high", "xhigh"] as const, { description: "start: thinking level" })),
-  cwd: Type.Optional(Type.String({ description: "start: working directory on the host; ~ is the host's home (default: this cwd, under ~ if it is in your home)" })),
-  notify: Type.Optional(Type.Boolean({ description: "start: post a message to you each time it settles (default true)" })),
-});
-
 /** This machine's cwd as a path on another host: the same place under ~. */
 export function remoteCwd(cwd: string, home = os.homedir()): string {
   if (cwd === home) return "~";
   return cwd.startsWith(`${home}/`) ? `~/${cwd.slice(home.length + 1)}` : cwd;
 }
 
-// Runs on the host: go to the directory (Rex silently uses ~ for a bad cwd),
-// check a resumed session file exists, then start pi with the bridge env.
 /** agent-worktree (nix/scripts); AGENT_WORKTREE_BIN overrides it, for tests. */
 const WORKTREE_BIN = () => process.env.AGENT_WORKTREE_BIN || "agent-worktree";
 
@@ -120,6 +104,8 @@ export function newWorktree(name: string, repo: string): Promise<string> {
 export const worktreeNote = (branch: string) =>
   `You are in your own git worktree on branch ${branch}. Commit your work there when done; your parent reviews and merges it.`;
 
+// Runs on the host: go to the directory (Rex silently uses ~ for a bad cwd),
+// check a resumed session file exists, then start pi with the bridge env.
 const REMOTE_SCRIPT = [
   'd=$1; r=$2; shift 2',
   'case $d in "~") d=$HOME ;; "~/"*) d=$HOME/${d#"~/"} ;; esac',
@@ -129,20 +115,21 @@ const REMOTE_SCRIPT = [
 ].join("\n");
 
 const Params = Type.Object({
-  action: StringEnum(["start", "send", "wait", "status", "stop", "resume"] as const, {
+  action: StringEnum(["start", "send", "wait", "status", "stop", "resume", "hosts"] as const, {
     description:
-      "start a child agent; send a follow-up to a running child; wait for children to settle; status of one or all (lists resumable ones); stop (closes it); resume a stopped child's conversation in a new pane (e.g. after a restart)",
+      "start a child agent; send a follow-up to a running child; wait for children to settle; status of one or all (lists resumable ones); stop (closes it); resume a stopped child's conversation in a new pane (e.g. after a restart); hosts lists other Rex hosts and whether each answers",
   }),
+  host: Type.Optional(Type.String({ description: "start: run on this Rex host (full label from hosts); its files, paths and models are the host's" })),
   name: Type.Optional(Type.String({ description: "Agent name: lowercase letters, digits, - (e.g. scout-auth). wait: omit to wait for any" })),
   task: Type.Optional(Type.String({ description: "start: the full task prompt. Put everything the child needs in it" })),
   title: Type.Optional(Type.String({ description: "start: a short title for the agent list (default: name)" })),
   text: Type.Optional(Type.String({ description: "send: the message. resume: optional first message" })),
-  model: Type.Optional(Type.String({ description: "start: model, e.g. claude-code/claude-opus-5-5 (default: yours)" })),
+  model: Type.Optional(Type.String({ description: "start: model, e.g. claude-code/claude-opus-5-5 (default: yours; with host, the host's)" })),
   thinking: Type.Optional(StringEnum(["off", "minimal", "low", "medium", "high", "xhigh"] as const, { description: "start: thinking level" })),
-  cwd: Type.Optional(Type.String({ description: "start: working directory (default: current)" })),
+  cwd: Type.Optional(Type.String({ description: "start: working directory (default: current). With host, a path there; ~ is its home" })),
   worktree: Type.Optional(
     Type.Union([Type.Boolean(), Type.String()], {
-      description: "start: run in its own git worktree on branch agent/<name> (true: named after the agent, or a name). Not with cwd",
+      description: "start: run in its own git worktree on branch agent/<name> (true: named after the agent, or a name). Not with cwd or host",
     }),
   ),
   notify: Type.Optional(Type.Boolean({ description: "start: post a message to you each time it settles (default true)" })),
@@ -739,7 +726,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       "(notify, default true), or use wait. stop closes a child; resume reopens a stopped child's conversation (e.g. after a restart). Children cannot start agents.",
     promptSnippet: "Delegate tasks to child agents the user can watch and steer (Rex)",
     promptGuidelines: [
-      "Use the agent tool for subagents; load the subagent skill for model picks and prompting guidance.",
+      "Use the agent tool for subagents (host: on another Rex host); load the subagent skill for model picks and prompting guidance.",
       "After agent start or send, carry on with other work; each child's reply arrives as a message when it settles. Use agent wait only when you need a result before you can continue.",
       "A child that needs an answer ends its turn with numbered questions. Answer from what you know: facts, earlier decisions in this conversation, and the user's standing rules. Then reply with agent send and tell the user your answer in one line, so they can correct it.",
       "Ask the user (questionnaire) about new choices, anything destructive or hard to undo, anything outside the task's scope, and matters of taste. Send their answer to the child. Batch questions from several children into one questionnaire.",
@@ -764,6 +751,15 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       switch (p.action) {
         case "start": {
           if (!p.name || !NAME_RE.test(p.name)) throw new Error("name must be lowercase letters, digits and - (max 32)");
+          if (p.host !== undefined) {
+            if (!p.host.trim()) throw new Error("host is empty (see agent hosts)");
+            if (p.worktree) throw new Error("worktree is not supported for remote agents yet");
+            const a = await startRemote({ ...p, host: p.host.trim() });
+            return text(
+              `Started agent ${a.name} on ${a.host} in ${a.cwd}${a.model ? ` (${a.model})` : ""}.${a.notify ? " Its reply will arrive as a message when it settles." : ""}`,
+              { names: [a.name], title: a.title, host: a.host },
+            );
+          }
           const a = await start(p, ctx);
           const where = a.worktree ? ` in worktree ${a.cwd} (branch ${a.worktree.branch}); merge or discard it, then agent-worktree rm ${a.worktree.name}` : "";
           return text(
@@ -782,8 +778,13 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
           const a = await start({ ...p, notify: p.notify }, ctx, d);
           return text(
             `Resumed agent ${a.name}${a.host ? ` on ${a.host}` : ""} with its previous conversation.${p.text?.trim() ? (a.notify ? " Its reply will arrive as a message when it settles." : "") : " It is idle; send it work."}`,
-            { names: [a.name], title: a.title, resumed: true },
+            { names: [a.name], title: a.title, resumed: true, host: a.host },
           );
+        }
+        case "hosts": {
+          const list = await rex.hosts();
+          if (!list.length) return text("No Rex hosts are known. Add one with rex hosts.");
+          return text(list.map((h) => `${h.label}: ${h.status}${h.detail ? ` (${h.detail})` : ""}`).join("\n"));
         }
         case "send": {
           const a = get(p.name);
@@ -844,6 +845,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     renderCall(args: any, theme: any) {
       let t = theme.fg("toolTitle", theme.bold("agent ")) + theme.fg("muted", args.action ?? "");
       if (args.name) t += ` ${theme.fg("accent", args.name)}`;
+      if (args.action === "start" && args.host) t += theme.fg("dim", `@${args.host}`);
       if (args.action === "start" && args.title) t += ` ${theme.fg("dim", args.title)}`;
       if (args.action === "start" && args.worktree) t += theme.fg("dim", ` ⎇ ${typeof args.worktree === "string" ? args.worktree : args.name}`);
       if (args.model) t += ` ${theme.fg("dim", `(${args.model}${args.thinking ? `:${args.thinking}` : ""})`)}`;
@@ -855,7 +857,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       const d = result.details;
       if (d?.names) {
         return new Text(
-          `${theme.fg("success", "●")} ${theme.bold(d.names.join(", "))} ${theme.fg("dim", `${d.resumed ? "resumed" : "launched"}${d.title ? ` — ${d.title}` : ""} (↓ to manage)`)}`,
+          `${theme.fg("success", "●")} ${theme.bold(d.names.join(", "))}${d.host ? theme.fg("dim", `@${d.host}`) : ""} ${theme.fg("dim", `${d.resumed ? "resumed" : "launched"}${d.title ? ` — ${d.title}` : ""} (↓ to manage)`)}`,
           0,
           0,
         );
@@ -866,61 +868,6 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       let t = theme.fg("toolOutput", shown.join("\n"));
       if (shown.length < lines.length) t += theme.fg("muted", `\n... (${lines.length - shown.length} more lines, expand to view)`);
       return new Text(t, 0, 0);
-    },
-  });
-
-  pi.registerTool({
-    name: "remote_agent",
-    label: "Remote agent",
-    description:
-      "Start a child agent on another Rex host (another machine running Rex), e.g. for more power or a project that lives there. " +
-      "It runs in a tab of the host's pi-agents session and joins the same agent list; after start, manage it with the agent tool " +
-      "(send, wait, status, stop, resume). Its files, paths and models are the host's; its edits are not reviewed in Neovim here. " +
-      "hosts lists the hosts and whether each answers.",
-    promptSnippet: "Start child agents on another Rex host; manage them with the agent tool",
-    promptGuidelines: [
-      "Use remote_agent only when the user asks for a host or the work belongs there; otherwise use agent. Pass the host's full label from remote_agent hosts.",
-      "After remote_agent start, use the agent tool (send, wait, status, stop, resume) for that child, as for a local one.",
-    ],
-    parameters: RemoteParams,
-
-    async execute(_id: string, p: any) {
-      if (p.action === "hosts") {
-        const list = await rex.hosts();
-        if (!list.length) return text("No Rex hosts are known. Add one with rex hosts.");
-        return text(list.map((h) => `${h.label}: ${h.status}${h.detail ? ` (${h.detail})` : ""}`).join("\n"));
-      }
-      if (p.action !== "start") throw new Error(`unknown action ${p.action}`);
-      if (!p.name || !NAME_RE.test(p.name)) throw new Error("name must be lowercase letters, digits and - (max 32)");
-      if (!p.host?.trim()) throw new Error("start requires host (see remote_agent hosts)");
-      if (p.worktree) throw new Error("worktree is not supported for remote agents yet");
-      const a = await startRemote({ ...p, host: p.host.trim() });
-      return text(
-        `Started agent ${a.name} on ${a.host} in ${a.cwd}${a.model ? ` (${a.model})` : ""}. Manage it with the agent tool.${a.notify ? " Its reply will arrive as a message when it settles." : ""}`,
-        { names: [a.name], title: a.title, host: a.host },
-      );
-    },
-
-    renderCall(args: any, theme: any) {
-      let t = theme.fg("toolTitle", theme.bold("remote_agent ")) + theme.fg("muted", args.action ?? "");
-      if (args.name) t += ` ${theme.fg("accent", args.name)}`;
-      if (args.host) t += theme.fg("dim", `@${args.host}`);
-      if (args.title) t += ` ${theme.fg("dim", args.title)}`;
-      if (args.model) t += ` ${theme.fg("dim", `(${args.model}${args.thinking ? `:${args.thinking}` : ""})`)}`;
-      return new Text(t, 0, 0);
-    },
-
-    renderResult(result: any, _opts: any, theme: any) {
-      const d = result.details;
-      if (d?.names) {
-        return new Text(
-          `${theme.fg("success", "●")} ${theme.bold(d.names.join(", "))}${theme.fg("dim", `@${d.host}`)} ${theme.fg("dim", `launched${d.title ? ` — ${d.title}` : ""} (↓ to manage)`)}`,
-          0,
-          0,
-        );
-      }
-      const out = result.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n");
-      return new Text(theme.fg("toolOutput", out), 0, 0);
     },
   });
 

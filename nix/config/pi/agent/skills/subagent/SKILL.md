@@ -31,16 +31,17 @@ agent({ action: "start", name: "scout-auth", title: "Map the auth flow", model: 
 - Take a result with `git merge agent/<name>` (`--no-commit` to let the user review it in the editor as uncommitted changes), or cherry-pick.
 - Then remove every worktree you made, including the ones you didn't use: `agent-worktree rm <name>` (it refuses unmerged work; `--force` discards it). Stopping a child keeps its worktree.
 
-### On another machine: `remote_agent`
+### On another machine: `host`
 
-Use `remote_agent` when the user names a Rex host ("run it on the devbox") or the work belongs there: more power, another OS, or a project that lives there. `remote_agent hosts` lists the hosts and whether each one answers. Pass the full label.
+Pass `host` to `agent start` when the user names a Rex host ("run it on the devbox") or the work belongs there: more power, another OS, or a project that lives there. `agent hosts` lists the hosts and whether each one answers. Pass the full label.
 
 ```js
-remote_agent({ action: "start", host: "devbox-work", name: "build-check", title: "Run the full build", cwd: "~/code/app", task: "<full prompt>" })
+agent({ action: "start", host: "devbox-work", name: "build-check", title: "Run the full build", cwd: "~/code/app", task: "<full prompt>" })
 ```
 
-- After `start`, manage it with the `agent` tool (`send`, `wait`, `status`, `stop`, `resume`), as for a local child. It shows in the same list as `name@host`. Selecting it switches the Rex app to the host's `pi-agents` session.
+- Manage it like a local child (`send`, `wait`, `status`, `stop`, `resume`). It shows in the same list as `name@host`. Selecting it switches the Rex app to the host's `pi-agents` session.
 - Its files, paths, programs and models are the host's. `cwd` is a path on the host, where `~` is the host's home. It defaults to this cwd under `~`. Name a model the host has; leave it out to use the host's default.
+- `worktree` does not work with `host`.
 - Its edits are not in the user's Neovim change review. Ask for a summary of its changes, such as a diff or commit, in its reply.
 - It stops when this pi exits, and exits on its own if it can't reach this pi for five minutes.
 

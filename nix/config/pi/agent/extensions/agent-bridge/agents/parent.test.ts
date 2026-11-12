@@ -163,7 +163,7 @@ describe("remote agents", () => {
       connect(client);
     });
 
-    const r = await tools.get("remote_agent").execute("1", { action: "start", host: "devbox", name: "beta", task: "do it", cwd: "~/code" });
+    const r = await tools.get("agent").execute("1", { action: "start", host: "devbox", name: "beta", task: "do it", cwd: "~/code" }, undefined, undefined, {});
     expect(r.content[0].text).toContain("on devbox in ~/code");
 
     // Every Rex call went to the host, except reading this pane's size.
@@ -361,6 +361,6 @@ describe("worktree", () => {
 
   test("remote agents refuse worktree", async () => {
     const { tools } = setup();
-    await expect(tools.get("remote_agent").execute("1", { action: "start", name: "r", host: "devbox", task: "x", worktree: true })).rejects.toThrow("not supported");
+    await expect(tools.get("agent").execute("1", { action: "start", name: "r", host: "devbox", task: "x", worktree: true }, undefined, undefined, {})).rejects.toThrow("not supported");
   });
 });
