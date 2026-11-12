@@ -288,7 +288,8 @@ async function queryTheme() {
 const profile = mkdtempSync(join(tmpdir(), "rex-web-profile-"));
 const chrome = Bun.spawn([CHROME, "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
   "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "--mute-audio",
-  "--allow-file-access-from-files",
+  // No --allow-file-access-from-files: with it, any shown page could read
+  // every local file (~/.ssh, tokens) and send it out.
   // Software rendering: the page is small and the GPU readback per frame
   // costs far more than drawing on the CPU. REX_WEB_GPU=1 turns it back on.
   ...(process.env.REX_WEB_GPU ? [] : ["--disable-gpu", "--disable-gpu-compositing"]),
