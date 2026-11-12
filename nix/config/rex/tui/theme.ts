@@ -1,5 +1,5 @@
 // The Rex theme as colors for the tui viewer: the terminal's fg, bg and 16
-// palette colors, plus shades blended from them (as rex-web's themeVars).
+// palette colors, plus shades blended from them (as rex-view's themeVars).
 
 export type Theme = {
   dark: boolean;

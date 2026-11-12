@@ -9,7 +9,7 @@ description: >-
 
 # Visualise
 
-Show the user things in a Rex pane next to yours with `rex-web`. Use it only
+Show the user things in a Rex pane next to yours with `rex-view`. Use it only
 in Rex (`$REX_BLOCK` is set), and only when seeing beats reading:
 
 - **Explain:** architecture, data flow, a state machine, a sequence (Mermaid).
@@ -35,23 +35,23 @@ Write Markdown when it's enough; use HTML and scripts when the page must move.
 ## Commands
 
 ```bash
-rex-web show notes.md              # open the pane, or replace its page (no focus change)
-rex-web show - <<'EOF'             # stdin: Markdown, or HTML if it starts with <
+rex-view show notes.md              # open the pane, or replace its page (no focus change)
+rex-view show - <<'EOF'             # stdin: Markdown, or HTML if it starts with <
 # Hello
 EOF
-rex-web show --below --ratio 40 f  # where to open the pane (only when it opens)
-rex-web show --focus f             # give the pane focus (before the user types in it)
-rex-web show --engine web f        # force an engine: tui or web (web can't draw .md)
-rex-web shot [-o out.png]          # web: PNG; tui: the pane's text (.txt). Prints the path
-rex-web eval 'document.title'      # web only: run JS in the page, print the result as JSON
-rex-web wait [--timeout S] [--close]  # wait for the page to send a value; print it as JSON
-rex-web hide                       # close the pane
-rex-web status                     # JSON: open, engine, url, size
+rex-view show --below --ratio 40 f  # where to open the pane (only when it opens)
+rex-view show --focus f             # give the pane focus (before the user types in it)
+rex-view show --engine web f        # force an engine: tui or web (web can't draw .md)
+rex-view shot [-o out.png]          # web: PNG; tui: the pane's text (.txt). Prints the path
+rex-view eval 'document.title'      # web only: run JS in the page, print the result as JSON
+rex-view wait [--timeout S] [--close]  # wait for the page to send a value; print it as JSON
+rex-view hide                       # close the pane
+rex-view status                     # JSON: open, engine, url, size
 ```
 
 - One viewer per agent pane; `show` again replaces its page. `--name NAME`
   keeps a second viewer.
-- Local files reload when they change: write `/tmp/rex-web-<topic>.md`,
+- Local files reload when they change: write `/tmp/rex-view-<topic>.md`,
   `show` it once, then edit it as the work goes on.
 - After `show`, run `shot` and read the result before you tell the user.
   Fix cut-off or empty content. Web pages that render after load need a
@@ -127,7 +127,7 @@ addEventListener("input", update); update();
 ## Getting a value back
 
 A page can send the user's choice back to you: the settings they landed on in
-a live tool, or a pick between options you showed. `rex-web wait` blocks until
+a live tool, or a pick between options you showed. `rex-view wait` blocks until
 it arrives and prints it as JSON.
 
 - `rex.send(value)` (web) sends any JSON value, e.g. a "Use this" button:
@@ -142,7 +142,7 @@ and `<textarea>` take text. Keys: Tab/arrows/j/k move, Space toggles, Enter
 or a click submits, Alt+Enter adds a line.
 
 ```bash
-rex-web show - <<'EOF'
+rex-view show - <<'EOF'
 <h1>Which database?</h1>
 <form data-rex>
   <label class="choice"><input type="radio" name="db" value="postgres" checked>
@@ -152,7 +152,7 @@ rex-web show - <<'EOF'
   <div class="row"><button type="submit">Continue</button><button name="db" value="none">Neither</button></div>
 </form>
 EOF
-rex-web wait --timeout 600 --close   # prints {"db":"sqlite"}
+rex-view wait --timeout 600 --close   # prints {"db":"sqlite"}
 ```
 
 - Tell the user in text that the pane waits for them.
@@ -167,4 +167,4 @@ rex-web wait --timeout 600 --close   # prints {"db":"sqlite"}
 - `no open viewer`: `show` first; the user may have closed the pane.
 - `rex split failed`: report it and answer in text. Don't rearrange panes.
 - A tui page drawn badly: `show --engine web` it (HTML only).
-- Debug log: `REX_WEB_DEBUG=/tmp/rex-web.log rex-web show ...`.
+- Debug log: `REX_VIEW_DEBUG=/tmp/rex-view.log rex-view show ...`.

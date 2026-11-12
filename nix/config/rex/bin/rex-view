@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// rex-web: show HTML in a Rex pane: live, interactive, in the Rex theme.
+// rex-view: show Markdown, diagrams and HTML in a Rex pane, in the Rex theme.
 //
 // Two engines draw pages. tui (../tui/view.ts) draws Markdown, Mermaid and
 // plain <form data-rex> pages as terminal text with OpenTUI: light, crisp,
@@ -12,19 +12,19 @@
 // files reload when they change.
 //
 // Agent commands (one viewer pane per agent pane, named after $REX_BLOCK):
-//   rex-web show [--below] [--ratio PCT] [--focus] FILE|URL|-   open or update the pane (- = stdin: Markdown, or HTML if it starts with <)
-//   rex-web wait [--timeout SEC] [--close]   wait for the page to call rex.send(value); print it as JSON
+//   rex-view show [--below] [--ratio PCT] [--focus] FILE|URL|-   open or update the pane (- = stdin: Markdown, or HTML if it starts with <)
+//   rex-view wait [--timeout SEC] [--close]   wait for the page to call rex.send(value); print it as JSON
 //                                            (--close closes the pane after the answer or the timeout)
-//   rex-web shot [-o FILE.png]               screenshot of what the pane shows; prints the path
-//   rex-web eval JS                          run JS in the page; print the result as JSON
-//   rex-web hide                             close the pane
-//   rex-web status                           print the pane's state as JSON
-//   all take --name NAME (or $REX_WEB_NAME) to pick another viewer.
-//   show takes --engine auto|tui|web (or $REX_WEB_ENGINE; default auto: tui
+//   rex-view shot [-o FILE.png]               screenshot of what the pane shows; prints the path
+//   rex-view eval JS                          run JS in the page; print the result as JSON
+//   rex-view hide                             close the pane
+//   rex-view status                           print the pane's state as JSON
+//   all take --name NAME (or $REX_VIEW_NAME) to pick another viewer.
+//   show takes --engine auto|tui|web (or $REX_VIEW_ENGINE; default auto: tui
 //   for .md files, Markdown on stdin, and plain HTML it can draw).
 //
 // Low level:
-//   rex-web view FILE|URL   run the viewer in this terminal (any kitty-graphics terminal)
+//   rex-view view FILE|URL   run the viewer in this terminal (any kitty-graphics terminal)
 //
 // In the viewer: Ctrl-Q quits, Ctrl-R reloads. Everything else goes to the page.
 //
@@ -34,8 +34,8 @@
 //   <form data-rex>  on submit, sends the form fields as an object (rex.send)
 //   addEventListener('rex:theme', e => e.detail)
 //
-// Environment: REX_WEB_FPS (30), REX_WEB_SCALE, REX_WEB_GPU=1, REX_WEB_CHROME, REX_WEB_DEBUG=logfile,
-//   REX_WEB_PARTIAL=1|0 (frame edits; default: on only when the Rex app showing it is the macOS app)
+// Environment: REX_VIEW_FPS (30), REX_VIEW_SCALE, REX_VIEW_GPU=1, REX_VIEW_CHROME, REX_VIEW_DEBUG=logfile,
+//   REX_VIEW_PARTIAL=1|0 (frame edits; default: on only when the Rex app showing it is the macOS app)
 
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, watch, existsSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
@@ -43,9 +43,9 @@ import { join, resolve, dirname, basename } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { tuiCanDraw } from "../tui/detect.ts";
 
-// Chrome: REX_WEB_CHROME, the macOS apps, then the usual Linux names on PATH
+// Chrome: REX_VIEW_CHROME, the macOS apps, then the usual Linux names on PATH
 // (Nix puts them in a profile, not /usr/bin).
-const CHROME = process.env.REX_WEB_CHROME ||
+const CHROME = process.env.REX_VIEW_CHROME ||
   ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
    "/Applications/Chromium.app/Contents/MacOS/Chromium"].find(existsSync) ||
   ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"].map((n) => Bun.which(n)).find(Boolean);
@@ -55,8 +55,8 @@ const CHROME = process.env.REX_WEB_CHROME ||
 const COMMANDS = ["show", "wait", "shot", "eval", "hide", "status", "view", "help"];
 const argv = process.argv.slice(2);
 let cmd = "";
-const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "", engine: process.env.REX_WEB_ENGINE || "auto",
-  name: process.env.REX_WEB_NAME || "", scale: Number(process.env.REX_WEB_SCALE || 0) };
+const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "", engine: process.env.REX_VIEW_ENGINE || "auto",
+  name: process.env.REX_VIEW_NAME || "", scale: Number(process.env.REX_VIEW_SCALE || 0) };
 const rest = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
@@ -76,7 +76,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 cmd ||= "view";
 let scaleFlag = opt.scale, scale = 1;
-const die = (msg, code = 1) => { console.error("rex-web: " + msg); process.exit(code); };
+const die = (msg, code = 1) => { console.error("rex-view: " + msg); process.exit(code); };
 
 if (cmd === "help") {
   const lines = readFileSync(import.meta.path, "utf8").split("\n").slice(1);
@@ -85,7 +85,7 @@ if (cmd === "help") {
 }
 
 // Each viewer has a state directory with its control socket and pane ID.
-const stateRoot = join(process.env.XDG_STATE_HOME || join(homedir(), ".local/state"), "rex-web");
+const stateRoot = join(process.env.XDG_STATE_HOME || join(homedir(), ".local/state"), "rex-view");
 const viewerName = (opt.name || (process.env.REX_BLOCK || "default").replace(/^block:/, "").slice(-12)).replace(/[^\w.-]/g, "_");
 const stateDir = opt.state || join(stateRoot, viewerName);
 const sockPath = join(stateDir, "sock");
@@ -100,7 +100,7 @@ function toURL(target) {
 async function api(path, body, timeoutMs = 10000) {
   const ctl = new AbortController(); const t = timeoutMs ? setTimeout(() => ctl.abort(), timeoutMs) : 0;
   try {
-    const r = await fetch("http://rex-web" + path, { unix: sockPath, method: body === undefined ? "GET" : "POST",
+    const r = await fetch("http://rex-view" + path, { unix: sockPath, method: body === undefined ? "GET" : "POST",
       body: body === undefined ? undefined : JSON.stringify(body), signal: ctl.signal });
     return r;
   } finally { clearTimeout(t); }
@@ -116,7 +116,7 @@ const TUI_VIEW = join(TUI_DIR, "view.ts");
 function tuiReady() {
   if (existsSync(join(TUI_DIR, "node_modules/@opentui/core/package.json"))) return true;
   const p = Bun.spawnSync([process.execPath, "install", "--frozen-lockfile"], { cwd: TUI_DIR, stdout: "ignore", stderr: "pipe" });
-  if (p.exitCode) console.error("rex-web: couldn't install the tui viewer's packages; using Chrome. " + p.stderr.toString().trim().split("\n").pop());
+  if (p.exitCode) console.error("rex-view: couldn't install the tui viewer's packages; using Chrome. " + p.stderr.toString().trim().split("\n").pop());
   return p.exitCode === 0;
 }
 
@@ -137,7 +137,7 @@ function pickEngine(url) {
 if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
   mkdirSync(stateDir, { recursive: true });
   if (cmd === "show") {
-    let target = rest[0] || die("usage: rex-web show FILE|URL|-", 2);
+    let target = rest[0] || die("usage: rex-view show FILE|URL|-", 2);
     if (target === "-") {
       // Markdown on stdin gets a .md name (only the tui engine draws Markdown).
       const text = await Bun.stdin.text();
@@ -158,10 +158,10 @@ if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
     if (r) {
       if (!r.ok) die(await r.text());
       if (opt.focus) Bun.spawnSync(["rex", "block", "focus", readFileSync(join(stateDir, "block"), "utf8").trim()]);
-      console.log(`rex-web: updated ${viewerName}`);
+      console.log(`rex-view: updated ${viewerName}`);
       process.exit(0);
     }
-    if (!process.env.REX_BLOCK && !process.env.REX_SESSION) die("show needs a Rex terminal; use 'rex-web view' in other kitty-graphics terminals");
+    if (!process.env.REX_BLOCK && !process.env.REX_SESSION) die("show needs a Rex terminal; use 'rex-view view' in other kitty-graphics terminals");
     try { unlinkSync(sockPath); } catch {}
     // Split beside the agent's pane when it is in a window. A pane that is not
     // shown (a child agent the user hasn't switched to) can't be split, so
@@ -179,7 +179,7 @@ if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
       `--focus=${opt.focus}`, "--label", label, "--shell=none",
       ...(anchor ? ["-b", anchor] : []), "--",
       // rex split doesn't pass this process's environment to the pane
-      ...(process.env.REX_WEB_DEBUG ? ["env", `REX_WEB_DEBUG=${process.env.REX_WEB_DEBUG}`] : []), ...viewer];
+      ...(process.env.REX_VIEW_DEBUG ? ["env", `REX_VIEW_DEBUG=${process.env.REX_VIEW_DEBUG}`] : []), ...viewer];
     const env = { ...process.env };
     if (!anchor) delete env.REX_BLOCK; // rex split anchors to $REX_BLOCK when -b is missing
     const p = Bun.spawnSync(split, { stdout: "pipe", stderr: "pipe", env });
@@ -187,14 +187,14 @@ if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
     const block = JSON.parse(p.stdout.toString()).block_ids?.[0] || "";
     writeFileSync(join(stateDir, "block"), block + "\n");
     for (let t = 0; t < 100 && !(await alive()); t++) await Bun.sleep(100);
-    if (!(await alive())) die("viewer did not start; try REX_WEB_DEBUG=/tmp/rex-web.log");
-    console.log(`rex-web: showing ${label} in ${block} (name ${viewerName}, ${engine})`);
+    if (!(await alive())) die("viewer did not start; try REX_VIEW_DEBUG=/tmp/rex-view.log");
+    console.log(`rex-view: showing ${label} in ${block} (name ${viewerName}, ${engine})`);
     process.exit(0);
   }
   if (!(await alive())) {
     if (cmd === "hide") process.exit(0);
     if (cmd === "status") { console.log(JSON.stringify({ name: viewerName, open: false })); process.exit(0); }
-    die(`no open viewer '${viewerName}'; run 'rex-web show' first`);
+    die(`no open viewer '${viewerName}'; run 'rex-view show' first`);
   }
   if (cmd === "status") { console.log(await (await api("/status")).text()); process.exit(0); }
   if (cmd === "hide") { await api("/close", {}).catch(() => {}); for (let t = 0; t < 30 && await alive(); t++) await Bun.sleep(100); process.exit(0); }
@@ -232,11 +232,11 @@ if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
 
 // --- viewer ------------------------------------------------------------------
 
-if (!CHROME) die("Chrome not found; set REX_WEB_CHROME");
-let target = rest[0] || die("usage: rex-web view FILE|URL", 2);
+if (!CHROME) die("Chrome not found; set REX_VIEW_CHROME");
+let target = rest[0] || die("usage: rex-view view FILE|URL", 2);
 let tmpHtml = "";
 if (target === "-") {
-  tmpHtml = join(mkdtempSync(join(tmpdir(), "rex-web-")), "page.html");
+  tmpHtml = join(mkdtempSync(join(tmpdir(), "rex-view-")), "page.html");
   writeFileSync(tmpHtml, await Bun.stdin.text());
   target = tmpHtml;
 }
@@ -246,7 +246,7 @@ const serveControl = !!opt.name; // show passes --name
 // --- terminal --------------------------------------------------------------
 
 const out = process.stdout;
-const DEBUG = process.env.REX_WEB_DEBUG; // path of a log file
+const DEBUG = process.env.REX_VIEW_DEBUG; // path of a log file
 const log = (...a) => DEBUG && require("node:fs").appendFileSync(DEBUG, a.join(" ") + "\n");
 const ESC = "\x1b";
 let writing = Promise.resolve();
@@ -347,7 +347,7 @@ async function queryTheme() {
 
 // --- Chrome ----------------------------------------------------------------
 
-const profile = mkdtempSync(join(tmpdir(), "rex-web-profile-"));
+const profile = mkdtempSync(join(tmpdir(), "rex-view-profile-"));
 // Fonts: Nix Chromium reads /etc/fonts/fonts.conf. A headless host may have
 // none, and pages then render without text. Use the complete config Home
 // Manager writes (home/linux/common.nix) unless the system has its own or
@@ -366,8 +366,8 @@ const chrome = Bun.spawn([CHROME, "--headless=new", "--remote-debugging-port=0",
   // No --allow-file-access-from-files: with it, any shown page could read
   // every local file (~/.ssh, tokens) and send it out.
   // Software rendering: the page is small and the GPU readback per frame
-  // costs far more than drawing on the CPU. REX_WEB_GPU=1 turns it back on.
-  ...(process.env.REX_WEB_GPU ? [] : ["--disable-gpu", "--disable-gpu-compositing"]),
+  // costs far more than drawing on the CPU. REX_VIEW_GPU=1 turns it back on.
+  ...(process.env.REX_VIEW_GPU ? [] : ["--disable-gpu", "--disable-gpu-compositing"]),
   "about:blank"], { stdout: "ignore", stderr: "pipe", env: chromeEnv() });
 
 async function browserWS() {
@@ -420,9 +420,9 @@ const fontFaces = (() => {
     .concat(['"SF Mono"', "ui-monospace"].flatMap(n => [face(n, mono), face(n, monoi, true)])).join("");
 })();
 
-// Base styles for every page (zero specificity). REX_WEB_KIT=0 turns them off.
+// Base styles for every page (zero specificity). REX_VIEW_KIT=0 turns them off.
 const kitCSS = (() => {
-  if (process.env.REX_WEB_KIT === "0") return ":where(html){background:var(--rex-bg);color:var(--rex-fg);font-family:-apple-system,sans-serif}";
+  if (process.env.REX_VIEW_KIT === "0") return ":where(html){background:var(--rex-bg);color:var(--rex-fg);font-family:-apple-system,sans-serif}";
   try { return readFileSync(join(dirname(import.meta.path), "../web/kit.css"), "utf8"); } catch { return ""; }
 })();
 
@@ -495,12 +495,12 @@ applyTheme = async () => {
 
 import { inflateSync, deflateSync } from "node:zlib";
 
-const FPS = Number(process.env.REX_WEB_FPS || 30);
+const FPS = Number(process.env.REX_VIEW_FPS || 30);
 const TILE = 32;
 // Frame edits (a=f) are kitty animation frames. The macOS Rex app draws them;
 // Rex Linux (Ghostty's engine) doesn't support animated kitty graphics, and
 // would show only the first frame. So partial updates are on only when the
-// app showing this session is the macOS one. REX_WEB_PARTIAL overrides.
+// app showing this session is the macOS one. REX_VIEW_PARTIAL overrides.
 function clientPlatform() {
   try {
     const p = Bun.spawnSync(["rex", "api", "call", "client.list", JSON.stringify({ kinds: ["app"] })], { stdout: "pipe", stderr: "ignore", timeout: 3000 });
@@ -510,9 +510,9 @@ function clientPlatform() {
     return ((mine.length ? mine : apps)[0] || {}).info?.platform;
   } catch { return undefined; }
 }
-const PARTIAL = process.env.REX_WEB_PARTIAL ? process.env.REX_WEB_PARTIAL !== "0"
+const PARTIAL = process.env.REX_VIEW_PARTIAL ? process.env.REX_VIEW_PARTIAL !== "0"
   : process.env.REX_SESSION ? clientPlatform() === "macos" : true; // outside Rex: a real kitty terminal
-const xfer = mkdtempSync(join(tmpdir(), "rex-web-px-"));
+const xfer = mkdtempSync(join(tmpdir(), "rex-view-px-"));
 let useFiles = false, fileSeq = 0;
 
 let size = { cols: 80, rows: 24, w: 640, h: 432 }; // w, h in device pixels
@@ -669,7 +669,7 @@ async function probeFiles() {
   writeFileSync(path, Buffer.from([0, 0, 0, 255]));
   fileProbe = false;
   await query(`${ESC}_Gi=4242,a=t,f=32,s=1,v=1,t=t;${Buffer.from(path).toString("base64")}${ESC}\\`);
-  useFiles = fileProbe && process.env.REX_WEB_FILES !== "0";
+  useFiles = fileProbe && process.env.REX_VIEW_FILES !== "0";
   write(`${ESC}_Ga=d,d=I,i=4242,q=2${ESC}\\`);
 }
 
@@ -746,7 +746,7 @@ handlers["Runtime.bindingCalled"] = ({ name, payload }) => {
   else if (m.type === "send") pushEvent(m.value);
 };
 
-// --- control socket (rex-web show / wait / shot / eval / hide) ----------------------
+// --- control socket (rex-view show / wait / shot / eval / hide) ----------------------
 
 const events = [], eventWaiters = [];
 function pushEvent(v) {
@@ -833,7 +833,7 @@ process.on("exit", cleanup);
 process.on("uncaughtException", e => { log("crash", e.stack); quit(); });
 process.stdin.on("end", quit); process.stdin.on("close", quit);
 out.on("error", quit);
-chrome.exited.then(() => quitting || (console.error("rex-web: Chrome exited"), quit()));
+chrome.exited.then(() => quitting || (console.error("rex-view: Chrome exited"), quit()));
 // If our parent (the pane) dies without a signal, stop.
 const ppid = process.ppid;
 setInterval(() => { try { process.kill(ppid, 0); } catch { quit(); } }, 2000).unref();

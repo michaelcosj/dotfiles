@@ -1,5 +1,5 @@
 // Can the tui viewer draw this page, or does it need Chrome? No dependencies:
-// rex-web imports this before the tui packages are installed.
+// rex-view imports this before the tui packages are installed.
 
 const TAGS = new Set(("html head body title meta h1 h2 h3 h4 h5 h6 p br hr b strong i em u s del ins mark code kbd samp pre a ul ol li " +
   "table thead tbody tfoot tr th td caption blockquote small span div section article main header footer nav aside " +

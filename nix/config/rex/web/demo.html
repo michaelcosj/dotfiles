@@ -2,10 +2,10 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>rex-web demo</title>
+<title>rex-view demo</title>
 <style>
   :root {
-    /* Fallbacks for a normal browser; rex-web sets the real values. */
+    /* Fallbacks for a normal browser; rex-view sets the real values. */
     --rex-bg: #fff; --rex-fg: #1f2328; --rex-accent: #0969da; --rex-red: #cf222e; --rex-green: #1a7f37;
     --rex-yellow: #9a6700; --rex-magenta: #8250df; --rex-cyan: #1b7c83;
     --rex-muted: #656d76; --rex-border: #d0d7de; --rex-subtle: #f6f8fa; --rex-surface: #f6f8fa;
@@ -72,7 +72,7 @@
 </head>
 <body>
 <header>
-  <h1>rex-web</h1><span class="pill">kitty graphics · headless Chrome</span>
+  <h1>rex-view</h1><span class="pill">kitty graphics · headless Chrome</span>
   <span class="clock" id="clock"></span>
 </header>
 
@@ -230,8 +230,8 @@ $("#bars").onclick = e => { const i = Math.floor(e.offsetX / ($("#bars").clientW
 
 
 // host bridge
-$("#copy").onclick = () => { window.rex?.copy("Hello from rex-web 👋"); toast("Copied via OSC 52"); };
-$("#title").onclick = () => { window.rex?.title("rex-web ✨ " + new Date().toLocaleTimeString()); toast("Title set"); };
+$("#copy").onclick = () => { window.rex?.copy("Hello from rex-view 👋"); toast("Copied via OSC 52"); };
+$("#title").onclick = () => { window.rex?.title("rex-view ✨ " + new Date().toLocaleTimeString()); toast("Title set"); };
 $("#close").onclick = () => window.rex?.close();
 
 addEventListener("resize", () => { drawSpark(); drawBars(); });

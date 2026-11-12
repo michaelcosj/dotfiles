@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ubuntu host prerequisite for Nix Chromium (rex-web renders pages with it).
+# Ubuntu host prerequisite for Nix Chromium (rex-view renders pages with it).
 # Ubuntu 23.10+ restricts unprivileged user namespaces through AppArmor, so
 # Chromium's namespace sandbox fails, and its SUID fallback cannot be setuid in
 # the Nix store. Permit user namespaces for the Nix-store Chromium binary only

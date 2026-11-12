@@ -1,10 +1,10 @@
-// rex-web's tui viewer: draws Markdown, Mermaid diagrams and <form data-rex>
-// as terminal text with OpenTUI, in the Rex theme. rex-web starts it in a
-// pane (`rex-web show` picks it for pages it can draw); it serves the same
+// rex-view's tui viewer: draws Markdown, Mermaid diagrams and <form data-rex>
+// as terminal text with OpenTUI, in the Rex theme. rex-view starts it in a
+// pane (`rex-view show` picks it for pages it can draw); it serves the same
 // control socket as the Chrome viewer, so `wait`, `hide` and `status` work
 // the same.
 //
-//   bun view.ts --name NAME --state DIR FILE    (from rex-web show)
+//   bun view.ts --name NAME --state DIR FILE    (from rex-view show)
 //   bun view.ts FILE                            (try it in any terminal)
 //
 // Keys: tab / shift-tab move between fields, j/k or arrows move within a
@@ -34,7 +34,7 @@ for (let i = 0; i < args.length; i++) {
 if (!file) { console.error("usage: view.ts [--name N --state DIR] FILE"); process.exit(2); }
 file = resolve(file.replace(/^file:\/\//, ""));
 
-const DEBUG = process.env.REX_WEB_DEBUG;
+const DEBUG = process.env.REX_VIEW_DEBUG;
 const log = (...a: any[]) => DEBUG && require("node:fs").appendFileSync(DEBUG, "[tui] " + a.join(" ") + "\n");
 
 // ---- renderer and theme ----
@@ -381,7 +381,7 @@ function startControl() {
       }
       if (path === "/close") { setTimeout(quit, 10); return new Response("ok"); }
       if (path === "/shot") return new Response("tui", { status: 501 });
-      if (path === "/eval") return new Response("eval needs the web engine (rex-web show --engine web)", { status: 400 });
+      if (path === "/eval") return new Response("eval needs the web engine (rex-view show --engine web)", { status: 400 });
       if (path === "/wait") {
         if (events.length) return new Response(JSON.stringify(events.shift()));
         const timeout = Number(u.searchParams.get("timeout") || 0);

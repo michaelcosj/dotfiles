@@ -1,4 +1,4 @@
-/* rex-web base kit: rex-web adds this to every page.
+/* rex-view base kit: rex-view adds this to every page.
    Every selector is wrapped in :where(), so it has zero specificity and any
    style the page sets wins. Plain semantic HTML looks right in the Rex theme;
    the classes below cover the common agent layouts. */
