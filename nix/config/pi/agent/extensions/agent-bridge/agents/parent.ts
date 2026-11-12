@@ -721,18 +721,12 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     name: "agent",
     label: "Agent",
     description:
-      "Delegate work to child agents. Each child is an interactive pi in its own Rex pane that the user can view, steer, and answer questions in. " +
-      "start runs a task; the child stays alive after it finishes, so send gives it follow-up work. You get each child's final reply when it settles " +
-      "(notify, default true), or use wait. stop closes a child; resume reopens a stopped child's conversation (e.g. after a restart). Children cannot start agents.",
+      "Delegate work to child agents: interactive pis in Rex panes the user can view and steer, here or on another Rex host. " +
+      "A child stays alive after it settles; its final reply arrives as a message (notify, default true).",
     promptSnippet: "Delegate tasks to child agents the user can watch and steer (Rex)",
     promptGuidelines: [
-      "Use the agent tool for subagents (host: on another Rex host); load the subagent skill for model picks and prompting guidance.",
-      "After agent start or send, carry on with other work; each child's reply arrives as a message when it settles. Use agent wait only when you need a result before you can continue.",
-      "A child that needs an answer ends its turn with numbered questions. Answer from what you know: facts, earlier decisions in this conversation, and the user's standing rules. Then reply with agent send and tell the user your answer in one line, so they can correct it.",
-      "Ask the user (questionnaire) about new choices, anything destructive or hard to undo, anything outside the task's scope, and matters of taste. Send their answer to the child. Batch questions from several children into one questionnaire.",
-      "If agent wait reports that a child is blocked on a question in its own pane, the user is talking to it directly: tell the user and stop waiting; never answer for them.",
-      "Reuse a settled child with agent send when the follow-up builds on its work; stop children you no longer need.",
-      "Children close when this pi exits. When a follow-up builds on a closed child's work, agent resume it (agent status lists resumable children) instead of starting over.",
+      "Use the agent tool for subagents; read the subagent skill before the first agent start.",
+      "Answer a child's numbered questions from known facts and earlier decisions via agent send, and tell the user your answer in one line; ask the user (questionnaire) about new choices or destructive steps.",
     ],
     parameters: Params,
 

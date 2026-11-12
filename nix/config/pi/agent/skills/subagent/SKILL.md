@@ -14,10 +14,10 @@ agent({ action: "start", name: "scout-auth", title: "Map the auth flow", model: 
 
 - `start` returns at once. Each time a child settles, its final reply arrives as a message (`notify`, default true), so carry on with other work.
 - Use `agent wait` only when you cannot continue without a result. It returns the first unreported result, or returns early when a child is blocked on a question in its own pane (the user is talking to it directly). Then tell the user that the child needs an answer (they switch to it with ↓ on an empty prompt). Never answer those for them.
-- A child that needs an answer from you ends its turn with numbered questions under "Questions". Answer facts and decisions the user already made yourself, with `agent send`, and tell the user your answer in one line. Ask the user about new choices, destructive or hard-to-undo steps, scope changes and matters of taste, then send their answer on. Do not tell children to use `questionnaire`.
+- A child that needs an answer from you ends its turn with numbered questions under "Questions". Answer from what you know (facts, earlier decisions in this conversation, the user's standing rules) with `agent send`, and tell the user your answer in one line so they can correct it. Ask the user (`questionnaire`) about new choices, destructive or hard-to-undo steps, scope changes and matters of taste, then send their answer on. Batch questions from several children into one questionnaire. Do not tell children to use `questionnaire`.
 - Children stay alive after they settle. `agent send` gives a settled child follow-up work, or queues a follow-up for a busy one.
 - `agent stop` closes a child. Stop children you no longer need.
-- Children close when this pi exits, but their conversations are saved in this session. After a restart, `agent status` lists them and `agent resume` reopens one, optionally with a first message in `text`.
+- Children close when this pi exits, but their conversations are saved in this session. After a restart, `agent status` lists them and `agent resume` reopens one, optionally with a first message in `text`. When a follow-up builds on a closed child's work, resume it instead of starting over.
 - You see only each child's final reply, not its transcript. Ask for what you need in that reply.
 - Children cannot start agents. Their file edits show up in the user's Neovim change review under their name.
 - Run independent children in parallel. Keep it to four or fewer at once.
