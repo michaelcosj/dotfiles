@@ -255,3 +255,33 @@ test("restart uses the current environment, not an environment snapshot", async 
     else process.env[key] = previous;
   }
 });
+
+test("the watch timer runs only while a notify job needs it", async () => {
+  const handlers: Record<string, Function> = {};
+  const sent: any[] = [];
+  const realSet = globalThis.setInterval;
+  let armed = 0;
+  globalThis.setInterval = ((fn: any, ms: number) => {
+    if (ms === 1000) armed++;
+    return realSet(fn, ms);
+  }) as any;
+  try {
+    background({
+      on(name: string, fn: Function) { handlers[name] = fn; }, registerCommand() {}, events: { emit() {} },
+      registerTool(definition: unknown) { tool = definition; },
+      sendMessage(...args: any[]) { sent.push(args); },
+    } as any);
+    await handlers.session_start({}, ctx);
+    expect(armed).toBe(0); // no jobs, no timer
+    await execute({ action: "start", name: "quick", command: "true", notify: true });
+    expect(armed).toBe(1);
+    for (let i = 0; i < 40 && !sent.length; i++) await new Promise((r) => setTimeout(r, 100));
+    expect(sent).toHaveLength(1);
+    await new Promise((r) => setTimeout(r, 1100)); // disarms once the exit is reported
+    await execute({ action: "start", name: "again", command: "true" });
+    expect(armed).toBe(2);
+  } finally {
+    globalThis.setInterval = realSet;
+    await handlers.session_shutdown?.({ reason: "reload" });
+  }
+});

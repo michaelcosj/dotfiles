@@ -380,8 +380,9 @@ function questionsNote(pending: ask.PendingRequest[]): string {
 
 export default function (pi: ExtensionAPI) {
   let ctxRef: ExtensionContext | undefined;
+  // Runs only while there is something to watch: a running job, or an exit not yet reported.
   let timer: ReturnType<typeof setInterval> | undefined;
-  let notifyTimer: ReturnType<typeof setInterval> | undefined;
+  let ticks = 0;
   const waiting = new Set<string>();
   let pendingCount = 0;
   let questionAttention = false;
@@ -463,23 +464,43 @@ export default function (pi: ExtensionAPI) {
     } catch {}
   };
 
+  /** Whether a job still needs the timer: it runs, or its exit is unreported. */
+  const needsWatch = (dir: string) =>
+    jobNames(dir).some((n) =>
+      jobState(dir, n).kind === "running" || (!!readMeta(dir, n)?.notify && !fs.existsSync(file(dir, n, "notified"))),
+    );
+
+  const disarm = () => {
+    if (timer) clearInterval(timer);
+    timer = undefined;
+  };
+
+  /** Checks exits and questions every second, and the footer every 5 s, until nothing needs it. */
+  const arm = () => {
+    if (timer || !ctxRef) return;
+    ticks = 0;
+    timer = setInterval(() => {
+      const dir = g.__piBackgroundDir;
+      checkNotify();
+      if (++ticks % 5 === 0) refreshStatus();
+      if (!dir || (!needsWatch(dir) && !pendingCount)) {
+        disarm();
+        refreshStatus();
+      }
+    }, 1000);
+    timer.unref?.();
+  };
+
   pi.on("session_start", async (_event, ctx) => {
     ctxRef = ctx;
     const dir = stateDir();
     refreshStatus();
-    if (ctx.hasUI) {
-      timer = setInterval(refreshStatus, 5000);
-      timer.unref?.();
-    }
-    notifyTimer = setInterval(checkNotify, 1000);
-    notifyTimer.unref?.();
+    if (needsWatch(dir)) arm(); // jobs kept across /reload
     void sweepOrphans(dir).catch(() => {});
   });
 
   pi.on("session_shutdown", async (event) => {
-    if (timer) clearInterval(timer);
-    if (notifyTimer) clearInterval(notifyTimer);
-    timer = notifyTimer = undefined;
+    disarm();
     setQuestionAttention(false);
     ctxRef = undefined;
     pendingCount = 0;
@@ -704,6 +725,7 @@ export default function (pi: ExtensionAPI) {
           wait: params.wait, until: params.until, lines: params.lines,
         });
         refreshStatus();
+        arm();
         const extra = params.persist ? `\nPersistent. Manage after Pi exits: PI_BG_DIR=${dir} bg.sh status|kill ${name}` : "";
         const n = params.notify ? " Will notify on exit. End your turn unless you have other work; do not wait for it." : "";
         if (!initialWait) return text(`${name}: ${restarting ? "restarted" : "started"} (pid ${pid}).${n} Log: ${logPath}${extra}`);
