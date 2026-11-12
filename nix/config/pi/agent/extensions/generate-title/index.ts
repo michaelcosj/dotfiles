@@ -8,11 +8,12 @@
  * The old label comes back when Pi quits. Child agents keep their `pi-agent:` labels and are never titled.
  * Generation runs in the background with a timeout and never delays the turn.
  */
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { uuidv7, type Api, type Model } from "@earendil-works/pi-ai";
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { rex } from "../lib/rex.js";
 import { cleanTitle, conversationFromBranch, parseModelSpec, resolveConfig, REX_LABEL_PREFIX, rexLabel, splitModel, titlePrompt, type Thinking } from "./title.ts";
 
 const TIMEOUT_MS = 30_000;
@@ -23,18 +24,6 @@ function loadConfig() {
   let raw: string | undefined;
   try { raw = readFileSync(CONFIG_PATH, "utf8"); } catch {}
   return resolveConfig(raw, process.env.PI_TITLE_MODEL);
-}
-
-const rexBin = () => (process.env.REX_BIN_DIR ? join(process.env.REX_BIN_DIR, "rex") : "rex");
-
-function rex(args: string[]): Promise<string> {
-  const bin = rexBin();
-  return new Promise((resolve, reject) => {
-    const child = execFile(bin, args, { timeout: REX_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error, stdout) =>
-      error ? reject(error) : resolve(stdout),
-    );
-    child.unref();
-  });
 }
 
 export default function generateTitle(pi: ExtensionAPI) {
@@ -56,14 +45,14 @@ export default function generateTitle(pi: ExtensionAPI) {
     rexQueue = rexQueue.then(async () => {
       if (originalLabel === undefined) {
         try {
-          const info = JSON.parse(await rex(["block", "inspect", block, "--json"]));
+          const info = JSON.parse(await rex(["block", "inspect", block, "--json"], REX_TIMEOUT_MS));
           const current = info?.block?.label;
           originalLabel = typeof current === "string" && !current.startsWith(REX_LABEL_PREFIX) ? current : null;
         } catch {
           originalLabel = null;
         }
       }
-      await rex(["block", "rename", block, label]);
+      await rex(["block", "rename", block, label], REX_TIMEOUT_MS);
     }).catch(() => {});
   }
 
@@ -72,7 +61,7 @@ export default function generateTitle(pi: ExtensionAPI) {
     lastLabel = undefined;
     // On quit, Pi exits before queued promises run. Start a detached process now; it outlives Pi.
     try {
-      const child = spawn(rexBin(), ["block", "rename", block, originalLabel ?? ""], { detached: true, stdio: "ignore" });
+      const child = spawn("rex", ["--autostart=false", "block", "rename", block, originalLabel ?? ""], { detached: true, stdio: "ignore" });
       child.on("error", () => {});
       child.unref();
     } catch {}
