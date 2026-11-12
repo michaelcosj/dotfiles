@@ -18,6 +18,8 @@
     # Headless Chrome for rex-web (HTML in a Rex pane). It runs on the machine
     # whose Rex pane shows the page, so every Linux machine needs one.
     chromium
+    # rex-web is a Bun script. macOS has Bun in ~/.bun (fish.nix).
+    bun
     claude-code
     # Use the official prebuilt release instead of compiling the Rust workspace.
     (callPackage ../../pkgs/codex-bin.nix { })

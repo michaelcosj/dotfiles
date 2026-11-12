@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Ubuntu host prerequisite for Nix Chromium (rex-web renders pages with it).
+# Ubuntu 23.10+ restricts unprivileged user namespaces through AppArmor, so
+# Chromium's namespace sandbox fails, and its SUID fallback cannot be setuid in
+# the Nix store. Permit user namespaces for the Nix-store Chromium binary only
+# (the real executable, in chromium-unwrapped; bin/chromium is a wrapper),
+# across package upgrades; the global restriction stays on. One run per host
+# covers every account.
+set -euo pipefail
+fail() { echo "Error: $*" >&2; exit 1; }
+[[ $EUID -eq 0 && $# -eq 0 ]] || fail "Usage: sudo bash $0"
+source /etc/os-release
+[[ $ID == ubuntu ]] || fail "This script supports Ubuntu only."
+command -v apparmor_parser >/dev/null || fail "apparmor_parser is missing; install the apparmor package."
+
+profile=$(mktemp)
+trap 'rm -f "$profile"' EXIT
+cat > "$profile" <<EOF
+abi <abi/4.0>,
+include <tunables/global>
+profile chromium-nix /nix/store/*-chromium-unwrapped-*/libexec/chromium/chromium flags=(unconfined) {
+  userns,
+}
+EOF
+apparmor_parser -Q "$profile"
+install -m 0644 "$profile" /etc/apparmor.d/chromium-nix
+apparmor_parser -r /etc/apparmor.d/chromium-nix
+echo "AppArmor exception loaded for Nix Chromium (/etc/apparmor.d/chromium-nix)."

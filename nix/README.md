@@ -112,6 +112,14 @@ git pull --ff-only
 nix-rebuild
 ```
 
+rex-web renders pages with Nix Chromium, which Ubuntu's user-namespace
+restriction blocks. Load its AppArmor exception once per host (it covers every
+account and survives Chromium upgrades):
+
+```sh
+sudo bash ~/.dotfiles/nix/scripts/setup-chromium-apparmor
+```
+
 Initial source snapshots are retained as `~/.dotfiles.before-git-*` when replaced
 by clones. Never copy `.env`, private keys, Pi auth, or session state as part of
 source deployment. Import credentials separately only for the intended account.

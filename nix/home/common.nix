@@ -46,6 +46,10 @@
     (writeShellScriptBin "lazygit-nvim-edit" (builtins.readFile ../pkgs/lazygit-nvim-edit.sh))
   ];
 
+  # ~/.local/bin holds rex-web and other linked tools. fish adds it only in
+  # interactive shells; this covers every login session, agents' shells too.
+  home.sessionPath = [ "$HOME/.local/bin" ];
+
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
