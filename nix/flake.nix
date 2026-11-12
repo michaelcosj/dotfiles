@@ -2,6 +2,8 @@
   description = "Michael's nix-darwin and home-manager flake";
 
   inputs = {
+    # x86_64-darwin support ends with nixpkgs 26.05 (EOL 2026-12-31); unstable
+    # has already dropped it.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
     # Linux tracks unstable for fresher tools; Fedora still owns the OS itself.
     nixpkgs-linux.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -19,6 +21,8 @@
 
     # Herdr, built from source. Bump the tag to update. [https://herdr.dev/docs/install/#install-with-nix]
     herdr.url = "github:herdrdev/herdr/v0.9.3";
+    # Not nixpkgs-linux: the Mac installs it too, and unstable has no x86_64-darwin.
+    herdr.inputs.nixpkgs.follows = "nixpkgs";
 
     # Rex Linux (rex-rune), a native Linux Rex client; Fedora desktop only.
     # Keep its own nixpkgs: the build needs a newer Rust and Zig. Update with:
@@ -27,6 +31,8 @@
 
     # Hex local voice dictation, Linux x86_64 only. Update with: nix flake update hex
     hex.url = "github:anomalyco/hex";
+    hex.inputs.nixpkgs.follows = "nixpkgs-linux";
+    hex.inputs.home-manager.follows = "home-manager-linux";
 
     # Declarative Flatpaks on Linux [https://github.com/gmodena/nix-flatpak]
     nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.8.0";
