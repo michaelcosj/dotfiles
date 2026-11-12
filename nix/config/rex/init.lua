@@ -1,4 +1,4 @@
--- Ctrl+A prefix, matching the tmux and Herdr configurations.
+-- Ctrl+A prefix (Herdr uses the same map).
 rex.bind("ctrl+a>ctrl+a", "pane.send_key", { key = "ctrl+a" })
 rex.bind("ctrl+a>r", "client.config.reload")
 rex.bind("ctrl+a>shift+r", "client.config.reload")
