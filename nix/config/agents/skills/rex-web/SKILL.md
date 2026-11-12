@@ -10,9 +10,23 @@ description: >-
 
 # rex-web
 
-`rex-web` renders HTML in a Rex pane next to yours with headless Chrome. The
-page is live and interactive: the user can click, type, scroll, and hover. It
-follows the Rex theme (light or dark), and fonts are SF Pro and SF Mono.
+`rex-web` shows a page in a Rex pane next to yours. It follows the Rex theme
+(light or dark). Two engines draw pages, and `show` picks one:
+
+- **tui** (preferred): Markdown, Mermaid diagrams, and simple question forms
+  as terminal text, in the terminal's own colors. It starts fast, uses a
+  fraction of Chrome's memory, and its text is crisp and selectable. Used
+  for `.md` files, Markdown on stdin, and HTML made only of plain elements
+  (headings, p, lists, tables, pre/code, `pre.mermaid`, `<form data-rex>`
+  controls) and the kit classes `muted`, `choice`, `card`, `row`, `stack`,
+  `primary`, `danger`.
+- **web**: headless Chrome, for anything else: `<script>`, `<style>` or
+  `style=`, images, SVG, canvas, charts, custom layouts, other classes. The
+  page is live: the user can click, type, scroll, and hover. Fonts are SF Pro
+  and SF Mono.
+
+Write Markdown (or a plain form) when it's enough; it opens in the tui
+engine. Reach for HTML and JS only when the content needs Chrome.
 
 Use it only in Rex: `$REX_BLOCK` must be set. Otherwise, answer in text.
 
@@ -31,33 +45,60 @@ pane takes space: close it when the user is done with it.
 ## Commands
 
 ```bash
-rex-web show page.html             # open the pane, or replace its page (no focus change)
-rex-web show - <<'EOF'             # HTML from stdin
-<h1>Hello</h1>
+rex-web show notes.md              # open the pane, or replace its page (no focus change)
+rex-web show - <<'EOF'             # Markdown from stdin (HTML if it starts with <)
+# Hello
 EOF
+rex-web show --engine web f        # force an engine (tui or web); default auto
 rex-web show --below --ratio 40 f  # where to open the pane; only applies when it opens
 rex-web show --focus f             # give the pane focus: do this before the user types in the page
-rex-web shot [-o out.png]          # screenshot of the page; prints the PNG path. Read it to check your work
-rex-web eval 'document.title'      # run JS in the page; prints the result as JSON
+rex-web shot [-o out.png]          # web: PNG screenshot; tui: the pane's text (.txt). Prints the path; read it to check your work
+rex-web eval 'document.title'      # web only: run JS in the page; prints the result as JSON
 rex-web wait [--timeout S] [--close]  # wait for the page to send a value; prints it as JSON
 rex-web hide                       # close the pane
-rex-web status                     # JSON: open, url, pixel size
+rex-web status                     # JSON: open, engine, url, size
 ```
 
 - Each agent pane gets one viewer. `show` again replaces the page in the same
   pane. `--name NAME` keeps a second, separate viewer.
 - A local file reloads by itself when it changes. To build a page up, write it
-  to a file (for example `/tmp/rex-web-<topic>.html`), `show` it once, and then
+  to a file (for example `/tmp/rex-web-<topic>.md`), `show` it once, and then
   edit the file.
-- The page can load anything from the web, for example a library from a CDN.
+- A web page can load anything from the web, for example a library from a CDN.
 - The user closes the pane with Ctrl-Q, or by closing it in Rex.
 
-**Check what you show.** After `show`, run `rex-web shot` and read the PNG
-before you tell the user it's there. Fix overlapping, cut-off, or empty
-content. Libraries that render after load (Mermaid, charts) need a second
-or so.
+**Check what you show.** After `show`, run `rex-web shot` and read the file
+(text for tui, PNG for web) before you tell the user it's there. Fix
+overlapping, cut-off, or empty content. In the web engine, libraries that
+render after load (Mermaid, charts) need a second or so.
 
-## Writing pages
+## Markdown pages (tui)
+
+GitHub-flavored Markdown: headings, emphasis, links, lists and task lists,
+quotes, tables, and fenced code with syntax highlighting. A ```` ```mermaid ````
+block is drawn as a diagram image in the theme's colors (any Mermaid diagram
+type). The page scrolls (wheel, PgUp/PgDn, g/G); tables reflow to the pane's
+width, and diagrams redraw when the pane is resized.
+
+````markdown
+# Benchmark results
+
+| Test | Before | After |
+|---|---:|---:|
+| parse | 120 ms | 84 ms |
+
+```mermaid
+flowchart LR
+  A[Request] --> B{Session?}
+  B -- yes --> C[Handler]
+  B -- no --> D[401]
+```
+````
+
+Keep tables narrow (the pane is often 60 to 100 columns) and put long text
+in paragraphs, not cells.
+
+## HTML pages (web)
 
 Write plain semantic HTML. rex-web adds a base style to every page, so `h1`,
 `p`, `table`, `code`, `pre`, `button`, `input`, `select`, and `hr` already look
@@ -100,6 +141,9 @@ fine.
 
 ### Mermaid diagram
 
+In a plain page (no other script), `<pre class="mermaid">` alone is enough:
+the tui engine draws it. With Chrome:
+
 ```html
 <pre class="mermaid">
 flowchart LR
@@ -134,7 +178,15 @@ and prints it as JSON.
 - `<form data-rex>`: submitting sends the fields as an object. The submit
   button's own `name`/`value` is included, so several buttons can give
   different answers. Repeated names (checkboxes) become arrays.
-- `rex.send(value)` from any script sends any JSON value.
+- `rex.send(value)` from any script sends any JSON value (web engine).
+
+A plain form opens in the tui engine: radio groups and `<select>` become
+option cards, checkboxes toggle, `<input>` and `<textarea>` take text, and
+buttons submit. The user moves with Tab and arrows (or j/k), toggles with
+Space, and submits with Enter or a click; Alt+Enter adds a line in a
+textarea. `required` fields are checked before sending, except by a named
+button (like "Neither" below), whose value replaces the field of the same
+name. Keep forms to these controls; anything scripted needs `--engine web`.
 
 ```bash
 rex-web show - <<'EOF'
@@ -177,7 +229,10 @@ rex-web wait --timeout 600 --close   # prints {"db":"sqlite"}
   user hasn't switched to), `show` splits the focused pane instead.
 - `rex split failed`: report the error and answer in text. Don't move or
   rearrange the user's panes to work around it.
-- An empty or wrong-looking page: run `rex-web shot`, then
-  `rex-web eval` to inspect the DOM or errors.
+- An empty or wrong-looking page: run `rex-web shot`, then (web)
+  `rex-web eval` to inspect the DOM or errors. If the tui engine draws a page
+  badly, `show --engine web` it.
+- The first tui `show` installs its packages (`bun install` in
+  `~/.config/rex/tui`); if that fails, rex-web uses Chrome.
 - Debug log: `REX_WEB_DEBUG=/tmp/rex-web.log rex-web show ...` (only applies
   when the pane opens).
