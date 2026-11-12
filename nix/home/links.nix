@@ -19,8 +19,4 @@
   # PATH every shell gets, including the non-interactive ones agents run.
   home.file.".local/bin/rex-web".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/rex/bin/rex-web";
-
-  # btca config (https://docs.btca.dev/guides/configuration)
-  home.file.".config/btca".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/btca";
 }
