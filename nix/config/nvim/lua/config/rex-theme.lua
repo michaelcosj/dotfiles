@@ -10,9 +10,8 @@
 --   TUI eats it, re-queries OSC 11 (+ DSR) itself, and that OSC 11 reply does
 --   reach TermResponse. An OSC 11 reply we did not ask for therefore means
 --   "theme changed" and triggers a full query.
--- - Rex sends 997 only when the scheme flips between light and dark. A switch
---   from one dark theme to another sends nothing, so a slow poll
---   (vim.g.rex_theme_poll_ms, default 5000, 0 disables) catches those.
+-- - Rex sends 997 only when the scheme flips between light and dark. After a
+--   switch from one dark theme to another, restart Neovim (nothing is sent).
 -- - A pane that no Rex app owns yet answers OSC 4 with the built-in palette
 --   and does not answer OSC 10/11 at all. A reply set without a bg is
 --   treated as provisional: it is never cached and only used when nothing
@@ -90,7 +89,6 @@ local function readable(bg, min, base, bright)
 	return mix(toward, base, 0.6)
 end
 
-M.mix, M.contrast, M.luminance = mix, contrast, luminance
 
 -- [[ Palette ]]
 
@@ -678,7 +676,6 @@ end
 local pending -- reply set being collected, nil when no query is in flight
 local pending_timer
 local applied_key
-local poll_timer
 
 local function key(t) return vim.json.encode({ t.bg, t.fg, t.palette }) end
 
@@ -781,51 +778,22 @@ function M.burst(delays)
 	for _, d in ipairs(delays or { 0, 400, 1500, 4000 }) do schedule_query(d) end
 end
 
--- Neovim's own handler sets 'background' from every OSC 11 reply. That would
--- reload the scheme (and lualine) on each poll, so drop it: this module sets
--- 'background' itself.
-local function drop_builtin_bg_handler()
-	local ok, aus = pcall(api.nvim_get_autocmds, { group = "nvim.tty", event = "TermResponse" })
-	if not ok then return end
-	for _, au in ipairs(aus) do
-		if (au.desc or ""):find("background", 1, true) then pcall(api.nvim_del_autocmd, au.id) end
-	end
-end
-
 function M.setup()
 	if M._setup then return end
 	M._setup = true
 	M.theme()
 	applied_key = M.current and key(M.current)
-	drop_builtin_bg_handler()
 	local group = api.nvim_create_augroup("rex_theme", { clear = true })
 	api.nvim_create_autocmd("TermResponse", {
 		group = group,
 		nested = true, -- so :colorscheme fires ColorScheme (lualine etc. refresh)
 		callback = function(ev) M.on_response(ev.data.sequence or "") end,
 	})
-	api.nvim_create_autocmd("FocusGained", {
-		group = group,
-		callback = function()
-			M.focused = true
-			M.burst({ 0, 600 })
-		end,
-	})
-	api.nvim_create_autocmd("FocusLost", { group = group, callback = function() M.focused = false end })
 	local function start()
 		-- Ask Rex for theme notifications too. Neovim's TUI handles the CSI ?
 		-- 997 reply by re-querying OSC 11, which on_response picks up.
 		api.nvim_ui_send("\27[?2031h")
 		M.burst()
-		local ms = vim.g.rex_theme_poll_ms or 5000
-		if ms > 0 and not poll_timer then
-			poll_timer = vim.uv.new_timer()
-			poll_timer:start(ms, ms, vim.schedule_wrap(function()
-				-- Not while unfocused (FocusGained re-queries) and not while a
-				-- :! command runs: its replies would go to that program.
-				if M.focused ~= false and api.nvim_get_mode().mode ~= "!" then M.query() end
-			end))
-		end
 	end
 	if vim.v.vim_did_enter == 1 then
 		start()
@@ -833,15 +801,5 @@ function M.setup()
 		api.nvim_create_autocmd("UIEnter", { group = group, once = true, callback = start })
 	end
 end
-
-function M.stop()
-	if poll_timer then poll_timer:stop(); poll_timer:close(); poll_timer = nil end
-	pcall(api.nvim_del_augroup_by_name, "rex_theme")
-	M._setup = false
-end
-
-M.cache_path = cache_path
-M._reset_pending = function() pending = nil end
-M._reset = function() pending = nil; applied_key = nil; M.current = nil; M.provisional_done = nil end
 
 return M

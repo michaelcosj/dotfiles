@@ -38,7 +38,13 @@ end
 local function waiting()
 	local req = require("config.agent-bridge.requests").active
 	if req then return req.kind == "review_plan" and "plan" or "edit" end
-	if events.state == "blocked" then return events.message and events.message:sub(1, 20) or "you" end
+	if events.state == "blocked" then
+		local msg = events.message or ""
+		if msg == "" then return "you" end
+		if #msg <= 20 then return msg end
+		-- cut at a word: "Questionnaire waiting for your answer" -> "Questionnaire…"
+		return (msg:sub(1, 20):match("^(.*%S)%s") or msg:sub(1, 19)) .. "…"
+	end
 end
 
 function M.agent()
