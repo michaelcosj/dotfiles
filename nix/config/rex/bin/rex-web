@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 // rex-web: show HTML in a Rex pane: live, interactive, in the Rex theme.
 //
+// Two engines draw pages. tui (../tui/view.ts) draws Markdown, Mermaid and
+// plain <form data-rex> pages as terminal text with OpenTUI: light, crisp,
+// in the terminal's own colors. web (below) is headless Chrome, for anything
+// else (scripts, styles, charts). `show` picks one; --engine forces it.
+//
 // Headless Chrome renders the page. Changed pixels go to the terminal as
 // kitty graphics; mouse, wheel, and keys go back to the page. The page gets
 // the Rex theme as CSS variables and follows theme changes live. Local
@@ -15,6 +20,8 @@
 //   rex-web hide                             close the pane
 //   rex-web status                           print the pane's state as JSON
 //   all take --name NAME (or $REX_WEB_NAME) to pick another viewer.
+//   show takes --engine auto|tui|web (or $REX_WEB_ENGINE; default auto: tui
+//   for .md files, Markdown on stdin, and plain HTML it can draw).
 //
 // Low level:
 //   rex-web view FILE|URL   run the viewer in this terminal (any kitty-graphics terminal)
@@ -35,6 +42,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, watch, existsSync, readF
 import { tmpdir, homedir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
+import { tuiCanDraw } from "../tui/detect.ts";
 
 // Chrome: REX_WEB_CHROME, the macOS apps, then the usual Linux names on PATH
 // (Nix puts them in a profile, not /usr/bin).
@@ -48,7 +56,7 @@ const CHROME = process.env.REX_WEB_CHROME ||
 const COMMANDS = ["show", "wait", "shot", "eval", "hide", "status", "view", "help"];
 const argv = process.argv.slice(2);
 let cmd = "";
-const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "",
+const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "", engine: process.env.REX_WEB_ENGINE || "auto",
   name: process.env.REX_WEB_NAME || "", scale: Number(process.env.REX_WEB_SCALE || 0) };
 const rest = [];
 for (let i = 0; i < argv.length; i++) {
@@ -63,6 +71,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--name") opt.name = argv[++i];
   else if (a === "--state") opt.state = argv[++i];
   else if (a === "--scale") opt.scale = Number(argv[++i]);
+  else if (a === "--engine") opt.engine = argv[++i];
   else if (a === "-h" || a === "--help") cmd = "help";
   else if (!cmd && !rest.length && COMMANDS.includes(a)) cmd = a; // the first word is the command; flags may come before it
   else rest.push(a);
@@ -100,14 +109,52 @@ async function api(path, body, timeoutMs = 10000) {
 }
 async function alive() { try { return (await api("/status", undefined, 1500)).ok; } catch { return false; } }
 
+// --- engines -------------------------------------------------------------------
+
+const TUI_DIR = join(dirname(fileURLToPath(import.meta.url)), "../tui");
+const TUI_VIEW = join(TUI_DIR, "view.ts");
+
+// Installs the tui viewer's packages the first time. False if that fails.
+function tuiReady() {
+  if (existsSync(join(TUI_DIR, "node_modules/@opentui/core/package.json"))) return true;
+  const p = Bun.spawnSync([process.execPath, "install", "--frozen-lockfile"], { cwd: TUI_DIR, stdout: "ignore", stderr: "pipe" });
+  if (p.exitCode) console.error("rex-web: couldn't install the tui viewer's packages; using Chrome. " + p.stderr.toString().trim().split("\n").pop());
+  return p.exitCode === 0;
+}
+
+// "tui" or "web" for a URL or file.
+function pickEngine(url) {
+  if (opt.engine === "web") return "web";
+  if (!url.startsWith("file:")) return "web";
+  if (opt.engine !== "tui") {
+    let text = "";
+    try { text = readFileSync(fileURLToPath(url), "utf8"); } catch {}
+    if (!tuiCanDraw(text, fileURLToPath(url))) return "web";
+  }
+  return tuiReady() ? "tui" : "web";
+}
+
 if (["show", "wait", "shot", "eval", "hide", "status", "pane"].includes(cmd)) {
   mkdirSync(stateDir, { recursive: true });
   if (cmd === "show" || cmd === "pane") {
     let target = rest[0] || die("usage: rex-web show FILE|URL|-", 2);
-    if (target === "-") { target = join(stateDir, "page.html"); writeFileSync(target, await Bun.stdin.text()); }
+    if (target === "-") {
+      // Markdown on stdin gets a .md name, so both engines read it as Markdown.
+      const text = await Bun.stdin.text();
+      const md = !text.trimStart().startsWith("<");
+      for (const f of ["page.html", "page.md"]) try { unlinkSync(join(stateDir, f)); } catch {}
+      target = join(stateDir, md ? "page.md" : "page.html");
+      writeFileSync(target, text);
+    }
     const url = toURL(target);
+    const engine = pickEngine(url);
     let r = null;
-    if (cmd === "show" && await alive()) r = await api("/open", { url }).catch(() => null);
+    if (cmd === "show" && await alive()) {
+      // the open viewer keeps the page if it uses the same engine; otherwise it closes
+      const st = await (await api("/status")).json().catch(() => ({}));
+      if ((st.engine || "web") === engine) r = await api("/open", { url }).catch(() => null);
+      else { await api("/close", {}).catch(() => {}); for (let t = 0; t < 30 && await alive(); t++) await Bun.sleep(100); }
+    }
     if (r) {
       if (!r.ok) die(await r.text());
       if (opt.focus) Bun.spawnSync(["rex", "block", "focus", readFileSync(join(stateDir, "block"), "utf8").trim()]);
@@ -125,10 +172,14 @@ if (["show", "wait", "shot", "eval", "hide", "status", "pane"].includes(cmd)) {
       try { if (JSON.parse(i.stdout.toString()).block?.placement !== "placed") anchor = ""; } catch { anchor = ""; }
     }
     const label = url.startsWith("file:") ? basename(fileURLToPath(url)) : url;
+    const viewer = engine === "tui"
+      ? [process.execPath, TUI_VIEW, "--name", viewerName, "--state", stateDir, fileURLToPath(url)]
+      : [process.execPath, import.meta.path, "view", "--name", viewerName, "--state", stateDir, ...(scaleFlag ? ["--scale", String(scaleFlag)] : []), url];
     const split = ["rex", "split", "--json", "--ratio", String(opt.ratio), "--split", opt.below ? "below" : "right",
       `--focus=${opt.focus}`, "--label", label, "--shell=none",
       ...(anchor ? ["-b", anchor] : []), "--",
-      process.execPath, import.meta.path, "view", "--name", viewerName, "--state", stateDir, ...(scaleFlag ? ["--scale", String(scaleFlag)] : []), url];
+      // rex split doesn't pass this process's environment to the pane
+      ...(process.env.REX_WEB_DEBUG ? ["env", `REX_WEB_DEBUG=${process.env.REX_WEB_DEBUG}`] : []), ...viewer];
     const env = { ...process.env };
     if (!anchor) delete env.REX_BLOCK; // rex split anchors to $REX_BLOCK when -b is missing
     const p = Bun.spawnSync(split, { stdout: "pipe", stderr: "pipe", env });
@@ -137,7 +188,7 @@ if (["show", "wait", "shot", "eval", "hide", "status", "pane"].includes(cmd)) {
     writeFileSync(join(stateDir, "block"), block + "\n");
     for (let t = 0; t < 100 && !(await alive()); t++) await Bun.sleep(100);
     if (!(await alive())) die("viewer did not start; try REX_WEB_DEBUG=/tmp/rex-web.log");
-    console.log(`rex-web: showing ${label} in ${block} (name ${viewerName})`);
+    console.log(`rex-web: showing ${label} in ${block} (name ${viewerName}, ${engine})`);
     process.exit(0);
   }
   if (!(await alive())) {
@@ -153,6 +204,14 @@ if (["show", "wait", "shot", "eval", "hide", "status", "pane"].includes(cmd)) {
   }
   if (cmd === "shot") {
     const r = await api("/shot", {}, 30000);
+    if (r.status === 501) { // tui: the pane's screen as text
+      const block = readFileSync(join(stateDir, "block"), "utf8").trim();
+      const p = Bun.spawnSync(["rex", "capture", "-b", block, "--trim"], { stdout: "pipe", stderr: "pipe" });
+      if (p.exitCode) die("rex capture failed: " + p.stderr.toString());
+      const outPath = resolve(opt.out ? opt.out.replace(/\.png$/i, ".txt") : join(stateDir, "shot.txt"));
+      writeFileSync(outPath, p.stdout);
+      console.log(outPath); process.exit(0);
+    }
     if (!r.ok) die(await r.text());
     const outPath = resolve(opt.out || join(stateDir, "shot.png"));
     writeFileSync(outPath, Buffer.from(await r.arrayBuffer()));
@@ -717,7 +776,7 @@ function startControl() {
     async fetch(req) {
       const u = new URL(req.url), path = u.pathname;
       const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-      if (path === "/status") return Response.json({ name: viewerName, open: true, url, cols: size.cols, rows: size.rows, width: size.w, height: size.h, scale, pending: events.length, pid: process.pid });
+      if (path === "/status") return Response.json({ name: viewerName, open: true, engine: "web", url, cols: size.cols, rows: size.rows, width: size.w, height: size.h, scale, pending: events.length, pid: process.pid });
       if (path === "/open") { await navigate(body.url); return new Response("ok"); }
       if (path === "/close") { try { unlinkSync(sockPath); } catch {} setTimeout(quit, 10); return new Response("ok"); }
       if (path === "/shot") {
