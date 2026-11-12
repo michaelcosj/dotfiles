@@ -294,27 +294,17 @@ function withTail(head: string, logPath: string, lines: number): string {
 
 const Params = Type.Object({
   action: StringEnum(["start", "restart", "status", "wait", "stop"] as const, {
-    description: "start a job; restart by name with saved launch settings (no overrides); status of one job (or all when name is omitted); wait for exit or a log match (blocks the user until it returns; prefer notify); stop",
+    description: "restart: by name, saved settings, no overrides; status: all when name is omitted; wait: for exit or until",
   }),
-  name: Type.Optional(Type.String({ description: "Job label: letters, digits, . _ - (e.g. web, tests)" })),
-  command: Type.Optional(Type.String({ description: "start: shell command, run with bash -c" })),
-  cwd: Type.Optional(Type.String({ description: "start: working directory (default: current)" })),
-  persist: Type.Optional(Type.Boolean({ description: "start: keep running after Pi exits (default false)" })),
-  notify: Type.Optional(
-    Type.Boolean({
-      description: "start: post a message when the job exits, waking you if idle. Use this for long jobs instead of waiting (default false)",
-    }),
-  ),
-  wait: Type.Optional(
-    Type.Number({ minimum: 0, description: "start: wait up to N seconds for exit or until match; default returns immediately. Prefer notify for long jobs; a timeout leaves the job running" }),
-  ),
-  until: Type.Optional(Type.String({ description: "start (requires wait) / wait: regex; return when a log line matches instead of on exit" })),
-  timeout: Type.Optional(
-    Type.Number({ description: "wait: seconds (default 60 with until, 300 otherwise). Keep it short; timing out leaves the job running" }),
-  ),
-  lines: Type.Optional(
-    Type.Number({ description: `status/wait/start with wait: include the last N log lines (max ${MAX_LINES}); start with wait defaults to ${FAIL_LINES}` }),
-  ),
+  name: Type.Optional(Type.String({ description: "Job label: letters, digits, . _ -" })),
+  command: Type.Optional(Type.String({ description: "start: bash -c command" })),
+  cwd: Type.Optional(Type.String({ description: "start: default current" })),
+  persist: Type.Optional(Type.Boolean({ description: "start: outlive Pi" })),
+  notify: Type.Optional(Type.Boolean({ description: "start: message when it exits" })),
+  wait: Type.Optional(Type.Number({ minimum: 0, description: "start: wait up to N s for exit or until" })),
+  until: Type.Optional(Type.String({ description: "regex; return when a log line matches" })),
+  timeout: Type.Optional(Type.Number({ description: "wait: seconds (default 60 with until, else 300)" })),
+  lines: Type.Optional(Type.Number({ description: `log lines to include (max ${MAX_LINES})` })),
 });
 
 function text(t: string) {
@@ -622,18 +612,12 @@ export default function (pi: ExtensionAPI) {
     name: "background",
     label: "Background",
     description:
-      "Run long-lived, non-interactive commands (dev servers, watchers, long builds/tests, subagents) in the background. " +
-      "No stdin. start returns immediately by default. For long jobs, set notify: true and end your turn; a message wakes you when the job exits. " +
-      "Use wait only when you need the result now: a quick job, or a readiness check with until (e.g. 'ready|listening'). No polling. " +
-      "Results are concise; logs are shown on failure, on timeout, on wait completion, or with lines=N. " +
-      "Restart by name stops the previous job and starts it with its saved launch settings, including initial wait; no overrides. " +
-      "Jobs stop when Pi exits or switches session unless persist is true.",
+      "Run long-lived, non-interactive commands (servers, watchers, long builds/tests, subagents) in the background; no stdin. " +
+      "Logs show on failure, timeout, or with lines. Jobs stop when Pi exits or switches session unless persist.",
     promptSnippet: "Run and manage long-running background commands (servers, watchers, long tests)",
     promptGuidelines: [
-      "Use bash for short commands; use the background tool for dev servers, watchers, long builds/tests and subagents. Never use `&` or `nohup` in bash.",
-      "Start long jobs with notify: true, then end your turn (or keep doing other work); the exit message wakes you. Never call wait on a job you started with notify: wait holds the turn open, and the user cannot send follow-ups until it returns.",
-      "Use wait only when you need the result now: a quick command, or a readiness check for a server (until: 'ready|listening'). A timeout leaves the job running.",
-      "Do not poll with repeated status calls; when notified, read the result with background status and lines=N.",
+      "Use bash for short commands and the background tool for long ones; never `&` or `nohup` in bash.",
+      "For long jobs set notify: true and end your turn or do other work; the exit message wakes you. Use wait only for a quick result or a readiness check (until); a timeout leaves the job running. Don't poll status.",
     ],
     parameters: Params,
 
