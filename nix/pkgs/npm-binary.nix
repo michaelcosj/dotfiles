@@ -1,6 +1,7 @@
 # Packages a prebuilt binary that's published to npm as one package per platform
 # (`<packagePrefix>-<suffix>`, e.g. @opencode/cli-linux-x64). Used by the files
-# next to this one; update them with `update-npm-binary <name>`.
+# next to this one. Their pins are in npm-pins.json; update them with
+# `update-npm-binary <name>`.
 {
   lib,
   stdenv,

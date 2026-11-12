@@ -1,0 +1,43 @@
+{
+  "codex": {
+    "package": "@openai/codex",
+    "platformIn": "version",
+    "version": "0.167.0",
+    "platforms": {
+      "x86_64-linux": {
+        "suffix": "linux-x64",
+        "hash": "sha512-FNc7danfUng9Sp6w+Fh7kofNHHZpA6VMyNKWsWrS3OwHly69gywTWeiuwrUPXpJSho8Df4xqRsHfHRPzj7zYQg=="
+      }
+    }
+  },
+  "opencode": {
+    "package": "@opencode/cli",
+    "platformIn": "name",
+    "version": "2.0.26",
+    "platforms": {
+      "x86_64-linux": {
+        "suffix": "linux-x64",
+        "hash": "sha512-UIA2/1Ik8HaN54C4xp7H+OHgRfq995XUixrX+kLmFs8EPn1fAcmn3OoiN+3c3Vc3jEV/LHmj0Cy1SL6nW4wdGw=="
+      },
+      "x86_64-darwin": {
+        "suffix": "darwin-x64",
+        "hash": "sha512-051fIryTH4FK4Ml63TH+IP3s7Mi+jYfVyEXSBh9aGDJUS2VZfD+AwNJ9Ew9nBPTBKYvhMGhqHcudHagRL8SBbQ=="
+      }
+    }
+  },
+  "vite-plus": {
+    "package": "@voidzero-dev/vite-plus-cli",
+    "platformIn": "name",
+    "version": "1.1.0",
+    "platforms": {
+      "x86_64-linux": {
+        "suffix": "linux-x64-gnu",
+        "hash": "sha512-lNnY8ULsZ1AdO1DiSDqHWfxq1kT91aUroMFFq2ROSG3SyP1cmmNkCvMdOiYlNPh1P8DamBYG2q2JoqUJlA4kMQ=="
+      },
+      "x86_64-darwin": {
+        "suffix": "darwin-x64",
+        "hash": "sha512-fjkt6aSsgfVZlc4EmLrAazA0PeFzsdSnRfGbh7fWn5UWGQJLiz0LDvCUyLcfmGoZQqDjhwkwBun2YkK1leNTnQ=="
+      }
+    }
+  }
+}

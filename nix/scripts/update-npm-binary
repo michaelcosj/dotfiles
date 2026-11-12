@@ -1,71 +1,85 @@
 #!/usr/bin/env bash
-# Bump nix/pkgs/<name>.nix (a package built with pkgs/npm-binary.nix) to its latest
-# npm release, or to the version given as $2, filling in each platform's hash from
+# Bump a prebuilt npm binary pinned in nix/pkgs/npm-pins.json to its latest npm
+# release, or to the version given as $2, filling in each platform's hash from
 # the npm registry. Then nix-rebuild.
 #
-#   update-npm-binary                  # update all npm binary packages
+#   update-npm-binary                  # update all pinned packages
 #   update-npm-binary opencode
 #   update-npm-binary vite-plus 1.0.0
+#
+# Each pin names its npm package and where the platform goes:
+#   platformIn = "name":    one package per platform, <package>-<suffix>@<version>
+#   platformIn = "version": one package, <package>@<version>-<suffix>
 set -euo pipefail
 
-# Sets one platform's hash (the line after its suffix) or the version, in
-# place. awk instead of `sed -i`, whose syntax differs on macOS and Linux.
-set_field() {
-  local tmp
-  tmp=$(mktemp)
-  awk -v suffix="$2" -v value="$3" '
-    suffix == "" && /^  version = ".*";$/ { sub(/".*"/, "\"" value "\"") }
-    after_suffix && /hash = ".*";/ { sub(/".*"/, "\"" value "\""); after_suffix = 0 }
-    suffix != "" && index($0, "suffix = \"" suffix "\";") { after_suffix = 1 }
-    { print }
-  ' "$1" >"$tmp" && mv "$tmp" "$1"
-}
+pins="$HOME/.dotfiles/nix/pkgs/npm-pins.json"
+registry="https://registry.npmjs.org"
 
 if [ $# -gt 2 ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   echo "usage: update-npm-binary [<name> [version]]"
-  echo "With no name, update all npm binary packages."
+  echo "With no name, update all packages in $pins."
   if [ $# -gt 2 ]; then exit 1; fi
   exit 0
 fi
 
 if [ $# -eq 0 ]; then
-  for file in "$HOME"/.dotfiles/nix/pkgs/*.nix; do
-    if grep -qF 'callPackage ./npm-binary.nix' "$file"; then
-      name=${file##*/}
-      bash "$0" "${name%.nix}"
-    fi
+  for name in $(jq -r 'keys[]' "$pins"); do
+    bash "$0" "$name"
   done
   exit 0
 fi
 
-file="$HOME/.dotfiles/nix/pkgs/$1.nix"
-[ -f "$file" ] || { echo "no such package: $file" >&2; exit 1; }
+name=$1
+jq -e --arg n "$name" 'has($n)' "$pins" >/dev/null || {
+  echo "no such package in $pins: $name" >&2
+  exit 1
+}
 
-prefix=$(sed -n 's/^  packagePrefix = "\(.*\)";/\1/p' "$file")
-current=$(sed -n 's/^  version = "\(.*\)";/\1/p' "$file")
-mapfile -t suffixes < <(sed -n 's/^ *suffix = "\(.*\)";/\1/p' "$file")
-registry="https://registry.npmjs.org/$prefix"
+pin() { jq -r --arg n "$name" ".[\$n].$1" "$pins"; }
+package=$(pin package)
+platform_in=$(pin platformIn)
+current=$(pin version)
+mapfile -t systems < <(jq -r --arg n "$name" '.[$n].platforms | keys[]' "$pins")
 
-version="${2:-$(curl -fsSL "$registry-${suffixes[0]}/latest" | jq -r .version)}"
+# Registry metadata URL for one platform at one version.
+meta_url() {
+  local suffix=$1 version=$2
+  case $platform_in in
+    name) echo "$registry/$package-$suffix/$version" ;;
+    version) echo "$registry/$package/$version-$suffix" ;;
+    *) echo "unknown platformIn for $name: $platform_in" >&2; exit 1 ;;
+  esac
+}
+
+if [ -n "${2:-}" ]; then
+  version=$2
+elif [ "$platform_in" = name ]; then
+  first=$(jq -r --arg n "$name" --arg s "${systems[0]}" '.[$n].platforms[$s].suffix' "$pins")
+  version=$(curl -fsSL "$registry/$package-$first/latest" | jq -r .version)
+else
+  version=$(curl -fsSL "$registry/$package/latest" | jq -r .version)
+fi
 
 if [ "$version" = "$current" ]; then
-  echo "$1 is already at $version"
+  echo "$name is already at $version"
   exit 0
 fi
 
-# Fetch every platform before changing this package's pins.
-hashes=()
-for suffix in "${suffixes[@]}"; do
-  hash=$(curl -fsSL "$registry-$suffix/$version" | jq -r .dist.integrity)
+# Fetch every platform before changing the pins.
+updated=$(jq --arg n "$name" --arg v "$version" '.[$n].version = $v' "$pins")
+for system in "${systems[@]}"; do
+  suffix=$(jq -r --arg n "$name" --arg s "$system" '.[$n].platforms[$s].suffix' "$pins")
+  hash=$(curl -fsSL "$(meta_url "$suffix" "$version")" | jq -r .dist.integrity)
   if [ -z "$hash" ] || [ "$hash" = "null" ]; then
-    echo "no $suffix build found for $1 $version" >&2
+    echo "no $suffix build found for $name $version" >&2
     exit 1
   fi
-  hashes+=("$hash")
+  updated=$(jq --arg n "$name" --arg s "$system" --arg h "$hash" \
+    '.[$n].platforms[$s].hash = $h' <<<"$updated")
 done
-for i in "${!suffixes[@]}"; do
-  set_field "$file" "${suffixes[$i]}" "${hashes[$i]}"
-done
-set_field "$file" "" "$version"
 
-echo "$1 $current -> $version. Run nix-rebuild to install it."
+tmp=$(mktemp)
+printf '%s\n' "$updated" >"$tmp"
+mv "$tmp" "$pins"
+
+echo "$name $current -> $version. Run nix-rebuild to install it."

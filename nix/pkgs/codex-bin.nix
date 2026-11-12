@@ -1,12 +1,22 @@
-# Official prebuilt npm release. Update the version, URL, and hash together.
-{ lib, stdenvNoCC, fetchurl }:
-stdenvNoCC.mkDerivation {
+# Official prebuilt npm release (the platform is a version suffix, e.g.
+# @openai/codex@0.167.0-linux-x64). Version and hash are in npm-pins.json.
+# To update: run `update-npm-binary codex`, then nix-rebuild.
+{
+  lib,
+  stdenvNoCC,
+  fetchurl,
+}:
+let
+  pin = (lib.importJSON ./npm-pins.json).codex;
+  platform = pin.platforms.x86_64-linux;
+in
+stdenvNoCC.mkDerivation rec {
   pname = "codex-bin";
-  version = "0.167.0";
+  inherit (pin) version;
 
   src = fetchurl {
-    url = "https://registry.npmjs.org/@openai/codex/-/codex-0.167.0-linux-x64.tgz";
-    hash = "sha256-Lcmqhxq7UTw1OdINAl9wH68ZdMRu6Qa9o6Hh9QJtRDQ=";
+    url = "https://registry.npmjs.org/@openai/codex/-/codex-${version}-${platform.suffix}.tgz";
+    inherit (platform) hash;
   };
 
   dontConfigure = true;
