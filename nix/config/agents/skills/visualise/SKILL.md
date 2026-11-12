@@ -1,27 +1,36 @@
 ---
 name: visualise
 description: >-
-  Use in Rex when a visual explains better than text: diagrams, results or
-  wide tables, side-by-side comparisons, UI or color previews, or a question
-  the user answers with a click.
+  Use in Rex when showing the user something beats describing it in text:
+  diagrams, results or wide tables, side-by-side comparisons, UI or color
+  previews, or a small live tool they can play with (a calculator, a what-if
+  model).
 ---
 
-# rex-web
+# Visualise
 
-`rex-web` shows a page in a Rex pane next to yours, in the Rex theme. Use it
-only in Rex (`$REX_BLOCK` is set), and only when a visual explains better than
-text: diagrams, results tables, comparisons, previews, or a choice made with a
-click. Not for short answers or code the user will copy. Close the pane when
-the user is done with it.
+Show the user things in a Rex pane next to yours with `rex-web`. Use it only
+in Rex (`$REX_BLOCK` is set), and only when seeing beats reading:
+
+- **Explain:** architecture, data flow, a state machine, a sequence (Mermaid).
+- **Results:** benchmarks, test or coverage numbers, tables too wide for chat.
+- **Compare:** options side by side, before and after.
+- **Preview:** a UI component, colors, rendered docs.
+- **Explore:** a live tool where the user changes inputs and sees the result
+  (a pricing calculator, a cost or capacity model, a config builder), instead
+  of a table of every case.
+
+Not for short answers or code the user will copy. Tell the user in text what
+the pane shows, and close it when they are done with it.
 
 Two engines; `show` picks one:
 - **tui** (preferred: fast, light, selectable text): Markdown, Mermaid, and
-  plain question forms, drawn as terminal text. Used for `.md` files,
-  Markdown on stdin, and HTML with only plain elements and the kit classes.
+  plain HTML forms, drawn as terminal text. Used for `.md` files, Markdown on
+  stdin, and HTML with only plain elements and the kit classes.
 - **web** (headless Chrome): anything else: `<script>`, `<style>`, `style=`,
   images, SVG, charts, other classes. Live: click, type, scroll, hover.
 
-Write Markdown or a plain form when it's enough.
+Write Markdown when it's enough; use HTML and scripts when the page must move.
 
 ## Commands
 
@@ -43,7 +52,7 @@ rex-web status                     # JSON: open, engine, url, size
 - One viewer per agent pane; `show` again replaces its page. `--name NAME`
   keeps a second viewer.
 - Local files reload when they change: write `/tmp/rex-web-<topic>.md`,
-  `show` it once, then edit it.
+  `show` it once, then edit it as the work goes on.
 - After `show`, run `shot` and read the result before you tell the user.
   Fix cut-off or empty content. Web pages that render after load need a
   second or so.
@@ -89,12 +98,44 @@ Web pages:
   constant animation costs CPU.
 - `rex.copy(text)` (clipboard), `rex.close()`, `rex.title(text)`.
 
-## Ask the user
+### Live tools
 
-`<form data-rex>` sends its fields as an object on submit; `rex.send(value)`
-(web) sends any JSON value. The submit button's `name`/`value` replaces the
-field of that name, so several buttons can give different answers. Repeated
-names become arrays. `required` is checked, except for a named button.
+Inputs (`range`, `number`, `select`, `checkbox`) update the result on
+`input`, with no submit. Show the parts of the result, not only the total, so
+the user can check the math. Put the model's numbers in one `const` at the
+top of the script, so you can correct them when the user says one is wrong.
+
+```html
+<h2>Price estimate</h2>
+<div class="row"><label>Seats <input id="seats" type="range" min="1" max="200" value="20"></label> <b id="seatsV"></b></div>
+<label><input id="annual" type="checkbox" checked> Annual billing (-15%)</label>
+<div class="stat"><span class="label">Per month</span><span class="value" id="total"></span></div>
+<p class="muted" id="parts"></p>
+<script>
+const PRICE = { seat: 12, base: 49, annualOff: 0.15 };
+function update() {
+  const n = +seats.value, sub = PRICE.base + n * PRICE.seat;
+  const t = annual.checked ? sub * (1 - PRICE.annualOff) : sub;
+  seatsV.textContent = n;
+  total.textContent = `$${t.toFixed(0)}`;
+  parts.textContent = `$${PRICE.base} base + ${n} × $${PRICE.seat}` + (annual.checked ? " − 15%" : "");
+}
+addEventListener("input", update); update();
+</script>
+```
+
+## Getting a value back
+
+A page can send the user's choice back to you: the settings they landed on in
+a live tool, or a pick between options you showed. `rex-web wait` blocks until
+it arrives and prints it as JSON.
+
+- `rex.send(value)` (web) sends any JSON value, e.g. a "Use this" button:
+  `<button onclick="rex.send({seats: +seats.value})">Use this</button>`.
+- `<form data-rex>` sends its fields as an object on submit (tui and web).
+  The submit button's `name`/`value` replaces the field of that name, so
+  several buttons can give different answers. Repeated names become arrays.
+  `required` is checked, except for a named button.
 
 In tui, radios and `<select>` are option cards, checkboxes toggle, `<input>`
 and `<textarea>` take text. Keys: Tab/arrows/j/k move, Space toggles, Enter
@@ -114,11 +155,11 @@ EOF
 rex-web wait --timeout 600 --close   # prints {"db":"sqlite"}
 ```
 
-- Tell the user in text that a question waits in the pane.
+- Tell the user in text that the pane waits for them.
 - Run `wait` in the background if you can. It exits 124 on timeout and 3 if
   the user closed the pane; then ask in text.
-- `--close` closes the pane after the answer or the timeout.
-- Put the question and its buttons first; the pane can be short.
+- `--close` closes the pane after the value arrives or the timeout.
+- Put the choice and its buttons first; the pane can be short.
 - Values sent before `wait` starts are kept until the next `show`.
 
 ## Troubleshooting
