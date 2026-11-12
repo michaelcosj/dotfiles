@@ -500,6 +500,5 @@ export function createBridge(pi: any) {
     bridge.ctx = undefined;
   });
 
-  (globalThis as any).__piBridge = bridge;
   return bridge;
 }
