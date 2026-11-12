@@ -43,7 +43,6 @@
       "devtoys"
       "discord"
       "gcloud-cli"
-      # "ghostty"
       # "claude-code"
       "karabiner-elements"
       "linearmouse"
@@ -103,7 +102,7 @@
         mru-spaces = false;
         showhidden = true;
         persistent-apps = [
-          "/Applications/Ghostty.app"
+          "/Applications/Rex Beta.app"
           "/Applications/Helium.app"
           "/Users/synth/Applications/Chromium Apps.localized/Slack Activity.app"
           "/System/Applications/Mail.app"

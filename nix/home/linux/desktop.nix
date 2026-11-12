@@ -24,6 +24,16 @@
 
   # Also supplies the systemd user unit used for D-Bus activation.
   programs.ghostty.enable = true;
+  # Loads the shared file, then the Linux one. Both are read straight from the
+  # repo, so edits apply on reload without a rebuild.
+  xdg.configFile."ghostty/config".text =
+    let
+      dir = "${config.home.homeDirectory}/.dotfiles/nix/config/ghostty";
+    in
+    ''
+      config-file = ${dir}/common
+      config-file = ${dir}/linux
+    '';
 
   # Local dictation. The module installs the desktop entry and runs the
   # single Hex process as a user service once the graphical session is up.
