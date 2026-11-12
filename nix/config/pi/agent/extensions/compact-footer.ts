@@ -1,5 +1,6 @@
 /** Pi's footer with a shorter stats line: cache hit rate, cost, context use,
  * and provider/model. The directory and extension status lines are unchanged.
+ * Subscription usage (subscription-usage/) gets its own line, fitted to the width.
  */
 import { isAbsolute, relative, sep } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -19,6 +20,12 @@ function directory(cwd: string): string {
   return rel.startsWith("..") || isAbsolute(rel) ? cwd : `~${sep}${rel}`;
 }
 
+type Tone = "dim" | "warning" | "error";
+interface UsageUpdate {
+  render(width: number, paint: (tone: Tone, text: string) => string): string | undefined;
+  claimed: boolean;
+}
+
 const oneLine = (text: string) => text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
 
 export default function (pi: ExtensionAPI) {
@@ -26,7 +33,16 @@ export default function (pi: ExtensionAPI) {
     if (ctx.mode !== "tui") return;
 
     ctx.ui.setFooter((tui, theme, footerData) => {
-      const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
+      const unsubscribeBranch = footerData.onBranchChange(() => tui.requestRender());
+      let quota: UsageUpdate | undefined;
+      const unsubscribeUsage = pi.events.on("subscription-usage:update", (data) => {
+        const update = data as UsageUpdate;
+        if (typeof update?.render !== "function") return;
+        update.claimed = true;
+        quota = update;
+        tui.requestRender();
+      });
+      pi.events.emit("subscription-usage:request", undefined);
       // Totals scan the whole session; recount only when it grows or moves.
       let key = "";
       let stats = { cost: 0, cacheHit: undefined as number | undefined };
@@ -58,7 +74,10 @@ export default function (pi: ExtensionAPI) {
       }
 
       return {
-        dispose: unsubscribe,
+        dispose() {
+          unsubscribeBranch();
+          unsubscribeUsage();
+        },
         invalidate() {},
         render(width: number): string[] {
           const dim = (s: string) => theme.fg("dim", s);
@@ -99,6 +118,11 @@ export default function (pi: ExtensionAPI) {
           }
 
           const lines = [truncateToWidth(dim(pwd), width, dim("...")), truncateToWidth(stats, width, "")];
+          let usageLine: string | undefined;
+          try {
+            usageLine = quota?.render(width, (tone, s) => theme.fg(tone, s));
+          } catch {}
+          if (usageLine) lines.push(truncateToWidth(usageLine, width, dim("...")));
           const statuses = [...footerData.getExtensionStatuses().entries()]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([, text]) => oneLine(text));
