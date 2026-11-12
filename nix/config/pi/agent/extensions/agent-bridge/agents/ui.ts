@@ -22,6 +22,12 @@ interface Row {
   entry?: RosterEntry; // undefined for main
 }
 
+/** "https://devbox-m.danio-wezen.ts.net" → "devbox-m": the scheme and domain go. */
+export function shortHost(host: string) {
+  const bare = host.replace(/^[a-z]+:\/\//i, "").replace(/[:/].*$/, "");
+  return /^[\d.]+$/.test(bare) ? bare : bare.split(".")[0] || host;
+}
+
 function tokens(n?: number) {
   if (n == null) return "";
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k tokens` : `${n} tokens`;
@@ -85,18 +91,27 @@ export function registerAgentsUI(
             else if (e?.status === "crashed") mark = theme.fg("error", "✗");
             else if (e?.status === "working" || e?.status === "starting") mark = here ? mark : theme.fg("success", "◌");
             const nameText = focus ? theme.bold(theme.fg("accent", r.name)) : here ? theme.bold(r.name) : theme.fg("muted", r.name);
-            let left = `${focus ? theme.fg("accent", "› ") : "  "}${mark} ${nameText}`;
-            if (e?.host) left += theme.fg("dim", `@${e.host}`);
-            if (r.title && r.title !== r.name) left += `  ${focus || here ? r.title : theme.fg("dim", r.title)}`;
-            if (e?.status === "blocked") left += theme.fg("warning", "  needs an answer");
             const ms = e?.runStartedAt ? Date.now() - e.runStartedAt : e?.runMs;
             const tk = e ? e.tokens : opts.self === "main" ? opts.selfTokens?.() : undefined;
             const right = [ms != null ? duration(ms) : "", tokens(tk) ? `↓ ${tokens(tk)}` : ""].filter(Boolean).join(" · ");
             const rightText = focus || here ? right : theme.fg("dim", right);
+            // Narrow panes: drop the title first, then shorten the host to its
+            // first name ("rex" for rex.danio-wezen.ts.net).
+            const build = (title: boolean, host: "full" | "short") => {
+              let s = `${focus ? theme.fg("accent", "› ") : "  "}${mark} ${nameText}`;
+              if (e?.host) s += theme.fg("dim", `@${host === "full" ? e.host : shortHost(e.host)}`);
+              if (title && r.title && r.title !== r.name) s += `  ${focus || here ? r.title : theme.fg("dim", r.title)}`;
+              if (e?.status === "blocked") s += theme.fg("warning", "  needs an answer");
+              return s;
+            };
+            const fits = (s: string) => visibleWidth(s) + visibleWidth(right) + 3 <= width;
+            const left = [build(true, "full"), build(false, "full"), build(false, "short")].find(fits) ?? build(false, "short");
             const gap = width - visibleWidth(left) - visibleWidth(right) - 1;
             lines.push(truncateToWidth(gap > 1 ? left + " ".repeat(gap) + rightText : left, width));
           });
           if (selected !== undefined) lines.push(theme.fg("dim", "  ↑↓ select · enter switch · esc back"));
+          // A blank line keeps the list apart from the footer below it.
+          lines.push("");
           return lines;
         },
       }),
