@@ -1,5 +1,5 @@
 # Fedora GNOME desktop. Ubuntu and other desktops can compose their own modules.
-{ pkgs, lib, ... }:
+{ pkgs, lib, rex-rune, ... }:
 {
   imports = [
     ./desktop.nix
@@ -11,7 +11,11 @@
 
   # GearLever launches host AppImages. Fedora lacks libfuse.so.2.
   systemd.user.sessionVariables.LD_LIBRARY_PATH = "${lib.getLib pkgs.fuse}/lib";
-  home.packages = [ pkgs.gnome-power-manager ];
+  home.packages = [
+    pkgs.gnome-power-manager
+    # Rex Linux client. Vulkan comes from the host driver (genericLinux.gpu, desktop.nix).
+    rex-rune.packages.${pkgs.stdenv.hostPlatform.system}.default
+  ];
   dconf.settings."org/gnome/shell".enabled-extensions = lib.mkBefore [
     "background-logo@fedorahosted.org"
   ];

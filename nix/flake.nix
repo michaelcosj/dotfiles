@@ -20,6 +20,11 @@
     # Herdr, built from source. Bump the tag to update. [https://herdr.dev/docs/install/#install-with-nix]
     herdr.url = "github:herdrdev/herdr/v0.9.3";
 
+    # Rex Linux (rex-rune), a native Linux Rex client; Fedora desktop only.
+    # Keep its own nixpkgs: the build needs a newer Rust and Zig. Update with:
+    # nix flake update rex-rune
+    rex-rune.url = "github:shuv1337/rex-rune";
+
     # Hex local voice dictation, Linux x86_64 only. Update with: nix flake update hex
     hex.url = "github:anomalyco/hex";
 
@@ -41,6 +46,7 @@
       herdr,
       hex,
       rex,
+      rex-rune,
       ...
     }:
     let
@@ -62,7 +68,7 @@
             config.allowUnfree = true;
           };
           extraSpecialArgs = {
-            inherit herdr hex rex nix-flatpak;
+            inherit herdr hex rex rex-rune nix-flatpak;
             homeConfiguration = "${username}@${host}";
           };
           modules = [
