@@ -26,36 +26,21 @@ type RenderOption = {
 };
 
 export const QuestionOptionSchema = Type.Object({
-  value: Type.String({ description: "The value returned when selected" }),
-  label: Type.String({ description: "Display label for the option" }),
-  description: Type.Optional(
-    Type.String({ description: "Optional description shown below label" }),
-  ),
+  value: Type.String({ description: "Returned when picked" }),
+  label: Type.String(),
+  description: Type.Optional(Type.String({ description: "Shown below the label" })),
 });
 
 export const QuestionSchema = Type.Object({
-  id: Type.String({ description: "Unique identifier for this question" }),
-  label: Type.Optional(
-    Type.String({
-      description:
-        "Short contextual label for tab bar, e.g. 'Scope', 'Priority' (defaults to Q1, Q2)",
-    }),
-  ),
-  prompt: Type.String({ description: "The full question text to display" }),
-  options: Type.Array(QuestionOptionSchema, {
-    description: "Available options to choose from",
-  }),
-  allowOther: Type.Optional(
-    Type.Boolean({
-      description: "Allow 'Type something' option (default: true)",
-    }),
-  ),
+  id: Type.String({ description: "Unique" }),
+  label: Type.Optional(Type.String({ description: "Short tab label (default Q1, Q2…)" })),
+  prompt: Type.String(),
+  options: Type.Array(QuestionOptionSchema),
+  allowOther: Type.Optional(Type.Boolean({ description: "Offer free text (default true)" })),
 });
 
 export const QuestionnaireParams = Type.Object({
-  questions: Type.Array(QuestionSchema, {
-    description: "Questions to ask the user",
-  }),
+  questions: Type.Array(QuestionSchema),
 });
 
 function normalizeQuestions(questions: QuestionnaireQuestion[]): {
