@@ -455,7 +455,9 @@ export function createBridge(pi: any) {
   }
 
   // "herdr:blocked" is the shared "waiting for the user" signal (questionnaire, background questions).
+  // It also raises a Rex alert on this pane, so the tab and app show that pi waits.
   pi.events.on("herdr:blocked", (data: any) => {
+    const was = blockedCount;
     if (data?.active) {
       blockedCount += 1;
       blockedMessage = data.label;
@@ -463,6 +465,8 @@ export function createBridge(pi: any) {
       blockedCount = Math.max(0, blockedCount - 1);
       if (blockedCount === 0) blockedMessage = undefined;
     }
+    if (blockedCount > 0 && (was === 0 || data?.active)) programStatus("question", "blocked", blockedMessage ?? "pi needs an answer");
+    else if (blockedCount === 0 && was > 0) programStatus("question", "clear");
     publishState();
   });
 
@@ -485,6 +489,7 @@ export function createBridge(pi: any) {
     bridge.broadcast("editor", "agent_settled");
   });
   pi.on("session_shutdown", async (event: any) => {
+    if (blockedCount > 0) programStatus("question", "clear");
     for (const fn of shutdownHooks) {
       try {
         await fn(event?.reason ?? "quit");
