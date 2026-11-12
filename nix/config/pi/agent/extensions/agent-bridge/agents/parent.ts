@@ -741,7 +741,9 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     promptGuidelines: [
       "Use the agent tool for subagents; load the subagent skill for model picks and prompting guidance.",
       "After agent start or send, carry on with other work; each child's reply arrives as a message when it settles. Use agent wait only when you need a result before you can continue.",
-      "If agent wait reports that a child is blocked on a question, tell the user and stop waiting; never answer for them.",
+      "A child that needs an answer ends its turn with numbered questions. Answer from what you know: facts, earlier decisions in this conversation, and the user's standing rules. Then reply with agent send and tell the user your answer in one line, so they can correct it.",
+      "Ask the user (questionnaire) about new choices, anything destructive or hard to undo, anything outside the task's scope, and matters of taste. Send their answer to the child. Batch questions from several children into one questionnaire.",
+      "If agent wait reports that a child is blocked on a question in its own pane, the user is talking to it directly: tell the user and stop waiting; never answer for them.",
       "Reuse a settled child with agent send when the follow-up builds on its work; stop children you no longer need.",
       "Children close when this pi exits. When a follow-up builds on a closed child's work, agent resume it (agent status lists resumable children) instead of starting over.",
     ],

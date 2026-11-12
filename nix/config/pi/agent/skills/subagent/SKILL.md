@@ -13,7 +13,8 @@ agent({ action: "start", name: "scout-auth", title: "Map the auth flow", model: 
 ```
 
 - `start` returns at once. Each time a child settles, its final reply arrives as a message (`notify`, default true), so carry on with other work.
-- Use `agent wait` only when you cannot continue without a result. It returns the first unreported result, or returns early when a child is blocked on a question. Then tell the user that the child needs an answer (they switch to it with ↓ on an empty prompt). Never answer for them.
+- Use `agent wait` only when you cannot continue without a result. It returns the first unreported result, or returns early when a child is blocked on a question in its own pane (the user is talking to it directly). Then tell the user that the child needs an answer (they switch to it with ↓ on an empty prompt). Never answer those for them.
+- A child that needs an answer from you ends its turn with numbered questions under "Questions". Answer facts and decisions the user already made yourself, with `agent send`, and tell the user your answer in one line. Ask the user about new choices, destructive or hard-to-undo steps, scope changes and matters of taste, then send their answer on. Do not tell children to use `questionnaire`.
 - Children stay alive after they settle. `agent send` gives a settled child follow-up work, or queues a follow-up for a busy one.
 - `agent stop` closes a child. Stop children you no longer need.
 - Children close when this pi exits, but their conversations are saved in this session. After a restart, `agent status` lists them and `agent resume` reopens one, optionally with a first message in `text`.

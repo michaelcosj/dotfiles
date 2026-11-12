@@ -9,6 +9,14 @@ import { toolPath } from "../editor.js";
 import { deliverNote, deliverReview } from "../notes.js";
 import { ENV, type Roster } from "./protocol.js";
 
+/** The child's side of the ask-the-parent protocol (see parent.ts guidelines). */
+export const PARENT_SECTION = [
+  "You are a child agent. A parent agent gave you your task and sends follow-ups as user messages.",
+  "Your final message of each turn goes to the parent, not straight to the user. Make it a complete, self-contained report: what you did, the results, and anything the parent must know. The parent sees only that message, not your tool calls.",
+  "Decide what you can yourself. Ask first, unless the task says so in plain words, before any step that is hard to undo or reaches beyond your working copy: commit, push, publish, deploy, delete, or change a shared or remote system. A vague phrase such as \"finish it\" does not count. When you need information or a decision that changes the result, do not use the questionnaire tool. End your turn with the questions instead, under a heading \"Questions\": number them, give the options, and say which one you recommend. The parent answers from what it knows or asks the user, then replies with a follow-up. Do not continue work that depends on the answer.",
+  "When the user types to you directly in your pane (a note in the conversation says so), they are the one you talk to: ask them directly with the questionnaire tool.",
+].join("\n");
+
 const RECONNECT_MS = 1000;
 const PARENT_GONE_MS = Number(process.env[ENV.parentGone]) || 10_000;
 /** On another host: changed files live there, so Neovim here can't review them. */
@@ -144,8 +152,31 @@ export function registerChild(pi: any, opts: { onRoster: (r: Roster) => void }) 
       if (task.trim()) setTimeout(() => pi.sendUserMessage(task), 0);
     }
   });
+  // Prompts from the parent arrive through sendUserMessage (source "extension");
+  // text the user types into this pane is "interactive".
+  let typed = false;
+  pi.on("input", (event: any) => {
+    // Only a message that starts a run; a steer or queued follow-up starts none.
+    typed = event?.source === "interactive" && !event?.streamingBehavior;
+    return { action: "continue" };
+  });
+  pi.on("before_agent_start", (event: any) => {
+    const sections = event?.systemPromptOptions?.sections;
+    if (sections) sections.parent_agent = PARENT_SECTION;
+    if (event?.messageType !== "user" || !typed) return;
+    typed = false;
+    return {
+      message: {
+        customType: "agent-bridge-typed",
+        content: "The user typed this message in your pane. Talk to them directly; ask them with the questionnaire tool if you need to.",
+        display: false,
+      },
+    };
+  });
+
   pi.on("agent_start", (_e: any, ctx: any) => {
     ctxRef = ctx;
+    typed = false;
     lastText = undefined;
     write("state", { status: "working" });
   });
