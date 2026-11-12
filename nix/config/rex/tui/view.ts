@@ -16,9 +16,12 @@ import {
   createCliRenderer, BoxRenderable, TextRenderable, ScrollBoxRenderable, MarkdownRenderable, ImageRenderable,
   InputRenderable, TextareaRenderable, SyntaxStyle, RGBA, type CliRenderer, type Renderable, type KeyEvent,
 } from "@opentui/core";
-import { fromHTML, fromMarkdown, formValue, type Block, type Control } from "./content.ts";
+import { fromMarkdown, formValue, type Block, type Control } from "./content.ts";
 import { makeTheme, mix, themeKey, type Theme } from "./theme.ts";
-import { layout, rasterize, type Diagram } from "./mermaid.ts";
+import type { Diagram } from "./mermaid.ts";
+
+// The HTML parser and the diagram renderer load only when a page needs them.
+let mermaidLib: typeof import("./mermaid.ts") | null = null;
 
 // ---- arguments ----
 const args = process.argv.slice(2);
@@ -91,10 +94,11 @@ function syntax(): SyntaxStyle {
 
 // ---- the page ----
 let blocks: Block[] = [];
-function load() {
+async function load() {
   const text = existsSync(file) ? readFileSync(file, "utf8") : "";
   const md = /\.(md|markdown)$/i.test(file) || !text.trimStart().startsWith("<");
-  blocks = md ? fromMarkdown(text) : fromHTML(text);
+  blocks = md ? fromMarkdown(text) : (await import("./html.ts")).fromHTML(text);
+  if (blocks.some(b => b.kind === "mermaid")) mermaidLib ??= await import("./mermaid.ts");
   const title = md ? /^#\s+(.+)$/m.exec(text)?.[1] : /<h1[^>]*>([^<]+)/i.exec(text)?.[1] || /<title>([^<]+)/i.exec(text)?.[1];
   if (title) process.stdout.write(`\x1b]2;${title.replace(/[\x00-\x1f]/g, "")}\x07`);
 }
@@ -150,7 +154,8 @@ const text = (s: string, color: string | RGBA = FG(), extra: any = {}) => new Te
 
 function markdown(md: string): Renderable {
   return new MarkdownRenderable(r, {
-    content: md, syntaxStyle: mdStyle!, fg: FG(), width: "100%", conceal: true,
+    // a final newline: OpenTUI leaves a lone last heading unstyled without one
+    content: md + "\n", syntaxStyle: mdStyle!, fg: FG(), width: "100%", conceal: true,
     tableOptions: { style: "grid", widthMode: "content", wrapMode: "word", borderColor: theme.border, borderStyle: "rounded" },
   });
 }
@@ -158,7 +163,7 @@ function markdown(md: string): Renderable {
 // ---- mermaid ----
 function mermaid(source: string): Renderable {
   let d = diagrams.get(source);
-  if (!d) { d = layout(source); diagrams.set(source, d); }
+  if (!d) { d = mermaidLib!.layout(source); diagrams.set(source, d); }
   if ("error" in d) {
     const box = new BoxRenderable(r, { flexDirection: "column", width: "100%" });
     box.add(text(`Mermaid: ${d.error}`, theme.red));
@@ -171,7 +176,7 @@ function mermaid(source: string): Renderable {
   const pxWidth = Math.min(cols * cell.w, d.width * 2);
   const rows = Math.max(3, Math.min(Math.round((pxWidth * d.height / d.width) / cell.h), Math.max(8, r.height * 2)));
   const widthCells = Math.max(10, Math.min(cols, Math.round(pxWidth / cell.w)));
-  const png = rasterize(d, theme, Math.round(widthCells * cell.w * 2)); // 2x for sharpness
+  const png = mermaidLib!.rasterize(d, theme, Math.round(widthCells * cell.w * 2)); // 2x for sharpness
   const img = new ImageRenderable(r, { source: png, fit: "fit", width: widthCells, height: rows, protocol: "auto",
     onError: (e) => log("image", String(e)) });
   return img;
@@ -371,7 +376,7 @@ function startControl() {
         if (!target) return new Response("no url", { status: 400 });
         // page.md and page.html (stdin) swap names, so always re-read
         file = resolve(decodeURIComponent(target)); events.length = 0; sent = null; formState.clear(); diagrams.clear();
-        watchFile(); load(); build();
+        watchFile(); await load(); build();
         return new Response("ok");
       }
       if (path === "/close") { setTimeout(quit, 10); return new Response("ok"); }
@@ -400,14 +405,14 @@ function watchFile() {
   // the directory: editors replace files instead of writing in place
   watcher = watch(dirname(file), (_, f) => {
     if (f && basename(String(f)) !== basename(file)) return;
-    clearTimeout(t); t = setTimeout(() => { load(); build(); }, 80);
+    clearTimeout(t); t = setTimeout(() => load().then(build), 80);
   });
 }
 
 // ---- keys ----
 r.keyInput.on("keypress", (e: KeyEvent) => {
   if (e.ctrl && (e.name === "q" || e.name === "c")) { e.preventDefault(); e.stopPropagation(); return quit(); }
-  if (e.ctrl && e.name === "r") { e.preventDefault(); load(); build(); return; }
+  if (e.ctrl && e.name === "r") { e.preventDefault(); load().then(build); return; }
   if (e.name === "tab") {
     e.preventDefault(); e.stopPropagation();
     if (fields.length) setFocus((focused + (e.shift ? -1 : 1) + fields.length) % fields.length);
@@ -449,7 +454,7 @@ process.on("uncaughtException", e => { log("crash", e?.stack); quit(); });
 const ppid = process.ppid;
 setInterval(() => { try { process.kill(ppid, 0); } catch { quit(); } }, 2000).unref();
 
-load();
+await load();
 await readTheme();
 build();
 r.start();
