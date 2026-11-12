@@ -15,8 +15,10 @@ through apt or Home Manager.
 
    ```sh
    ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no devbox
-   ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no devbox-admin
    ```
+
+   Test the recovery account the same way, by its address and name (kept outside
+   this repo).
 
 4. As `m` on the VPS, build the locked service configuration:
 

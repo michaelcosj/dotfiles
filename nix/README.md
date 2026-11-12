@@ -68,8 +68,10 @@ is pinned to an immutable release URL in `flake.lock`.
 
 ## Ubuntu devbox bootstrap
 
-The current devbox is `DEVBOX_IP_REMOVED`, x86_64 Ubuntu 26.04.
-The original provisioning account is `DEVBOX_ADMIN_REMOVED`; retain it for recovery.
+The current devbox is an x86_64 Ubuntu 26.04 VPS, reached over Tailscale as
+`devbox.danio-wezen.ts.net` (SSH aliases `devbox` and `devbox-work`). Keep the
+provider's original provisioning account for recovery. Its name and the public
+address are kept outside this repo.
 
 Run the bootstrap script on the server as root, passing an SSH **public** key:
 
@@ -167,7 +169,6 @@ Desktop aliases:
 ```sh
 ssh devbox         # m
 ssh devbox-work    # work
-ssh devbox-admin   # original provisioning account
 ```
 
 Rex runs as a separate systemd user service for each Linux account. Each keeps

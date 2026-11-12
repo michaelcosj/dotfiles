@@ -1,4 +1,6 @@
 # Client-side aliases. OpenSSH selects the normal local identity files.
+# The devbox is reached over Tailscale (MagicDNS), so its public address stays
+# out of this public repo.
 { ... }:
 {
   programs.ssh = {
@@ -6,16 +8,12 @@
     enableDefaultConfig = false;
     settings = {
       devbox = {
-        HostName = "DEVBOX_IP_REMOVED";
+        HostName = "devbox.danio-wezen.ts.net";
         User = "m";
       };
       devbox-work = {
-        HostName = "DEVBOX_IP_REMOVED";
+        HostName = "devbox.danio-wezen.ts.net";
         User = "work";
-      };
-      devbox-admin = {
-        HostName = "DEVBOX_IP_REMOVED";
-        User = "DEVBOX_ADMIN_REMOVED";
       };
     };
   };
