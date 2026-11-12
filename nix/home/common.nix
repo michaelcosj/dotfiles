@@ -10,7 +10,6 @@
     ./pi.nix
     ./programs/fish.nix
     ./programs/git.nix
-    ./programs/tmux.nix
   ];
 
   home.packages = with pkgs; [

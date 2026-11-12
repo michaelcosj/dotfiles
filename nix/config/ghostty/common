@@ -14,7 +14,7 @@ window-colorspace = srgb
 maximize = true
 custom-shader = shaders/cursor_tail.glsl
 
-# Mirror the tmux C-a prefix bindings.
+# Mirror the Ctrl+A prefix map in config/rex/init.lua.
 # keybind = ctrl+a>ctrl+a=text:\x01
 # keybind = ctrl+a>r=reload_config
 # keybind = ctrl+a>c=new_tab
