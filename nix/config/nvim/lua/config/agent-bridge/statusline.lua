@@ -1,10 +1,10 @@
 -- Agent status for lualine, and the settings pi shows in its own footer.
 --
---   π ○               idle (dim)
---   π ●               working (blue)
---   π ◐ 2             pi idle, 2 subagents or background jobs running (cyan)
---   π ● 2             working, and 2 subagents or jobs running (blue)
---   π ⏳ plan          waiting on you (yellow); click to open the review
+--   󰚩 π ○             idle (dim)
+--   󰚩 π ●             working (blue)
+--   󰚩 π ◐ 2           pi idle, 2 subagents or background jobs running (cyan)
+--   󰚩 π ● 2           working, and 2 subagents or jobs running (blue)
+--   󰚩 π ⏳ plan        waiting on you (yellow); click to open the review
 --   󰁌                 follow is on; click to toggle
 --   Δ3                3 files pi changed to review; click to review
 --
@@ -51,10 +51,10 @@ end
 
 function M.agent()
 	local w = waiting()
-	if w then return "π ⏳ " .. w end
+	if w then return "󰚩 π ⏳ " .. w end
 	local busy = events.busy or 0
 	local dot = events.state == "working" and "●" or busy > 0 and "◐" or "○"
-	return "π " .. dot .. (busy > 0 and " " .. busy or "")
+	return "󰚩 π " .. dot .. (busy > 0 and " " .. busy or "")
 end
 
 function M.agent_color()

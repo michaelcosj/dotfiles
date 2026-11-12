@@ -44,7 +44,7 @@ lualine.setup({
 				color = { fg = "#ff9e64" },
 				draw_empty = false,
 			},
-			-- π ○/●/◐/⏳ · 󰁌 follow · Δn files to review (all clickable)
+			-- 󰚩 π ○/●/◐/⏳ · 󰁌 follow · Δn files to review (all clickable)
 			unpack(require("config.agent-bridge").lualine()),
 		},
 		lualine_y = {
