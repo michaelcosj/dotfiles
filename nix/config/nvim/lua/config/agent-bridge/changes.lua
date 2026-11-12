@@ -62,9 +62,11 @@ local function entry_json(e)
 end
 
 -- Committing counts as reviewing. Each entry remembers the repo's HEAD
--- (recorded the first time it's listed); once a newer commit touches the
+-- (pi records it with the baseline); once a newer commit touches the
 -- file, the baseline moves to the committed version, so only changes made
 -- since the commit stay listed, and none if the file is unchanged since.
+-- Entries without a head (older pi) take HEAD's version as the baseline
+-- if a commit touched the file after the baseline was taken.
 local function committed(e, file)
 	-- git needs an existing directory; pi may have created the file's folder
 	local dir = vim.fs.dirname(e.path)
@@ -72,11 +74,17 @@ local function committed(e, file)
 	local head = git(dir, "rev-parse", "HEAD")
 	head = head and vim.trim(head)
 	if not head or head == e.head then return end
+	local name = "./" .. vim.fs.relpath(dir, e.path)
 	if type(e.head) == "string" then
-		local name = "./" .. vim.fs.relpath(dir, e.path)
 		local _, code = git(dir, "diff", "--quiet", e.head, head, "--", name)
 		if code ~= 0 and code ~= 1 then return end -- e.g. the old commit is gone
 		if code == 1 then
+			local text = git(dir, "show", "HEAD:" .. name)
+			e.exists, e.baseline = text ~= nil, text or ""
+		end
+	elseif type(e.created) == "number" then
+		local t = tonumber(vim.trim(git(dir, "log", "-1", "--format=%ct", "HEAD", "--", name) or ""))
+		if t and t * 1000 > e.created then
 			local text = git(dir, "show", "HEAD:" .. name)
 			e.exists, e.baseline = text ~= nil, text or ""
 		end
@@ -141,9 +149,19 @@ local function committed_async(e, file, head, done)
 		pcall(write, file, entry_json(e))
 		done()
 	end
-	if type(e.head) ~= "string" then return save() end
 	local dir = git_dir(e.path)
 	local name = "./" .. vim.fs.relpath(dir, e.path)
+	if type(e.head) ~= "string" then
+		if type(e.created) ~= "number" then return save() end
+		return git_async(dir, { "log", "-1", "--format=%ct", "HEAD", "--", name }, function(out)
+			local t = tonumber(vim.trim(out or ""))
+			if not (t and t * 1000 > e.created) then return save() end
+			git_async(dir, { "show", "HEAD:" .. name }, function(text)
+				e.exists, e.baseline = text ~= nil, text or ""
+				save()
+			end)
+		end)
+	end
 	git_async(dir, { "diff", "--quiet", e.head, head, "--", name }, function(_, code)
 		if code ~= 0 and code ~= 1 then return done() end -- e.g. the old commit is gone
 		if code == 0 then return save() end

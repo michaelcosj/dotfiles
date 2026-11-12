@@ -8,6 +8,7 @@
 // `by` names the pi that edited the file first: "main", or a child agent's
 // name (PI_AGENT_NAME). If several agents edit one file, the review shows
 // all their changes under the first one's name.
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -21,6 +22,19 @@ export const CHANGES_DIR = path.join(
 
 function entryPath(file: string) {
   return path.join(CHANGES_DIR, `${crypto.createHash("sha256").update(file).digest("hex").slice(0, 16)}.json`);
+}
+
+// The repo's HEAD as the baseline is taken, so a later commit of the file
+// counts as reviewing it (changes.lua's committed()). Recorded here, not
+// when Neovim first lists the entry: by then the change may be committed.
+function gitHead(file: string): string | null {
+  let dir = path.dirname(file);
+  while (!fs.existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir);
+  try {
+    return execFileSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 2000 }).trim() || null;
+  } catch {
+    return null; // not a repo, or no commits yet
+  }
 }
 
 // Saves the file as it is now, unless a baseline for it already exists.
@@ -45,7 +59,7 @@ export function trackBaseline(file: string) {
     fs.mkdirSync(CHANGES_DIR, { recursive: true, mode: 0o700 });
     fs.writeFileSync(
       tmp,
-      JSON.stringify({ version: 1, agent: "pi", by: process.env.PI_AGENT_NAME || "main", path: file, exists, baseline, created: Date.now() }),
+      JSON.stringify({ version: 1, agent: "pi", by: process.env.PI_AGENT_NAME || "main", path: file, exists, baseline, created: Date.now(), head: gitHead(file) }),
       { mode: 0o600 },
     );
     fs.linkSync(tmp, entry);
