@@ -1,5 +1,5 @@
 #!/bin/sh
-# fzf pickers that Rex opens in a floating pane.
+# fzf pickers that Rex opens in a floating pane or a tab (platform.lua).
 #   rex-pick projects   choose a project to open or switch to
 #   rex-pick worktree   pick or name a worktree of this project to open
 #   rex-pick restore    choose which sessions to resume after a server restart
@@ -7,13 +7,30 @@ set -u
 
 state="${XDG_STATE_HOME:-$HOME/.local/state}/rex"
 
+# The session is open, but no app switched to it: Rex Linux refuses
+# client.perform unless Remote control is on for this host. Say where to go.
+# $1 is the action's JSON result.
+not_switched() {
+	printf '%s' "$1" | grep -q '"switched": *false' || return 0
+	label=$(printf '%s' "$1" | sed -n 's/.*"label": *"\([^"]*\)".*/\1/p')
+	printf 'Session "%s" is open. Switch to it with the session switcher.\n' "${label:-$2}"
+	printf '(Turn on Remote control for this host to switch automatically.)\n\npress enter'
+	read -r _
+}
+
 case "${1:-}" in
 projects)
 	name=$(rex do -e 'io.write(rex.invoke("project_list"), "\n")' | fzf \
 		--delimiter '	' --with-nth 2 --no-multi \
 		--prompt 'project> ' --header '● open · enter switch or create · esc cancel' |
 		cut -f1)
-	[ -n "$name" ] && rex do project_open name="$name" >/dev/null
+	[ -n "$name" ] || exit 0
+	if out=$(rex do project_open name="$name" 2>&1); then
+		not_switched "$out" "$name"
+	else
+		printf '%s\n\npress enter' "$out"
+		read -r _
+	fi
 	;;
 worktree)
 	# cwd is the project's main checkout (see worktree_pick)
@@ -23,8 +40,10 @@ worktree)
 	picked=$(printf '%s\n' "$out" | sed -n 2p | awk '{print $1}')
 	name=${picked:-$query}
 	[ -n "$name" ] || exit 0
-	if ! err=$(rex do worktree_new name="$name" 2>&1 >/dev/null); then
-		printf '%s\n\npress enter' "$err"
+	if out=$(rex do worktree_new name="$name" 2>&1); then
+		not_switched "$out" "$name"
+	else
+		printf '%s\n\npress enter' "$out"
 		read -r _
 	fi
 	;;

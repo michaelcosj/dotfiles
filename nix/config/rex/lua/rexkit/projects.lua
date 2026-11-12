@@ -136,11 +136,12 @@ local function create(item)
 end
 
 -- Switches to the item's session (by label), creating it first if needed.
+-- Returns the session and whether any app switched to it.
 function M.open_item(item, from_session)
 	local live = sessions_by_label()[item.name]
 	local sid = live and live.session_id or create(item)
-	ui.select(sid, from_session)
-	return sid
+	local switched = ui.select(sid, from_session) > 0
+	return sid, switched
 end
 
 -- Switches to the project's session, creating it first if needed.

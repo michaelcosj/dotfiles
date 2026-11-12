@@ -95,7 +95,9 @@ function M.open(session_id, name, base)
 	end
 	local path = run(args)
 	local projects = require("rexkit.projects")
-	return projects.open_item({ name = project.name .. ":" .. name, root = path, tabs = project.tabs }, session_id)
+	local label = project.name .. ":" .. name
+	local sid, switched = projects.open_item({ name = label, root = path, tabs = project.tabs }, session_id)
+	return sid, switched, label
 end
 
 -- Removes this session's worktree, then closes the session. Refusals from

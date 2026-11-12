@@ -19,15 +19,6 @@
   home.file.".config/herdr".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/herdr";
 
-  # Rex config
-  home.file.".config/rex".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/rex";
-
-  # rex-web: HTML in a Rex pane (skill: config/agents/skills/rex-web). On the
-  # PATH every shell gets, including the non-interactive ones agents run.
-  home.file.".local/bin/rex-web".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/rex/bin/rex-web";
-
   # Ghostty config
   # Loads the shared file, then the per-OS one. Both are read straight from the
   # repo, so edits apply on reload without a rebuild.

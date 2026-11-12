@@ -50,7 +50,7 @@ rex.action({
 	category = "Projects",
 	run = function(ctx)
 		assert(ctx.session_id, "project_pick needs a session")
-		ui.float(ctx.session_id, { "/bin/sh", ui.bin .. "/rex-pick", "projects" }, {
+		ui.present(ctx.session_id, { "/bin/sh", ui.bin .. "/rex-pick", "projects" }, {
 			label = "projects",
 			bounds = { 0.2, 0.15, 0.6, 0.6 },
 		})
@@ -72,7 +72,8 @@ rex.action({
 	category = "Projects",
 	args = { type = "object", properties = { name = { type = "string" } }, required = { "name" } },
 	run = function(ctx, args)
-		return { session_id = projects.open(args.name, ctx.session_id) }
+		local sid, switched = projects.open(args.name, ctx.session_id)
+		return { session_id = sid, label = args.name, switched = switched }
 	end,
 })
 
@@ -159,7 +160,7 @@ rex.action({
 		assert(ctx.session_id, "worktree_pick needs a session")
 		local project = worktrees.project_of(ctx.session_id)
 		assert(project, "this session is not in a git repository")
-		ui.float(ctx.session_id, { "/bin/sh", ui.bin .. "/rex-pick", "worktree" }, {
+		ui.present(ctx.session_id, { "/bin/sh", ui.bin .. "/rex-pick", "worktree" }, {
 			label = "worktrees",
 			bounds = { 0.25, 0.2, 0.5, 0.5 },
 			cwd = project.root,
@@ -174,7 +175,8 @@ rex.action({
 	args = { type = "object", properties = { name = { type = "string" }, base = { type = "string" } }, required = { "name" } },
 	run = function(ctx, args)
 		assert(ctx.session_id, "worktree_new needs a session")
-		return { session_id = worktrees.open(ctx.session_id, args.name, args.base) }
+		local sid, switched, label = worktrees.open(ctx.session_id, args.name, args.base)
+		return { session_id = sid, label = label, switched = switched }
 	end,
 })
 

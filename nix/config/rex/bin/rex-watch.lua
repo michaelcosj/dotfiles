@@ -50,7 +50,7 @@ local function resume()
 		end
 		local first = groups[1].session_id
 		ui.select(first, nil)
-		ui.float(first, { "/bin/sh", ui.bin .. "/rex-pick", "restore" }, { label = "restore", bounds = { 0.15, 0.2, 0.7, 0.5 } })
+		ui.present(first, { "/bin/sh", ui.bin .. "/rex-pick", "restore" }, { label = "restore", bounds = { 0.15, 0.2, 0.7, 0.5 } })
 		log("restore: asking about", #groups, "sessions")
 	end
 end

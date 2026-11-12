@@ -1,5 +1,6 @@
 # Shared Linux user environment, for desktops and headless devboxes.
 {
+  config,
   pkgs,
   lib,
   rex,
@@ -30,6 +31,24 @@
 
   programs.rex.enable = true;
   services.rex.enable = true;
+
+  # Rex session restore (nix/config/rex/bin/rex-watch.lua): resumes what panes
+  # were running after the server restarts, then saves a snapshot every 15 s.
+  # It starts and stops with the server; launchd runs it on macOS (darwin.nix).
+  systemd.user.services.rex-watch = {
+    Unit = {
+      Description = "Rex session restore";
+      After = [ "rex.service" ];
+      BindsTo = [ "rex.service" ];
+    };
+    Service = {
+      # The server's own rex, on its default socket (same XDG_RUNTIME_DIR).
+      ExecStart = "${lib.getExe config.services.rex.package} --autostart=false do %h/.config/rex/bin/rex-watch.lua --all";
+      Restart = "on-failure";
+      RestartSec = 15;
+    };
+    Install.WantedBy = [ "rex.service" ];
+  };
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;

@@ -28,17 +28,20 @@
 //   <form data-rex>  on submit, sends the form fields as an object (rex.send)
 //   addEventListener('rex:theme', e => e.detail)
 //
-// Environment: REX_WEB_FPS (30), REX_WEB_SCALE, REX_WEB_GPU=1, REX_WEB_CHROME, REX_WEB_DEBUG=logfile
+// Environment: REX_WEB_FPS (30), REX_WEB_SCALE, REX_WEB_GPU=1, REX_WEB_CHROME, REX_WEB_DEBUG=logfile,
+//   REX_WEB_PARTIAL=1|0 (frame edits; default: on only when the Rex app showing it is the macOS app)
 
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, watch, existsSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
+// Chrome: REX_WEB_CHROME, the macOS apps, then the usual Linux names on PATH
+// (Nix puts them in a profile, not /usr/bin).
 const CHROME = process.env.REX_WEB_CHROME ||
   ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-   "/Applications/Chromium.app/Contents/MacOS/Chromium",
-   "/usr/bin/google-chrome", "/usr/bin/chromium"].find(existsSync);
+   "/Applications/Chromium.app/Contents/MacOS/Chromium"].find(existsSync) ||
+  ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"].map((n) => Bun.which(n)).find(Boolean);
 
 // --- arguments -------------------------------------------------------------
 
@@ -422,7 +425,21 @@ import { inflateSync, deflateSync } from "node:zlib";
 
 const FPS = Number(process.env.REX_WEB_FPS || 30);
 const TILE = 32;
-const PARTIAL = process.env.REX_WEB_PARTIAL !== "0";
+// Frame edits (a=f) are kitty animation frames. The macOS Rex app draws them;
+// Rex Linux (Ghostty's engine) doesn't support animated kitty graphics, and
+// would show only the first frame. So partial updates are on only when the
+// app showing this session is the macOS one. REX_WEB_PARTIAL overrides.
+function clientPlatform() {
+  try {
+    const p = Bun.spawnSync(["rex", "api", "call", "client.list", JSON.stringify({ kinds: ["app"] })], { stdout: "pipe", stderr: "ignore", timeout: 3000 });
+    const apps = (JSON.parse(p.stdout.toString()).clients || []).filter((c) => c.connection_state === "connected");
+    const session = process.env.REX_SESSION;
+    const mine = apps.filter((c) => session && (c.session_ids || []).includes(session));
+    return ((mine.length ? mine : apps)[0] || {}).info?.platform;
+  } catch { return undefined; }
+}
+const PARTIAL = process.env.REX_WEB_PARTIAL ? process.env.REX_WEB_PARTIAL !== "0"
+  : process.env.REX_SESSION ? clientPlatform() === "macos" : true; // outside Rex: a real kitty terminal
 const xfer = mkdtempSync(join(tmpdir(), "rex-web-px-"));
 let useFiles = false, fileSeq = 0;
 
