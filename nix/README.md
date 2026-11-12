@@ -1,7 +1,8 @@
 # Nix environments
 
 Ubuntu, Fedora, and macOS still own their system accounts and host services.
-Home Manager manages user packages, dotfiles, and user services.
+Home Manager manages user packages, dotfiles, and user services. On macOS,
+nix-darwin (`darwin.nix`) also manages system settings and Homebrew casks.
 
 ## Modules
 
@@ -9,16 +10,15 @@ Home Manager manages user packages, dotfiles, and user services.
   - `home/agents.nix`: instructions and skills shared by all coding agents (`~/.agents`).
   - `home/claude.nix`: Claude Code config links; runtime state stays in `~/.claude`.
   - `home/codex.nix`: Codex instructions link and seeded portable `config.toml`.
-  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, btca).
+  - `home/links.nix`: configs linked straight from the repo (Neovim, OpenCode, Rex, rex-web).
   - `home/pi.nix`: Pi config links; Pi's runtime state stays in `~/.pi` (see below).
-  - `home/programs/fish.nix`: Fish, prompt, aliases, fzf, direnv, and Starship (off).
+  - `home/programs/fish.nix`: Fish, prompt, aliases, fzf, direnv, and the Vite+ shell hook.
   - `home/programs/git.nix`: Git, delta, and lazygit.
-  - `home/programs/tmux.nix`: tmux and the `tsm` session picker.
 - `home/personal.nix`: personal Git identity; not used by the work account.
-- `home/desktop.nix`: shared desktop packages, Ghostty config, and devbox SSH aliases.
-- `home/darwin.nix`: macOS additions.
+- `home/desktop.nix`: shared desktop packages, Herdr, and devbox SSH aliases.
+- `home/darwin.nix`: macOS additions and Rex session restore.
 - `home/linux/common.nix`: shared Linux packages, Nix settings, and Rex.
-- `home/linux/desktop.nix`: Linux GUI apps, Flatpak, GPU integration, and Kanata.
+- `home/linux/desktop.nix`: Linux GUI apps, Ghostty, Flatpak, GPU integration, and Kanata.
 - `home/linux/gnome.nix`: GNOME packages and preferences.
 - `home/linux/fedora.nix`: Fedora-specific integration for the current desktop,
   including Rex Linux (see below).
@@ -28,7 +28,29 @@ A new Linux desktop can compose `linux/common.nix` and `linux/desktop.nix`,
 with a separate distro module where needed. Fedora also imports `linux/gnome.nix`;
 other desktops can choose GNOME or add their own desktop-environment module.
 
-## Apply a configuration
+## macOS
+
+The MacBook (Intel, `x86_64-darwin`) uses `darwinConfigurations.macbook`:
+nix-darwin with Home Manager as a module. nixpkgs 26.05 is the last release
+for Intel Macs; it is supported until 2026-12-31.
+
+First run, after installing multi-user Nix:
+
+```sh
+git clone https://github.com/michaelcosj/dotfiles.git ~/.dotfiles
+sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake ~/.dotfiles/nix#macbook
+```
+
+After that, `nix-rebuild` runs
+`sudo darwin-rebuild switch --flake ~/.dotfiles/nix#macbook` (extra arguments
+are passed on). nix-darwin activates as root, so it asks for sudo (Touch ID
+works). To check a change without applying it:
+
+```sh
+nix build ~/.dotfiles/nix#darwinConfigurations.macbook.system --dry-run
+```
+
+## Apply a Linux configuration
 
 Run as the account being configured, not as root:
 
@@ -50,7 +72,7 @@ nix-rebuild
 ```
 
 `nix-update` runs `nix flake update` in this flake, then updates all npm binary
-pins (currently OpenCode and Vite Plus). It stops on the first error and does
+pins in `pkgs/npm-pins.json` (currently Codex, OpenCode and Vite+). It stops on the first error and does
 not rebuild. Earlier successful updates remain in the working tree.
 
 To update only npm binaries, run `update-npm-binary` with no arguments.
@@ -141,7 +163,7 @@ git pull --ff-only
 nix-rebuild
 ```
 
-rex-web renders pages with Nix Chromium, which Ubuntu's user-namespace
+rex-view renders pages with Nix Chromium, which Ubuntu's user-namespace
 restriction blocks. Load its AppArmor exception once per host (it covers every
 account and survives Chromium upgrades):
 
