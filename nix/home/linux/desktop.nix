@@ -65,7 +65,8 @@
     };
   };
 
-  # Caps Lock: Esc on tap, Ctrl on hold (Karabiner replacement). Needs step 7 above.
+  # Caps Lock: Esc on tap, Ctrl on hold (Karabiner replacement). Needs the
+  # uinput access from README.md (Fedora host prerequisites, step 5).
   systemd.user.services.kanata = {
     Unit.Description = "kanata keyboard remapper";
     Service = {

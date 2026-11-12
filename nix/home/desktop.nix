@@ -8,7 +8,6 @@
 {
   imports = [ ./ssh-devbox.nix ];
   home.packages = with pkgs; [
-    jetbrains-mono
     mpv
     yt-dlp
     herdr.packages.${pkgs.stdenv.hostPlatform.system}.default

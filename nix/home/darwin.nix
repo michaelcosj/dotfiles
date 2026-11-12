@@ -7,6 +7,8 @@
   ];
 
   home.packages = with pkgs; [
+    # Linux gets it from linux/common.nix.
+    jetbrains-mono
     docker
     docker-compose
     pngpaste
