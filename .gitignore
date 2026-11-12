@@ -12,6 +12,7 @@ node_modules/
 
 # Herdr runtime state and downloaded plugins
 /nix/config/herdr/.plugins.lock
+/nix/config/herdr/plugins.json
 /nix/config/herdr/*.log
 /nix/config/herdr/release-notes.json
 /nix/config/herdr/session.json
