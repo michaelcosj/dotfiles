@@ -12,7 +12,7 @@
 // files reload when they change.
 //
 // Agent commands (one viewer pane per agent pane, named after $REX_BLOCK):
-//   rex-web show [--below] [--ratio PCT] [--focus] FILE|URL|-   open or update the pane (- = HTML on stdin)
+//   rex-web show [--below] [--ratio PCT] [--focus] FILE|URL|-   open or update the pane (- = stdin: Markdown, or HTML if it starts with <)
 //   rex-web wait [--timeout SEC] [--close]   wait for the page to call rex.send(value); print it as JSON
 //                                            (--close closes the pane after the answer or the timeout)
 //   rex-web shot [-o FILE.png]               screenshot of what the pane shows; prints the path
@@ -25,7 +25,6 @@
 //
 // Low level:
 //   rex-web view FILE|URL   run the viewer in this terminal (any kitty-graphics terminal)
-//   rex-web --pane FILE     show with no reuse (old form)
 //
 // In the viewer: Ctrl-Q quits, Ctrl-R reloads. Everything else goes to the page.
 //
@@ -61,8 +60,7 @@ const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false,
 const rest = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
-  if (a === "--pane") cmd = "pane";
-  else if (a === "--ratio") opt.ratio = argv[++i];
+  if (a === "--ratio") opt.ratio = argv[++i];
   else if (a === "--below") opt.below = true;
   else if (a === "--focus") opt.focus = true;
   else if (a === "--timeout") opt.timeout = Number(argv[++i]);
@@ -124,22 +122,24 @@ function tuiReady() {
 
 // "tui" or "web" for a URL or file.
 function pickEngine(url) {
-  if (opt.engine === "web") return "web";
+  const md = /\.(md|markdown)$/i.test(url);
+  if (opt.engine === "web") return md ? die("the web engine can't draw Markdown; write HTML, or use --engine tui", 2) : "web";
   if (!url.startsWith("file:")) return "web";
   if (opt.engine !== "tui") {
     let text = "";
     try { text = readFileSync(fileURLToPath(url), "utf8"); } catch {}
     if (!tuiCanDraw(text, fileURLToPath(url))) return "web";
   }
-  return tuiReady() ? "tui" : "web";
+  if (tuiReady()) return "tui";
+  return md ? die("can't draw Markdown without the tui viewer's packages (see above)") : "web";
 }
 
-if (["show", "wait", "shot", "eval", "hide", "status", "pane"].includes(cmd)) {
+if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
   mkdirSync(stateDir, { recursive: true });
-  if (cmd === "show" || cmd === "pane") {
+  if (cmd === "show") {
     let target = rest[0] || die("usage: rex-web show FILE|URL|-", 2);
     if (target === "-") {
-      // Markdown on stdin gets a .md name, so both engines read it as Markdown.
+      // Markdown on stdin gets a .md name (only the tui engine draws Markdown).
       const text = await Bun.stdin.text();
       const md = !text.trimStart().startsWith("<");
       for (const f of ["page.html", "page.md"]) try { unlinkSync(join(stateDir, f)); } catch {}
@@ -760,7 +760,10 @@ function watchFile() {
   if (!url.startsWith("file:")) return;
   const f = fileURLToPath(url); let t;
   // watch the directory: editors replace files instead of writing in place
-  watcher = watch(dirname(f), () => { clearTimeout(t); t = setTimeout(() => cdp("Page.reload"), 80); });
+  watcher = watch(dirname(f), (_, name) => {
+    if (name && name !== basename(f)) return; // other files there (shot.png, /tmp noise)
+    clearTimeout(t); t = setTimeout(() => cdp("Page.reload"), 80);
+  });
 }
 async function navigate(u) {
   url = u; events.length = 0;

@@ -38,7 +38,8 @@ const DEBUG = process.env.REX_WEB_DEBUG;
 const log = (...a: any[]) => DEBUG && require("node:fs").appendFileSync(DEBUG, "[tui] " + a.join(" ") + "\n");
 
 // ---- renderer and theme ----
-const r: CliRenderer = await createCliRenderer({ exitOnCtrlC: false, useMouse: true, targetFps: 30, autoFocus: false });
+// No r.start(): OpenTUI then draws only when something changes, not 30 times a second.
+const r: CliRenderer = await createCliRenderer({ exitOnCtrlC: false, useMouse: true, autoFocus: false });
 let theme: Theme = makeTheme();
 
 async function readTheme(): Promise<boolean> {
@@ -148,7 +149,7 @@ function build() {
 
 // Focus set by a rebuild doesn't scroll the page to the field.
 let quietFocus = false;
-const reveal = (n: Renderable) => { if (!quietFocus) scroll.scrollChildIntoView(n, { inset: 1 } as any); };
+const reveal = (n: Renderable) => { if (!quietFocus) scroll.scrollChildIntoView(n, { inset: 1 }); };
 
 const text = (s: string, color: string | RGBA = FG(), extra: any = {}) => new TextRenderable(r, { content: s, fg: color, wrapMode: "word", ...extra });
 
@@ -183,7 +184,7 @@ function mermaid(source: string): Renderable {
 }
 
 function cellSize() {
-  const res = (r as any).resolution as { width: number; height: number } | null;
+  const res = r.resolution;
   if (res?.width && r.width) return { w: res.width / r.width, h: res.height / r.height };
   return { w: 8, h: 17 };
 }
@@ -268,8 +269,7 @@ function form(controls: Control[], fi: number): Renderable {
             onSubmit: () => submit() })
         : new InputRenderable(r, { ...opts, value: formState.get(sk) });
       const save = () => formState.set(sk, c.multiline ? (input as TextareaRenderable).plainText : (input as InputRenderable).value);
-      input.on("input", save); input.on("change", save);
-      (input as any).onContentChange = save;
+      input.onContentChange = save;
       if (!c.multiline) input.on("enter", () => { save(); submit(); });
       frame.add(input); group.add(frame);
       frame.onMouseDown = () => setFocus(fields.indexOf(field));
@@ -454,10 +454,11 @@ process.on("uncaughtException", e => { log("crash", e?.stack); quit(); });
 const ppid = process.ppid;
 setInterval(() => { try { process.kill(ppid, 0); } catch { quit(); } }, 2000).unref();
 
+// Draw at once: plain text uses the terminal's default colors, so only
+// accents wait for the palette answer.
 await load();
-await readTheme();
 build();
-r.start();
+readTheme().then(changed => changed && build());
 if (stateDir) startControl();
 watchFile();
 
@@ -471,4 +472,7 @@ setInterval(async () => { if (!quitting && await readTheme()) build(); }, 4000);
 
 // Resize: text reflows by itself; diagrams are drawn for a width, so redraw them.
 let resizeTimer: any;
+// The pixel size often arrives after the first draw, which then guessed it.
+let knewPixels = !!r.resolution;
 r.on("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (blocks.some(b => b.kind === "mermaid")) build(); }, 150); });
+r.on("capabilities", () => { if (!knewPixels && r.resolution) { knewPixels = true; if (blocks.some(b => b.kind === "mermaid")) build(); } });

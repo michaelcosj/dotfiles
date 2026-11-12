@@ -3,7 +3,6 @@
 
 export type Theme = {
   dark: boolean;
-  known: boolean; // fg and bg came from the terminal (else guessed)
   fg: string; bg: string; palette: string[];
   accent: string; muted: string; subtle: string; border: string; surface: string;
   red: string; green: string; yellow: string; blue: string; magenta: string; cyan: string;
@@ -36,7 +35,7 @@ export function makeTheme(fg?: string | null, bg?: string | null, palette: (stri
     : ["#e9e9ed", "#cf222e", "#116329", "#9a6700", "#0969da", "#8250df", "#1b7c83", "#6e7781"];
   const p = Array.from({ length: 16 }, (_, k) => ok(palette[k]) ?? defaults[k % 8]);
   return {
-    dark, known: !!(ok(fg) && ok(bg)), fg: f, bg: b, palette: p,
+    dark, fg: f, bg: b, palette: p,
     accent: p[4], muted: mix(f, b, 0.4), subtle: mix(f, b, 0.92), border: mix(f, b, 0.75),
     surface: mix(f, b, dark ? 0.94 : 0.97),
     red: p[1], green: p[2], yellow: p[3], blue: p[4], magenta: p[5], cyan: p[6],

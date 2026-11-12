@@ -9,7 +9,7 @@ const cls = (n: HTMLElement) => (n.getAttribute("class") || "").split(/\s+/);
 const squash = (s: string) => s.replace(/\s+/g, " ");
 
 export function fromHTML(html: string): Block[] {
-  const root = parse(html, { blockTextElements: { pre: true, textarea: true, script: false, style: false } });
+  const root = parse(html, { blockTextElements: { textarea: true } });
   const body = root.querySelector("body") ?? root;
   const out: Block[] = [];
   const md: string[] = [];
@@ -23,7 +23,7 @@ export function fromHTML(html: string): Block[] {
       if (t === "form" && n.hasAttribute("data-rex")) { flush(); out.push({ kind: "form", controls: formControls(n) }); continue; }
       if (t === "pre" && cls(n).includes("mermaid")) { flush(); out.push({ kind: "mermaid", source: n.text.trim() }); continue; }
       const code = t === "pre" ? n.querySelector("code") : null;
-      if (code && /language-mermaid/.test(code.getAttribute("class") || "")) { flush(); out.push({ kind: "mermaid", source: decode(code.text).trim() }); continue; }
+      if (code && /language-mermaid/.test(code.getAttribute("class") || "")) { flush(); out.push({ kind: "mermaid", source: code.text.trim() }); continue; }
       const b = blockMd(n);
       if (b !== null) { if (b.trim()) md.push(b); continue; }
       walk(n.childNodes); // div, section, ...: just their content
@@ -48,7 +48,7 @@ function blockMd(n: HTMLElement): string | null {
     case "pre": {
       const code = n.querySelector("code");
       const lang = (/language-([\w+-]+)/.exec(code?.getAttribute("class") || "") || [])[1] || "";
-      return "```" + lang + "\n" + decode((code ?? n).text).replace(/\n$/, "") + "\n```";
+      return "```" + lang + "\n" + (code ?? n).text.replace(/\n$/, "") + "\n```";
     }
     case "ul": case "ol": return list(n, 0);
     case "table": return table(n);
@@ -97,7 +97,7 @@ function inline(n: Node, skip = new Set<Node>()): string {
       case "b": case "strong": return `**${inner}**`;
       case "i": case "em": return `*${inner}*`;
       case "s": case "del": return `~~${inner}~~`;
-      case "code": case "kbd": case "samp": return "`" + decode(c.text) + "`";
+      case "code": case "kbd": case "samp": return "`" + c.text + "`";
       case "a": return c.getAttribute("href") ? `[${inner}](${c.getAttribute("href")})` : inner;
       case "br": return "\n";
       case "small": return `*${inner}*`;
@@ -108,15 +108,7 @@ function inline(n: Node, skip = new Set<Node>()): string {
   return parts.join("").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-const escape = (s: string) => decode(s).replace(/([\\*_`[\]<>|#])/g, "\\$1");
-function decode(s: string): string {
-  return s.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp);/gi, (m, e) => {
-    const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-    if (named[e.toLowerCase()]) return named[e.toLowerCase()];
-    const code = e[1]?.toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : m;
-  });
-}
+const escape = (s: string) => s.replace(/([\\*_`[\]<>|#&])/g, "\\$1");
 
 // ---- forms ----
 
@@ -175,7 +167,7 @@ function formControls(form: HTMLElement): Control[] {
       if (t === "textarea") {
         buttons = null;
         out.push({ kind: "text", name: n.getAttribute("name") || "", label: labelFor(n) || (closest(n, "label") ? inline(closest(n, "label")!) : ""),
-          value: decode(n.text), placeholder: n.getAttribute("placeholder") || "", required: n.hasAttribute("required"), multiline: true, type: "textarea" });
+          value: n.text, placeholder: n.getAttribute("placeholder") || "", required: n.hasAttribute("required"), multiline: true, type: "textarea" });
         continue;
       }
       if (t === "select") {
