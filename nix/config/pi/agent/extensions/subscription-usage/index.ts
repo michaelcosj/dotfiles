@@ -35,6 +35,8 @@ export interface UsageUpdate {
 }
 
 export default function subscriptionUsage(pi: ExtensionAPI) {
+  // Child agents share the parent's subscription; the parent shows it.
+  if (process.env.PI_BRIDGE_PARENT) return;
   const cachePath = join(getAgentDir(), "state", "subscription-usage.json");
   const debug = process.env.PI_SUBSCRIPTION_USAGE_DEBUG
     ? (msg: string) => void appendFile(join(getAgentDir(), "state", "subscription-usage.log"), `${new Date().toISOString()} ${process.pid} ${msg}\n`).catch(() => {})
