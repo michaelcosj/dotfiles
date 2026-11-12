@@ -68,7 +68,13 @@
             config.allowUnfree = true;
           };
           extraSpecialArgs = {
-            inherit herdr hex rex rex-rune nix-flatpak;
+            inherit
+              herdr
+              hex
+              rex
+              rex-rune
+              nix-flatpak
+              ;
             homeConfiguration = "${username}@${host}";
           };
           modules = [
@@ -95,6 +101,11 @@
               enable = true;
               user = "synth";
               autoMigrate = true;
+              # darwin.nix sets the brew environment; `brew shellenv` in every
+              # shell is slow.
+              enableBashIntegration = false;
+              enableFishIntegration = false;
+              enableZshIntegration = false;
             };
           }
           home-manager.darwinModules.home-manager

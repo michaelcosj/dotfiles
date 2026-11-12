@@ -1,12 +1,24 @@
 # Run darwin-help for documentation of all the configuration options
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
-  environment.variables.HOMEBREW_NO_ANALYTICS = "1";
+  environment.variables = {
+    HOMEBREW_NO_ANALYTICS = "1";
+    # What `brew shellenv` sets on Intel, set once here instead of running brew
+    # in every shell (nix-homebrew's shell integrations are off in flake.nix).
+    HOMEBREW_PREFIX = "/usr/local";
+    HOMEBREW_CELLAR = "/usr/local/Cellar";
+    HOMEBREW_REPOSITORY = "/usr/local/Homebrew/Library/.homebrew-is-managed-by-nix";
+  };
+  # /usr/local/bin is already on the default PATH, after the Nix profiles.
+  environment.systemPath = lib.mkAfter [ "/usr/local/sbin" ];
   nixpkgs.hostPlatform = "x86_64-darwin";
   security.pam.services.sudo_local.touchIdAuth = true;
 
   programs.fish.enable = true;
+  # Translate the shell environment to fish at build time, instead of running
+  # bash through foreign-env in every new shell.
+  programs.fish.useBabelfish = true;
   users.users.synth = {
     home = "/Users/synth";
     shell = pkgs.fish;
