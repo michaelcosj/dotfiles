@@ -5,7 +5,7 @@
 // An agent on another Rex host can't be swapped in: selecting it switches the
 // Rex app to its host's session instead (the parent does it, see view()).
 //
-// Keys: ↓ on an empty prompt enters the list; ↑/↓ select; Enter switches;
+// Keys: ↓ on an empty prompt, or alt+↓ with text in it, enters the list; ↑/↓ select; Enter switches;
 // Esc (or any other key) leaves the list. /agents does the same from a menu.
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
@@ -147,8 +147,12 @@ export function registerAgentsUI(
     }
     // Kitty keyboard protocol sends releases too; act on presses only.
     if (isKeyRelease(data)) return selected === undefined ? undefined : { consume: true };
+    // ↓ on an empty prompt, or alt+↓ at any time, opens the list. (alt+↑
+    // stays pi's "restore queued messages" while the list is closed.)
+    const down = matchesKey(data, "down") || matchesKey(data, "alt+down");
+    const up = matchesKey(data, "up") || matchesKey(data, "alt+up");
     if (selected === undefined) {
-      if (matchesKey(data, "down") && ctxRef?.ui?.getEditorText?.() === "") {
+      if (matchesKey(data, "alt+down") || (matchesKey(data, "down") && ctxRef?.ui?.getEditorText?.() === "")) {
         const here = list.findIndex((r) => r.block === rex.REX_BLOCK);
         selected = (here + 1) % list.length;
         render();
@@ -156,9 +160,9 @@ export function registerAgentsUI(
       }
       return undefined;
     }
-    if (matchesKey(data, "up")) {
+    if (up) {
       selected = selected === 0 ? undefined : selected - 1;
-    } else if (matchesKey(data, "down")) {
+    } else if (down) {
       selected = Math.min(list.length - 1, selected + 1);
     } else if (matchesKey(data, "enter")) {
       const row = list[selected];
@@ -222,7 +226,7 @@ export function registerAgentsUI(
       const d = stopped[resumeLabels.indexOf(pick)];
       try {
         await opts.resume?.(d.name);
-        ctx.ui.notify(`Resumed ${d.name}. It is idle; ↓ on an empty prompt to switch to it.`, "info");
+        ctx.ui.notify(`Resumed ${d.name}. It is idle; alt+↓ to switch to it.`, "info");
       } catch (e) {
         ctx.ui.notify(`Could not resume ${d.name}: ${(e as Error).message}`, "error");
       }
