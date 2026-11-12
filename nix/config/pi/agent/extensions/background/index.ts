@@ -457,10 +457,14 @@ export default function (pi: ExtensionAPI) {
     if (!ctx?.hasUI || !g.__piBackgroundDir) return;
     const dir = g.__piBackgroundDir;
     const running = jobNames(dir).filter((n) => jobState(dir, n).kind === "running");
-    const parts = running.length ? [`bg: ${running.length}`] : [];
-    if (pendingCount) parts.push(`${pendingCount} question${pendingCount === 1 ? "" : "s"} (/bg_questions)`);
+    const fg = (color: "dim" | "warning", text: string) => ctx.ui.theme.fg(color, text);
+    const parts: string[] = [];
+    if (running.length) parts.push(fg("dim", `↻ ${running.length} job${running.length === 1 ? "" : "s"}`));
+    if (pendingCount) {
+      parts.push(fg("warning", `? ${pendingCount} question${pendingCount === 1 ? "" : "s"}`) + fg("dim", " /bg_questions"));
+    }
     try {
-      ctx.ui.setStatus("background", parts.length ? parts.join(" · ") : undefined);
+      ctx.ui.setStatus("background", parts.length ? parts.join(fg("dim", " · ")) : undefined);
     } catch {}
   };
 

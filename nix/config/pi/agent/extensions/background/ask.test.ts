@@ -56,6 +56,7 @@ const ctx: any = {
   ui: {
     notify: (m: string) => notes.push(m),
     setStatus: (_k: string, t?: string) => (status = t),
+    theme,
     select: async (_t: string, choices: string[]) => choices[0],
     custom: (factory: any, options: any) =>
       new Promise((resolve) => {
@@ -121,7 +122,7 @@ describe("end to end", () => {
     expect(w).not.toContain("Pick a color"); // question content never reaches the model
 
     await until(() => status?.includes("1 question") ?? false);
-    expect(status).toContain("bg: 1");
+    expect(status).toContain("↻ 1 job");
     const announced = () => notes.filter((n) => n.includes('"kid" has a question')).length;
     await until(() => announced() === 1);
     expect(attention.map((e) => e.active)).toEqual([true]);
