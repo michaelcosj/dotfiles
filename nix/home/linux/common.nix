@@ -46,6 +46,8 @@
       ExecStart = "${lib.getExe config.services.rex.package} --autostart=false do %h/.config/rex/bin/rex-watch.lua --all";
       Restart = "on-failure";
       RestartSec = 15;
+      # rex do exits 130 on SIGTERM (as for Ctrl-C). A normal stop is not a failure.
+      SuccessExitStatus = [ 130 ];
     };
     # rex.service: starts with the server. default.target: home-manager switch
     # (sd-switch) starts new units through targets, so a switch starts it too
