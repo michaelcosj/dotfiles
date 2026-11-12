@@ -1,0 +1,241 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>rex-web demo</title>
+<style>
+  :root {
+    /* Fallbacks for a normal browser; rex-web sets the real values. */
+    --rex-bg: #fff; --rex-fg: #1f2328; --rex-accent: #0969da; --rex-red: #cf222e; --rex-green: #1a7f37;
+    --rex-yellow: #9a6700; --rex-magenta: #8250df; --rex-cyan: #1b7c83;
+    --rex-muted: #656d76; --rex-border: #d0d7de; --rex-subtle: #f6f8fa; --rex-surface: #f6f8fa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif;
+    background: var(--rex-bg); color: var(--rex-fg);
+    padding: 20px 22px; overflow: auto;
+  }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  h1 { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; margin: 0; }
+  .pill {
+    font: 500 11px/1 "SF Mono", ui-monospace, monospace; padding: 4px 8px; border-radius: 999px;
+    color: var(--rex-accent); background: color-mix(in srgb, var(--rex-accent) 12%, transparent);
+  }
+  .clock { margin-left: auto; color: var(--rex-muted); font: 500 12px "SF Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--rex-surface); border: 1px solid var(--rex-border); border-radius: 12px; padding: 14px 16px;
+    transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s, border-color .18s;
+    animation: rise .5s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--rex-accent) 50%, var(--rex-border));
+    box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--rex-fg) 30%, transparent); }
+  .card:nth-child(2) { animation-delay: .05s } .card:nth-child(3) { animation-delay: .1s } .card:nth-child(4) { animation-delay: .15s }
+  .card:nth-child(5) { animation-delay: .2s } .card:nth-child(6) { animation-delay: .25s }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px) } }
+  .card h2 { margin: 0 0 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--rex-muted); }
+  .big { font-size: 28px; font-weight: 650; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .delta { font-size: 12px; font-weight: 600; color: var(--rex-green); }
+  canvas, svg { display: block; width: 100%; }
+  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .swatches div { aspect-ratio: 1; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--rex-fg) 10%, transparent); }
+  button {
+    font: inherit; font-weight: 550; border: 1px solid var(--rex-border); background: var(--rex-bg); color: var(--rex-fg);
+    padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: background .12s, transform .08s;
+  }
+  button:hover { background: var(--rex-subtle); }
+  button:active { transform: scale(.97); }
+  button.primary { background: var(--rex-accent); border-color: transparent; color: var(--rex-bg); }
+  button.primary:hover { background: color-mix(in srgb, var(--rex-accent) 88%, var(--rex-fg)); }
+  input[type=text] {
+    width: 100%; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--rex-border);
+    background: var(--rex-bg); color: var(--rex-fg); outline: none;
+  }
+  input[type=text]:focus { border-color: var(--rex-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rex-accent) 20%, transparent); }
+  input[type=range] { width: 100%; accent-color: var(--rex-accent); }
+  ul.todo { list-style: none; padding: 0; margin: 8px 0 0; }
+  ul.todo li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--rex-border); }
+  ul.todo li.done span { color: var(--rex-muted); text-decoration: line-through; }
+  ul.todo input { accent-color: var(--rex-accent); }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .muted { color: var(--rex-muted); font-size: 12px; }
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translate(-50%, 20px); opacity: 0;
+    background: var(--rex-fg); color: var(--rex-bg); padding: 8px 14px; border-radius: 10px; font-weight: 550;
+    transition: all .25s cubic-bezier(.2,.8,.2,1); pointer-events: none;
+  }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  .wide { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>rex-web</h1><span class="pill">kitty graphics · headless Chrome</span>
+  <span class="clock" id="clock"></span>
+</header>
+
+<div class="grid">
+  <section class="card">
+    <h2>Requests / sec</h2>
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <span class="big" id="rps">0</span><span class="delta" id="delta">+0%</span>
+    </div>
+    <canvas id="spark" height="70"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>Build pipeline</h2>
+    <svg viewBox="0 0 120 120" style="width:120px;margin:0 auto" id="ring">
+      <circle cx="60" cy="60" r="48" fill="none" stroke="var(--rex-border)" stroke-width="10"/>
+      <circle id="arc" cx="60" cy="60" r="48" fill="none" stroke="var(--rex-accent)" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="301.6" stroke-dashoffset="301.6" transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1)"/>
+      <text x="60" y="66" text-anchor="middle" font-size="20" font-weight="650" fill="var(--rex-fg)" id="pct">0%</text>
+    </svg>
+    <input type="range" id="slider" min="0" max="100" value="68">
+  </section>
+
+  <section class="card">
+    <h2>Theme (from Rex, live)</h2>
+    <div class="swatches" id="swatches"></div>
+    <p class="muted" id="themeinfo" style="margin:10px 0 0"></p>
+  </section>
+
+  <section class="card">
+    <h2>Interactive</h2>
+    <input type="text" id="todoIn" placeholder="Type a task, press Enter">
+    <ul class="todo" id="todos"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Particles (hover to play)</h2>
+    <canvas id="fx" height="150" style="border-radius:8px;background:var(--rex-bg)"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>Host bridge</h2>
+    <p class="muted" style="margin:0 0 10px">The page talks back to the terminal through <code>window.rex</code>.</p>
+    <div class="row">
+      <button class="primary" id="copy">Copy to clipboard</button>
+      <button id="title">Set title</button>
+      <button id="close">Close</button>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <h2>Commits this week</h2>
+    <svg id="bars" height="120"></svg>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const toast = msg => { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 1600); };
+
+// clock
+const tick = () => $("#clock").textContent = new Date().toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit" });
+tick(); setInterval(tick, 5000);
+
+// sparkline
+const spark = $("#spark"), sctx = spark.getContext("2d");
+const pts = Array.from({ length: 60 }, (_, i) => 400 + Math.sin(i / 5) * 80 + Math.random() * 40);
+function drawSpark() {
+  const dpr = devicePixelRatio, w = spark.clientWidth, h = 70;
+  spark.width = w * dpr; spark.height = h * dpr; sctx.scale(dpr, dpr);
+  const min = Math.min(...pts) - 20, max = Math.max(...pts) + 20, X = i => i / (pts.length - 1) * w, Y = v => h - (v - min) / (max - min) * h;
+  const acc = css("--rex-accent");
+  const g = sctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, acc + "55"); g.addColorStop(1, acc + "00");
+  sctx.beginPath(); pts.forEach((v, i) => i ? sctx.lineTo(X(i), Y(v)) : sctx.moveTo(X(i), Y(v)));
+  sctx.lineTo(w, h); sctx.lineTo(0, h); sctx.fillStyle = g; sctx.fill();
+  sctx.beginPath(); pts.forEach((v, i) => i ? sctx.lineTo(X(i), Y(v)) : sctx.moveTo(X(i), Y(v)));
+  sctx.strokeStyle = acc; sctx.lineWidth = 2; sctx.lineJoin = "round"; sctx.stroke();
+  const lx = X(pts.length - 1), ly = Y(pts.at(-1));
+  sctx.beginPath(); sctx.arc(lx - 2, ly, 3.5, 0, 7); sctx.fillStyle = acc; sctx.fill();
+}
+setInterval(() => {
+  pts.shift(); pts.push(Math.max(120, pts.at(-1) + (Math.random() - .5) * 70));
+  $("#rps").textContent = Math.round(pts.at(-1)).toLocaleString();
+  const d = (pts.at(-1) / pts[0] - 1) * 100; const el = $("#delta");
+  el.textContent = (d >= 0 ? "+" : "") + d.toFixed(1) + "%"; el.style.color = d >= 0 ? "var(--rex-green)" : "var(--rex-red)";
+  drawSpark();
+}, 2000);
+
+// ring
+function ring(v) { $("#arc").style.strokeDashoffset = 301.6 * (1 - v / 100); $("#pct").textContent = v + "%"; }
+$("#slider").oninput = e => ring(+e.target.value); setTimeout(() => ring(68), 300);
+
+// theme swatches
+function showTheme(t) {
+  t = t || window.rex?.theme; if (!t) return;
+  $("#swatches").innerHTML = (t.palette || []).map((c, i) => `<div title="${i}: ${c}" style="background:${c}"></div>`).join("");
+  $("#themeinfo").innerHTML = `${t.dark ? "Dark" : "Light"} · bg <code>${t.bg}</code> · fg <code>${t.fg}</code> · accent <code>${t.accent}</code>`;
+  drawSpark(); drawBars();
+}
+addEventListener("rex:theme", e => showTheme(e.detail));
+
+// todos
+const todos = [{ t: "Render HTML in a Rex pane", d: true }, { t: "Follow the Rex theme", d: true }, { t: "Click me to toggle", d: false }];
+function drawTodos() {
+  $("#todos").innerHTML = todos.map((x, i) => `<li class="${x.d ? "done" : ""}"><input type="checkbox" data-i="${i}" ${x.d ? "checked" : ""}><span>${x.t.replace(/</g, "&lt;")}</span></li>`).join("");
+}
+$("#todos").onclick = e => { const i = e.target.closest("li") && [...$("#todos").children].indexOf(e.target.closest("li")); if (i >= 0) { todos[i].d = !todos[i].d; drawTodos(); } };
+$("#todoIn").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) { todos.push({ t: e.target.value.trim(), d: false }); e.target.value = ""; drawTodos(); toast("Added"); } };
+drawTodos();
+
+// particles
+const fx = $("#fx"), fctx = fx.getContext("2d"); let mouse = { x: -1, y: -1 };
+const P = Array.from({ length: 70 }, () => ({ x: Math.random() * 300, y: Math.random() * 150, vx: (Math.random() - .5) * .6, vy: (Math.random() - .5) * .6 }));
+fx.onmousemove = e => { const r = fx.getBoundingClientRect(); mouse = { x: e.clientX - r.left, y: e.clientY - r.top }; };
+let playing = false;
+fx.onmouseenter = () => { if (!playing) { playing = true; requestAnimationFrame(frame); } };
+fx.onmouseleave = () => { mouse = { x: -1, y: -1 }; playing = false; };
+function frame() {
+  const dpr = devicePixelRatio, w = fx.clientWidth, h = 150;
+  if (fx.width !== w * dpr) { fx.width = w * dpr; fx.height = h * dpr; }
+  fctx.setTransform(dpr, 0, 0, dpr, 0, 0); fctx.clearRect(0, 0, w, h);
+  const acc = css("--rex-accent"), mag = css("--rex-magenta") || acc;
+  for (const p of P) {
+    if (mouse.x >= 0) { const dx = mouse.x - p.x, dy = mouse.y - p.y, d = Math.hypot(dx, dy) + 1; if (d < 90) { p.vx += dx / d * .08; p.vy += dy / d * .08; } }
+    p.vx *= .985; p.vy *= .985; p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > w) p.vx *= -1; if (p.y < 0 || p.y > h) p.vy *= -1;
+  }
+  for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+    const d = Math.hypot(P[i].x - P[j].x, P[i].y - P[j].y);
+    if (d < 45) { fctx.strokeStyle = acc + Math.round((1 - d / 45) * 120).toString(16).padStart(2, "0"); fctx.beginPath(); fctx.moveTo(P[i].x, P[i].y); fctx.lineTo(P[j].x, P[j].y); fctx.stroke(); }
+  }
+  P.forEach((p, i) => { fctx.fillStyle = i % 3 ? acc : mag; fctx.beginPath(); fctx.arc(p.x, p.y, 2, 0, 7); fctx.fill(); });
+  if (playing) requestAnimationFrame(frame); // idle when the mouse is away: no frames to send
+}
+frame();
+
+// bars
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], vals = [12, 19, 8, 24, 17, 5, 9];
+function drawBars() {
+  const svg = $("#bars"), w = svg.clientWidth || 600, h = 120, bw = w / days.length;
+  const max = Math.max(...vals);
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.innerHTML = days.map((d, i) => {
+    const bh = vals[i] / max * (h - 34);
+    return `<g class="bar"><rect x="${i * bw + bw * .2}" y="${h - 18 - bh}" width="${bw * .6}" height="${bh}" rx="5" fill="var(--rex-accent)" opacity="${.45 + .55 * vals[i] / max}">
+      <animate attributeName="height" from="0" to="${bh}" dur=".6s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1"/>
+      <animate attributeName="y" from="${h - 18}" to="${h - 18 - bh}" dur=".6s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1"/></rect>
+      <text x="${i * bw + bw / 2}" y="${h - 4}" text-anchor="middle" font-size="11" fill="var(--rex-muted)">${d}</text>
+      <text x="${i * bw + bw / 2}" y="${h - 22 - bh}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--rex-fg)">${vals[i]}</text></g>`;
+  }).join("");
+}
+$("#bars").onclick = e => { const i = Math.floor(e.offsetX / ($("#bars").clientWidth / 7)); vals[i] += 3; drawBars(); };
+
+
+// host bridge
+$("#copy").onclick = () => { window.rex?.copy("Hello from rex-web 👋"); toast("Copied via OSC 52"); };
+$("#title").onclick = () => { window.rex?.title("rex-web ✨ " + new Date().toLocaleTimeString()); toast("Title set"); };
+$("#close").onclick = () => window.rex?.close();
+
+addEventListener("resize", () => { drawSpark(); drawBars(); });
+showTheme(); drawBars(); drawSpark();
+</script>
+</body>
+</html>

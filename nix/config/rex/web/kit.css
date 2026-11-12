@@ -1,0 +1,83 @@
+/* rex-web base kit: rex-web adds this to every page.
+   Every selector is wrapped in :where(), so it has zero specificity and any
+   style the page sets wins. Plain semantic HTML looks right in the Rex theme;
+   the classes below cover the common agent layouts. */
+
+:where(html) { background: var(--rex-bg); color: var(--rex-fg); font: 13px/1.5 -apple-system, "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased; }
+:where(body) { margin: 0; padding: 20px 22px; }
+:where(*, *::before, *::after) { box-sizing: border-box; }
+
+:where(h1) { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 6px; }
+:where(h2) { font-size: 15px; font-weight: 620; letter-spacing: -0.01em; margin: 22px 0 8px; }
+:where(h3) { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--rex-muted); margin: 18px 0 6px; }
+:where(p) { margin: 0 0 10px; }
+:where(a) { color: var(--rex-accent); text-decoration: none; }
+:where(a:hover) { text-decoration: underline; }
+:where(hr) { border: 0; border-top: 1px solid var(--rex-border); margin: 18px 0; }
+:where(small, .muted) { color: var(--rex-muted); }
+:where(ul, ol) { padding-left: 20px; margin: 0 0 10px; }
+:where(li) { margin: 2px 0; }
+
+:where(code, kbd, pre) { font-family: "SF Mono", Menlo, monospace; font-size: 12px; }
+:where(code) { background: var(--rex-subtle); padding: 1px 5px; border-radius: 4px; }
+:where(pre) { background: var(--rex-surface); border: 1px solid var(--rex-border); border-radius: 8px; padding: 10px 12px; overflow: auto; line-height: 1.45; }
+:where(pre code) { background: none; padding: 0; }
+:where(kbd) { border: 1px solid var(--rex-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
+
+:where(table) { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(th) { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--rex-muted); }
+:where(th, td) { padding: 7px 10px; border-bottom: 1px solid var(--rex-border); }
+:where(tbody tr:hover) { background: var(--rex-subtle); }
+
+:where(button, .btn) { font: inherit; font-weight: 550; border: 1px solid var(--rex-border); background: var(--rex-bg); color: var(--rex-fg);
+  padding: 6px 13px; border-radius: 8px; cursor: pointer; transition: background .12s, transform .08s; }
+:where(button:hover, .btn:hover) { background: var(--rex-subtle); }
+:where(button:active, .btn:active) { transform: scale(.97); }
+:where(button.primary, button[type=submit], .btn.primary) { background: var(--rex-accent); border-color: transparent; color: var(--rex-bg); }
+:where(button.primary:hover, button[type=submit]:hover) { background: color-mix(in srgb, var(--rex-accent) 88%, var(--rex-fg)); }
+:where(button.danger) { color: var(--rex-red); }
+
+:where(input:not([type=checkbox], [type=radio], [type=range]), textarea, select) { font: inherit; width: 100%; padding: 7px 10px;
+  border-radius: 8px; border: 1px solid var(--rex-border); background: var(--rex-bg); color: var(--rex-fg); outline: none; }
+:where(input:focus, textarea:focus, select:focus) { border-color: var(--rex-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rex-accent) 20%, transparent); }
+:where(input[type=checkbox], input[type=radio], input[type=range], progress) { accent-color: var(--rex-accent); }
+:where(label) { display: block; margin: 0 0 4px; font-weight: 550; }
+:where(fieldset) { border: 0; padding: 0; margin: 0 0 14px; }
+
+/* layout */
+:where(.row) { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+:where(.stack) { display: flex; flex-direction: column; gap: 10px; }
+:where(.grid) { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+:where(.spacer) { flex: 1; }
+
+/* card: a bordered panel */
+:where(.card) { background: var(--rex-surface); border: 1px solid var(--rex-border); border-radius: 12px; padding: 14px 16px; }
+:where(.card > h3:first-child) { margin-top: 0; }
+
+/* stat: big number with a label */
+:where(.stat .value) { font-size: 26px; font-weight: 650; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+:where(.stat .label) { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--rex-muted); }
+
+/* badge: <span class="badge green">passing</span> */
+:where(.badge) { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  color: var(--c, var(--rex-accent)); background: color-mix(in srgb, var(--c, var(--rex-accent)) 13%, transparent); }
+:where(.red) { --c: var(--rex-red); } :where(.green) { --c: var(--rex-green); } :where(.yellow) { --c: var(--rex-yellow); }
+:where(.blue) { --c: var(--rex-blue); } :where(.magenta) { --c: var(--rex-magenta); } :where(.cyan) { --c: var(--rex-cyan); }
+
+/* choice: a selectable option card. <label class="choice"><input type="radio" name="x" value="a"><div><b>A</b><small>why</small></div></label> */
+:where(.choice) { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border: 1px solid var(--rex-border);
+  border-radius: 10px; margin-bottom: 8px; cursor: pointer; font-weight: 400; transition: border-color .12s, background .12s; }
+:where(.choice:hover) { border-color: color-mix(in srgb, var(--rex-accent) 45%, var(--rex-border)); }
+:where(.choice:has(input:checked)) { border-color: var(--rex-accent); background: color-mix(in srgb, var(--rex-accent) 7%, transparent); }
+:where(.choice input) { margin-top: 3px; }
+:where(.choice b) { display: block; font-weight: 600; }
+:where(.choice small) { display: block; }
+
+/* bar: <div class="bar" style="--v: 64%"></div> */
+:where(.bar) { height: 6px; border-radius: 3px; background: var(--rex-subtle); overflow: hidden; }
+:where(.bar)::after { content: ""; display: block; height: 100%; width: var(--v, 0%); background: var(--c, var(--rex-accent)); border-radius: inherit; }
+
+/* diff lines */
+:where(.add) { background: color-mix(in srgb, var(--rex-green) 14%, transparent); }
+:where(.del) { background: color-mix(in srgb, var(--rex-red) 14%, transparent); }
