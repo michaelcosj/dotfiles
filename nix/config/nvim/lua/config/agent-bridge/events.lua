@@ -11,13 +11,17 @@ local names = {
 
 function M.emit(event, data)
 	data = data or {}
+	local function set_busy()
+		local b = data.busy or {}
+		M.busy = (tonumber(b.agents) or 0) + (tonumber(b.background) or 0)
+	end
 	if event == "status" then
 		M.state = data.state or "unknown"
 		M.message = data.message
-		local b = data.busy or {}
-		M.busy = (tonumber(b.agents) or 0) + (tonumber(b.background) or 0)
+		set_busy()
 	elseif event == "connected" then
 		M.state = data.state or "idle"
+		set_busy() -- the hello reply carries the counts too
 	elseif event == "shutdown" or event == "disconnected" then
 		M.state = "disconnected"
 		M.busy = 0
