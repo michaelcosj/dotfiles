@@ -297,8 +297,6 @@ export function registerEditor(pi: any, bridge: Bridge, hooks: EditorHooks = {})
     promptSnippet: "Submit a Markdown plan file for the user's review in Neovim and wait for approval",
     promptGuidelines: [
       "When you write a plan for the user to review before implementing, save it as a Markdown file and call submit_plan with its path. Do not start implementing until submit_plan returns approved.",
-      "Plan review comments use CriticMarkup inside the plan file: {==quoted text==}{>>comment<<} comments on a span, and {>>comment<<} alone is a general comment at that spot. Comments starting with 'pi:' are yours.",
-      "When submit_plan returns requested changes, revise the plan file: resolve a comment by changing the plan and removing its markup (keep the quoted text unless the change replaces it), or answer it inline by adding {>>pi: your reply<<} right after it and leave the user's comment in place. Then call submit_plan again.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the Markdown plan file" }),
@@ -325,7 +323,11 @@ export function registerEditor(pi: any, bridge: Bridge, hooks: EditorHooks = {})
         lines.push("The user approved the plan.");
         if (comments.length) lines.push("They left these comments; take them into account while implementing:");
       } else {
-        lines.push("The user requested changes to the plan. Revise the plan file, then call submit_plan again.");
+        lines.push(
+          "The user requested changes to the plan. Revise the plan file, then call submit_plan again.",
+          "Comments are CriticMarkup in the file: {==quoted text==}{>>comment<<} is on a span; {>>comment<<} alone is a general comment there. Comments starting with 'pi:' are yours.",
+          "Resolve a comment by changing the plan and removing its markup (keep the quoted text unless the change replaces it), or answer it inline with {>>pi: your reply<<} right after it, leaving the user's comment in place.",
+        );
       }
       if (result.edited) lines.push("They also edited the plan text directly; re-read the file.");
       for (const c of comments) {
