@@ -82,6 +82,9 @@ installs it. Devbox, other Linux desktops, and macOS do not.
 - `flake.lock` pins the commit. Nix builds it from source on the first switch
   after an update, so that switch takes longer.
 
+The GUI needs a working Vulkan driver on the host. To check for a new release,
+run `rex-linux --check-update`.
+
 To update only Rex Linux, run on the Fedora desktop:
 
 ```sh
