@@ -4,8 +4,6 @@
 { ... }:
 {
   programs.ssh = {
-    enable = true;
-    enableDefaultConfig = false;
     settings = {
       devbox = {
         HostName = "devbox.danio-wezen.ts.net";

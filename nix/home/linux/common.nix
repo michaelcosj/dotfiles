@@ -83,11 +83,6 @@
       "default.target"
     ];
   };
-  programs.ssh = {
-    enable = true;
-    enableDefaultConfig = false;
-  };
-
   nix = {
     package = pkgs.nix;
     gc.automatic = true;

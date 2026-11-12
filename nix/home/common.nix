@@ -57,5 +57,11 @@
     OPENCODE_DISABLE_AUTOUPDATE = "1";
   };
 
+  # Host aliases: ssh-devbox.nix (desktops).
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
+  };
+
   programs.home-manager.enable = true;
 }
