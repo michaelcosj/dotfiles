@@ -20,7 +20,8 @@ Home Manager manages user packages, dotfiles, and user services.
 - `home/linux/common.nix`: shared Linux packages, Nix settings, and Rex.
 - `home/linux/desktop.nix`: Linux GUI apps, Flatpak, GPU integration, and Kanata.
 - `home/linux/gnome.nix`: GNOME packages and preferences.
-- `home/linux/fedora.nix`: Fedora-specific integration for the current desktop.
+- `home/linux/fedora.nix`: Fedora-specific integration for the current desktop,
+  including Rex Linux (see below).
 - `home/linux/devbox.nix`: headless development environment.
 
 A new Linux desktop can compose `linux/common.nix` and `linux/desktop.nix`,
@@ -65,6 +66,31 @@ The work account has the executable but no personal credentials.
 
 Update only Rex with `nix flake update rex`, then rebuild. The snapshot input
 is pinned to an immutable release URL in `flake.lock`.
+
+## Rex Linux (rex-rune), Fedora only
+
+Rex Linux is a native Linux Rex client from
+<https://github.com/shuv1337/rex-rune>. Only the Fedora desktop (`m@fedora`)
+installs it. Devbox, other Linux desktops, and macOS do not.
+
+- `flake.nix` adds the project's own flake as the `rex-rune` input. The input
+  does not follow this flake's nixpkgs: the build needs a newer Rust and Zig
+  than our pin can give, so it keeps its own nixpkgs pin.
+- `home/linux/fedora.nix` adds its default package for the host system to
+  `home.packages`. Vulkan comes from the host driver through
+  `targets.genericLinux.gpu` (`home/linux/desktop.nix`).
+- `flake.lock` pins the commit. Nix builds it from source on the first switch
+  after an update, so that switch takes longer.
+
+To update only Rex Linux, run on the Fedora desktop:
+
+```sh
+nix flake update rex-rune
+nix-rebuild
+```
+
+`nix-update` also updates it, because it updates all flake inputs. Commit the
+changed `flake.lock` as for other updates.
 
 ## Ubuntu devbox bootstrap
 
