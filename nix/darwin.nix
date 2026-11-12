@@ -58,7 +58,6 @@
       "zed"
       "font-zed-mono-nerd-font"
       # "slack"
-      "wezterm"
       # "codexbar"
       "blackhole-2ch"
     ];

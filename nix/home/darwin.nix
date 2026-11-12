@@ -12,10 +12,6 @@
     pngpaste
   ];
 
-  # Wezterm config (Wezterm itself is a Homebrew cask)
-  home.file.".config/wezterm".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/wezterm";
-
   # Rex session restore: saves what each pane runs and resumes it after the
   # server restarts (nix/config/rex/bin/rex-watch.lua). It exits when the
   # server stops; launchd starts it again, and it waits for the server.
