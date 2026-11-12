@@ -480,7 +480,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       }
       if (!swept.has(host)) {
         swept.add(host);
-        await sweepRemote({ server: host, session }).catch(() => {});
+        await sweep({ server: host, session });
       }
       const t = { server: host, session };
       const size = await paneSize();
@@ -698,11 +698,14 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     publish();
   }
 
-  /** Closes blocks on a host left by a pi on this machine that died. */
-  async function sweepRemote(t: rex.Target) {
-    for (const b of await rex.blocks(t)) {
-      const m = b.label?.startsWith(LABEL_PREFIX) ? /:([^:]+):(\d+)$/.exec(b.label) : null;
-      if (!m || m[1] !== MACHINE || Number(m[2]) === process.pid) continue;
+  /**
+   * Closes agent blocks left by a parent pi that died: here, or on host `t`
+   * (there, only those started from this machine: label ends :MACHINE:pid).
+   */
+  async function sweep(t?: rex.Target) {
+    for (const b of await rex.blocks(t).catch(() => [])) {
+      const m = b.label?.startsWith(LABEL_PREFIX) ? /(?::([^:]+))?:(\d+)$/.exec(b.label) : null;
+      if (!m || Number(m[2]) === process.pid || (t && m[1] !== MACHINE)) continue;
       try {
         process.kill(Number(m[2]), 0);
         continue; // owner alive
@@ -710,22 +713,6 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
         if (e?.code === "EPERM") continue;
       }
       await rex.closeBlock(b.block_id, t).catch(() => {});
-    }
-  }
-
-  /** Closes blocks left by a parent pi that died. */
-  async function sweep() {
-    const list = await rex.blocks().catch(() => []);
-    for (const b of list) {
-      const m = b.label?.startsWith(LABEL_PREFIX) ? /:(\d+)$/.exec(b.label) : null;
-      if (!m || Number(m[1]) === process.pid) continue;
-      try {
-        process.kill(Number(m[1]), 0);
-        continue; // owner alive
-      } catch (e: any) {
-        if (e?.code === "EPERM") continue;
-      }
-      await rex.closeBlock(b.block_id).catch(() => {});
     }
   }
 

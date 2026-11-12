@@ -470,3 +470,27 @@ describe("start", () => {
     }
   });
 });
+
+describe("sweep", () => {
+  test("closes blocks of dead parents; on a host only this machine's", async () => {
+    const machine = require("node:os").hostname().split(".")[0];
+    const dead = 2 ** 22 + 12345; // above macOS's pid range
+    const labels = [
+      `pi-agent:a:${dead}`, `pi-agent:b:${process.pid}`, "other",
+      `pi-agent:c:${machine}:${dead}`, `pi-agent:d:elsewhere:${dead}`,
+    ];
+    rexReplies.push((args) => {
+      if (args.includes("block") && args.includes("ls")) return JSON.stringify({ blocks: labels.map((label, i) => ({ block_id: `block:${i}`, label })) });
+      return undefined;
+    });
+    const handlers = new Map<string, any>();
+    const pi: any = { on: (ev: string, fn: any) => handlers.set(ev, fn), registerTool: () => {}, sendMessage: () => {}, appendEntry: () => {} };
+    const bridge: any = { registerMethod: () => {}, onShutdown: () => {}, onClient: () => {}, broadcast: () => {}, event: () => {} };
+    registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: () => {} });
+    handlers.get("session_start")({}, {});
+    await new Promise((r) => setTimeout(r, 20));
+    const closed = rexCalls.filter((c) => c.includes("block.close")).map((c) => JSON.parse(c.at(-1)!).block_id);
+    // Locally the label's last field is the owner pid, whatever comes before it.
+    expect(closed.sort()).toEqual(["block:0", "block:3", "block:4"]);
+  });
+});
