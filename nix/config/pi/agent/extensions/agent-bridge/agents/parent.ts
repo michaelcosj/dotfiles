@@ -214,8 +214,18 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     };
   }
 
+  // Children that have not settled, for the editor's statusline (see core.ts).
+  let busyCount = -1;
+  function emitBusy() {
+    const n = [...agents.values()].filter((a) => a.status === "starting" || a.status === "working" || a.status === "blocked").length;
+    if (n === busyCount) return;
+    busyCount = n;
+    pi.events?.emit?.("bridge:busy", { source: "agents", count: n });
+  }
+
   let rosterTimer: ReturnType<typeof setTimeout> | undefined;
   function publish() {
+    emitBusy();
     // Coalesce bursts (usage, state) into one update.
     if (rosterTimer) return;
     rosterTimer = setTimeout(() => {

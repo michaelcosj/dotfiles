@@ -494,3 +494,27 @@ describe("sweep", () => {
     expect(closed.sort()).toEqual(["block:0", "block:3", "block:4"]);
   });
 });
+
+describe("busy", () => {
+  test("emits bridge:busy when the number of unsettled children changes", async () => {
+    g.__piAgents!.set("alpha", makeAgent({ status: "idle" }));
+    const busy: number[] = [];
+    const methods = new Map<string, any>();
+    const pi: any = {
+      on: () => {}, registerTool: () => {}, sendMessage: () => {}, appendEntry: () => {},
+      events: { emit: (name: string, d: any) => name === "bridge:busy" && d.source === "agents" && busy.push(d.count) },
+    };
+    const bridge: any = {
+      registerMethod: (_r: string, name: string, fn: any) => methods.set(name, fn),
+      onShutdown: () => {}, onClient: () => {}, broadcast: () => {}, event: () => {},
+    };
+    registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: () => {} });
+    const a = g.__piAgents!.get("alpha")!;
+    const client = { socket: { destroyed: false } };
+    a.client = client as any;
+    methods.get("state")(client, { status: "working" });
+    methods.get("state")(client, { status: "blocked" });
+    methods.get("settled")(client, { last_message: "done" });
+    expect(busy).toEqual([1, 0]);
+  });
+});

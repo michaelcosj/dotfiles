@@ -115,6 +115,7 @@ export function createBridge(pi: any) {
   let blockedCount = 0;
   let blockedMessage: string | undefined;
   let state: BridgeState = "idle";
+  const busy = { agents: 0, background: 0 };
   const clients = new Set<Client>();
   const methods = new Map<string, Handler>(); // `${role}:${name}`
   const listeners = { connect: [] as ((c: Client) => void)[], disconnect: [] as ((c: Client) => void)[] };
@@ -264,7 +265,7 @@ export function createBridge(pi: any) {
     const next = desiredState();
     if (!force && next === state) return;
     state = next;
-    bridge.broadcast("editor", "status", { state, message: blockedMessage, pane_id: PANE_ID });
+    bridge.broadcast("editor", "status", { state, message: blockedMessage, pane_id: PANE_ID, busy: { ...busy } });
     pi.events.emit("bridge:state", { state, message: blockedMessage });
   }
 
@@ -319,14 +320,14 @@ export function createBridge(pi: any) {
       client.authenticated = true;
       client.role = p.role === "agent" ? "agent" : "editor";
       client.info = p;
-      response(client, id, { protocol: PROTOCOL, pane_id: PANE_ID, instance_id: PANE_ID, state });
+      response(client, id, { protocol: PROTOCOL, pane_id: PANE_ID, instance_id: PANE_ID, state, busy: { ...busy } });
       for (const fn of listeners.connect) fn(client);
       setImmediate(() => bridge.renderWidget());
       return;
     }
     if (!client.authenticated) return response(client, id, undefined, "hello required");
     if (request.method === "ping" || request.method === "get_state")
-      return response(client, id, { state, message: blockedMessage, pane_id: PANE_ID });
+      return response(client, id, { state, message: blockedMessage, pane_id: PANE_ID, busy: { ...busy } });
     if (request.method === "respond") {
       const entry = pending.get(request.params?.request_id);
       if (!entry) return response(client, id, { accepted: false });
@@ -468,6 +469,17 @@ export function createBridge(pi: any) {
     if (blockedCount > 0 && (was === 0 || data?.active)) programStatus("question", "blocked", blockedMessage ?? "pi needs an answer");
     else if (blockedCount === 0 && was > 0) programStatus("question", "clear");
     publishState();
+  });
+
+  // "bridge:busy" { source, count }: work still running beside this pi's own turn
+  // (child agents, background jobs). Editors get it in each status event.
+  pi.events.on("bridge:busy", (data: any) => {
+    const source = data?.source;
+    if ((source !== "agents" && source !== "background") || typeof data.count !== "number") return;
+    const count = Math.max(0, Math.floor(data.count));
+    if (busy[source] === count) return;
+    busy[source] = count;
+    if (server) publishState(true);
   });
 
   pi.on("session_start", async (_event: any, ctx: any) => {

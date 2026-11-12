@@ -458,6 +458,16 @@ export default function (pi: ExtensionAPI) {
     } catch {}
   };
 
+  // Running jobs, for the editor's statusline (see agent-bridge/core.ts).
+  let busyCount = -1;
+  const emitBusy = (force = false) => {
+    const dir = g.__piBackgroundDir;
+    const n = dir ? jobNames(dir).filter((name) => jobState(dir, name).kind === "running").length : 0;
+    if (n === busyCount && !force) return;
+    busyCount = n;
+    pi.events.emit("bridge:busy", { source: "background", count: n });
+  };
+
   /** Whether a job still needs the timer: it runs, or its exit is unreported. */
   const needsWatch = (dir: string) =>
     jobNames(dir).some((n) =>
@@ -476,6 +486,7 @@ export default function (pi: ExtensionAPI) {
     timer = setInterval(() => {
       const dir = g.__piBackgroundDir;
       checkNotify();
+      emitBusy();
       if (++ticks % 5 === 0) refreshStatus();
       if (!dir || (!needsWatch(dir) && !pendingCount)) {
         disarm();
@@ -489,6 +500,7 @@ export default function (pi: ExtensionAPI) {
     ctxRef = ctx;
     const dir = stateDir();
     refreshStatus();
+    emitBusy(true);
     if (needsWatch(dir)) arm(); // jobs kept across /reload
     void sweepOrphans(dir).catch(() => {});
   });
@@ -719,6 +731,7 @@ export default function (pi: ExtensionAPI) {
           wait: params.wait, until: params.until, lines: params.lines,
         });
         refreshStatus();
+        emitBusy();
         arm();
         const extra = params.persist ? `\nPersistent. Manage after Pi exits: PI_BG_DIR=${dir} bg.sh status|kill ${name}` : "";
         const n = params.notify ? " Will notify on exit. End your turn unless you have other work; do not wait for it." : "";
@@ -753,6 +766,7 @@ export default function (pi: ExtensionAPI) {
         checkQuestions();
         markReported(dir, name);
         refreshStatus();
+        emitBusy();
         return text(`${name}: ${how}`);
       }
 

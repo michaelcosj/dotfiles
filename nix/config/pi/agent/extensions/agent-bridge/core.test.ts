@@ -66,3 +66,47 @@ describe.skipIf(!hasTailscale)("remote listener", () => {
     expect((await hello(remote.address, { token: bridge.token, role: "agent" })).error?.message).toBe("authentication failed");
   });
 });
+
+describe("busy counts", () => {
+  test("status events carry busy counts, also when only the counts change", async () => {
+    const handlers = new Map<string, any>();
+    const listeners = new Map<string, any>();
+    const pi: any = { on: (ev: string, fn: any) => handlers.set(ev, fn), events: { on: (ev: string, fn: any) => listeners.set(ev, fn), emit: () => {} } };
+    const bridge = createBridge(pi);
+    await handlers.get("session_start")({}, { mode: "tui", isIdle: () => true, ui: {} });
+    try {
+      const lines: any[] = [];
+      const s = net.createConnection({ path: bridge.socketPath! });
+      s.setEncoding("utf8");
+      let buf = "";
+      s.on("data", (d: string) => {
+        buf += d;
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          lines.push(JSON.parse(buf.slice(0, nl)));
+          buf = buf.slice(nl + 1);
+        }
+      });
+      await new Promise((r) => s.on("connect", r));
+      s.write(`${JSON.stringify({ id: 1, method: "hello", params: { protocol: PROTOCOL, token: bridge.token, role: "editor" } })}\n`);
+      const until = async (fn: () => boolean) => {
+        for (let i = 0; i < 100 && !fn(); i++) await new Promise((r) => setTimeout(r, 10));
+      };
+      await until(() => lines.length > 0);
+      expect(lines[0].result.busy).toEqual({ agents: 0, background: 0 });
+
+      listeners.get("bridge:busy")({ source: "agents", count: 2 });
+      listeners.get("bridge:busy")({ source: "background", count: 1 });
+      listeners.get("bridge:busy")({ source: "background", count: 1 }); // no change, no event
+      listeners.get("bridge:busy")({ source: "other", count: 5 }); // ignored
+      await until(() => lines.filter((l) => l.event === "status").length >= 2);
+      await new Promise((r) => setTimeout(r, 30));
+      const status = lines.filter((l) => l.event === "status").map((l) => l.data);
+      expect(status.map((d) => d.busy)).toEqual([{ agents: 2, background: 0 }, { agents: 2, background: 1 }]);
+      expect(status.every((d) => d.state === "idle")).toBe(true);
+      s.destroy();
+    } finally {
+      await handlers.get("session_shutdown")({ reason: "quit" });
+    }
+  });
+});

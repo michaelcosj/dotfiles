@@ -285,3 +285,23 @@ test("the watch timer runs only while a notify job needs it", async () => {
     await handlers.session_shutdown?.({ reason: "reload" });
   }
 });
+
+test("emits bridge:busy with the running job count", async () => {
+  const handlers: Record<string, Function> = {};
+  const busy: number[] = [];
+  background({
+    on(name: string, fn: Function) { handlers[name] = fn; }, registerCommand() {}, sendMessage() {},
+    events: { emit(name: string, data: any) { if (name === "bridge:busy" && data.source === "background") busy.push(data.count); } },
+    registerTool(definition: unknown) { tool = definition; },
+  } as any);
+  try {
+    await handlers.session_start({}, ctx);
+    await execute({ action: "start", name: "slow", command: "sleep 30" });
+    await execute({ action: "start", name: "quick", command: "sleep 0.2" });
+    for (let i = 0; i < 30 && busy.at(-1) !== 1; i++) await new Promise((r) => setTimeout(r, 100));
+    await execute({ action: "stop", name: "slow" });
+    expect(busy).toEqual([0, 1, 2, 1, 0]);
+  } finally {
+    await handlers.session_shutdown?.({ reason: "reload" });
+  }
+});
