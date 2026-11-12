@@ -37,8 +37,9 @@ Create `.pi/references.json` in the directory where you start Pi:
 
 ## Refresh and status
 
-Git references clone or refresh on session start, including resume and `/reload`.
-Startup waits for completion; each Git command has a 60-second timeout. At most four references update at once.
+On session start (including resume and `/reload`), cached checkouts are used at once and Git references refresh in the background.
+A turn waits only for a reference that has no checkout yet. Each Git command has a 60-second timeout. At most four references update at once.
+Child agents (`PI_BRIDGE_PARENT` set) use cached checkouts as they are and only clone missing ones.
 Local references use their live directories directly.
 
 - `/refs`: show paths, revisions, status, and errors.
@@ -47,7 +48,7 @@ Local references use their live directories directly.
 Shared Git checkouts live under `${XDG_CACHE_HOME:-~/.cache}/pi/references/`, keyed by normalized remote and branch.
 An omitted branch and an explicit branch have separate cache entries.
 Updates use an atomic directory lock, with up to 120 seconds to acquire it.
-There is no daily throttle: each session start attempts a refresh.
+There is no daily throttle: each session start in a top-level Pi attempts a refresh.
 
 **Do not edit cached Git checkouts.** Refresh forcibly replaces tracked files.
 Checkouts are shared, so another session can change their contents while you read them.

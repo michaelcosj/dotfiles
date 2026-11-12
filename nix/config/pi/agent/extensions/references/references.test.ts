@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import extension from "./index";
-import { cachePath, normalizeRepository, parseConfig, referencePrompt, resolveReference, validBranch, withLock, type GitRunner } from "./references";
+import { cachedReference, cachePath, normalizeRepository, parseConfig, referencePrompt, resolveReference, validBranch, withLock, type GitRunner } from "./references";
 
 const exec = promisify(execFile);
 let root: string;
@@ -139,6 +139,22 @@ describe("shared Git cache", () => {
     expect(result.status).toBe("unavailable");
     expect(result.error).toContain("origin does not match");
     expect(await fs.readFile(path.join(cloned.path, "guide.md"), "utf8")).toBe("first version");
+  });
+  test("reads a cached checkout without network, and reports a missing one", async () => {
+    const f = await fixture();
+    const ref = { name: "sdk", repository: remote };
+    const offline: GitRunner = async (args, cwd) => {
+      if (["ls-remote", "fetch", "clone"].includes(args[0])) throw new Error("network used");
+      return f.git(args, cwd);
+    };
+    const missing = await cachedReference(ref, f.cache, offline);
+    expect(missing.status).toBe("unavailable");
+    expect(missing.error).toBe("Not cloned yet");
+    await resolveReference(ref, f.cache, f.git);
+    const cached = await cachedReference(ref, f.cache, offline);
+    expect(cached.status).toBe("cached");
+    expect(cached.revision).toBe(f.first);
+    expect(cached.error).toBeUndefined();
   });
   test("refuses symlinked checkouts", async () => {
     const f = await fixture();

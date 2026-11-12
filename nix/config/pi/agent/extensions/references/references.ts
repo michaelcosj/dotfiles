@@ -186,6 +186,20 @@ export async function resolveReference(reference: Reference, root: string, git: 
   }
 }
 
+/** Resolves a reference from what is on disk, without network: a cached checkout as it is. */
+export async function cachedReference(reference: Reference, root: string, git: GitRunner = runGit): Promise<ResolvedReference> {
+  if (reference.path !== undefined) return resolveReference(reference, root, git);
+  const directory = cachePath(root, reference.repository!, reference.branch);
+  const result: ResolvedReference = { name: reference.name, description: reference.description, path: directory, source: "git", status: "unavailable" };
+  try {
+    if (!(await exists(directory))) return { ...result, error: "Not cloned yet" };
+    await validateCheckout(directory, reference.repository!, git);
+    return { ...result, status: "cached", revision: await git(["rev-parse", "HEAD"], directory) };
+  } catch (error) {
+    return { ...result, error: errorText(error) };
+  }
+}
+
 export function errorText(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 2000);
 }
