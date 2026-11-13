@@ -245,11 +245,11 @@
         "zig": "zig"
       },
       "locked": {
-        "lastModified": 1794491710,
-        "narHash": "sha256-iV6Riwf5UITfnr07VQxv9jHtz4Cg6fazlKsbOChsZo0=",
+        "lastModified": 1794562238,
+        "narHash": "sha256-s4mxM5Eg8X+gbbhqBEViX/RgQ0CPbf+KEopyp5Rr1ss=",
         "owner": "shuv1337",
         "repo": "rex-rune",
-        "rev": "ec0de7971e39e96c747fb87e01d795a296b9d994",
+        "rev": "18e9a404dbb5f56ac8c9e371278ea4c0ee439e25",
         "type": "github"
       },
       "original": {
