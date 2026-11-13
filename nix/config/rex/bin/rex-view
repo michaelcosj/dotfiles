@@ -1,894 +1,186 @@
 #!/usr/bin/env bun
-// rex-view: show Markdown, diagrams and HTML in a Rex pane, in the Rex theme.
+// rex-view: Markdown pages in a Rex pane; Chrome only for one-shot screenshots.
 //
-// Two engines draw pages. tui (../tui/view.ts) draws Markdown, Mermaid and
-// plain <form data-rex> pages as terminal text with OpenTUI: light, crisp,
-// in the terminal's own colors. web (below) is headless Chrome, for anything
-// else (scripts, styles, charts). `show` picks one; --engine forces it.
+//   rex-view show [--below] [--ratio PCT] [--focus] FILE|-   open or update Markdown
+//   rex-view wait [--timeout SEC] [--close]                print a submitted answer as JSON
+//   rex-view shot [-o FILE.txt]                           capture the pane as text
+//   rex-view hide                                        close the pane
+//   rex-view status                                      print the pane's state as JSON
+//   rex-view view FILE                                   run the tui viewer in this terminal
+//   rex-view snap URL|FILE [-o OUT.png] [--size WxH]       screenshot (default 1280x800)
+//   rex-view help                                        show this help
 //
-// Headless Chrome renders the page. Changed pixels go to the terminal as
-// kitty graphics; mouse, wheel, and keys go back to the page. The page gets
-// the Rex theme as CSS variables and follows theme changes live. Local
-// files reload when they change.
-//
-// Agent commands (one viewer pane per agent pane, named after $REX_BLOCK):
-//   rex-view show [--below] [--ratio PCT] [--focus] FILE|URL|-   open or update the pane (- = stdin: Markdown, or HTML if it starts with <)
-//   rex-view wait [--timeout SEC] [--close]   wait for the page to call rex.send(value); print it as JSON
-//                                            (--close closes the pane after the answer or the timeout)
-//   rex-view shot [-o FILE.png]               screenshot of what the pane shows; prints the path
-//   rex-view eval JS                          run JS in the page; print the result as JSON
-//   rex-view hide                             close the pane
-//   rex-view status                           print the pane's state as JSON
-//   all take --name NAME (or $REX_VIEW_NAME) to pick another viewer.
-//   show takes --engine auto|tui|web (or $REX_VIEW_ENGINE; default auto: tui
-//   for .md files, Markdown on stdin, and plain HTML it can draw).
-//
-// Low level:
-//   rex-view view FILE|URL   run the viewer in this terminal (any kitty-graphics terminal)
-//
-// In the viewer: Ctrl-Q quits, Ctrl-R reloads. Everything else goes to the page.
-//
-// Pages can use (all optional):
-//   var(--rex-bg|fg|accent|muted|subtle|border|surface)  var(--rex-red|green|yellow|blue|magenta|cyan)  var(--rex-0..15)
-//   rex.send(value)  rex.copy(text)  rex.close()  rex.title(text)  rex.theme
-//   <form data-rex>  on submit, sends the form fields as an object (rex.send)
-//   addEventListener('rex:theme', e => e.detail)
-//
-// Environment: REX_VIEW_FPS (30), REX_VIEW_SCALE, REX_VIEW_GPU=1, REX_VIEW_CHROME, REX_VIEW_DEBUG=logfile,
-//   REX_VIEW_PARTIAL=1|0 (frame edits; default: on only when the Rex app showing it is the macOS app)
+// All commands accept --name NAME (or REX_VIEW_NAME) and --state DIR.
+// show - reads Markdown from stdin. wait --close closes after an answer or timeout.
+// snap uses REX_VIEW_CHROME when set; its default output is STATE/snap.png.
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, watch, existsSync, readFileSync, unlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
-import { pathToFileURL, fileURLToPath } from "node:url";
-import { tuiCanDraw } from "../tui/detect.ts";
-import { exprLib } from "../tui/expr.js";
+import { pathToFileURL } from "node:url";
 
-// Chrome: REX_VIEW_CHROME, the macOS apps, then the usual Linux names on PATH
-// (Nix puts them in a profile, not /usr/bin).
+// Nix puts Chrome on PATH, not in /usr/bin.
 const CHROME = process.env.REX_VIEW_CHROME ||
   ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
    "/Applications/Chromium.app/Contents/MacOS/Chromium"].find(existsSync) ||
-  ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"].map((n) => Bun.which(n)).find(Boolean);
-
-// --- arguments -------------------------------------------------------------
-
-const COMMANDS = ["show", "wait", "shot", "eval", "hide", "status", "view", "help"];
-const argv = process.argv.slice(2);
+  ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"].map(n => Bun.which(n)).find(Boolean);
+const die = (msg, code = 1) => { console.error("rex-view: " + msg); process.exit(code); };
+const COMMANDS = ["show", "wait", "shot", "hide", "status", "view", "snap", "help"];
+const argv = process.argv.slice(2), rest = [];
+const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "", size: "1280x800",
+  name: process.env.REX_VIEW_NAME || "", state: "" };
 let cmd = "";
-const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "", engine: process.env.REX_VIEW_ENGINE || "auto",
-  name: process.env.REX_VIEW_NAME || "", scale: Number(process.env.REX_VIEW_SCALE || 0) };
-const rest = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
-  if (a === "--ratio") opt.ratio = argv[++i];
+  const value = () => argv[++i] || die(`missing value for ${a}`, 2);
+  if (a === "--ratio") opt.ratio = value();
   else if (a === "--below") opt.below = true;
   else if (a === "--focus") opt.focus = true;
-  else if (a === "--timeout") opt.timeout = Number(argv[++i]);
+  else if (a === "--timeout") opt.timeout = Number(value());
   else if (a === "--close") opt.close = true;
-  else if (a === "-o" || a === "--output") opt.out = argv[++i];
-  else if (a === "--name") opt.name = argv[++i];
-  else if (a === "--state") opt.state = argv[++i];
-  else if (a === "--scale") opt.scale = Number(argv[++i]);
-  else if (a === "--engine") opt.engine = argv[++i];
+  else if (a === "-o" || a === "--output") opt.out = value();
+  else if (a === "--name") opt.name = value();
+  else if (a === "--state") opt.state = value();
+  else if (a === "--size") opt.size = value();
   else if (a === "-h" || a === "--help") cmd = "help";
-  else if (!cmd && !rest.length && COMMANDS.includes(a)) cmd = a; // the first word is the command; flags may come before it
+  else if (a.startsWith("-") && a !== "-") die(`unknown option: ${a}`, 2);
+  else if (!cmd && !rest.length && COMMANDS.includes(a)) cmd = a;
   else rest.push(a);
 }
 cmd ||= "view";
-let scaleFlag = opt.scale, scale = 1;
-const die = (msg, code = 1) => { console.error("rex-view: " + msg); process.exit(code); };
-
 if (cmd === "help") {
   const lines = readFileSync(import.meta.path, "utf8").split("\n").slice(1);
   console.log(lines.slice(0, lines.findIndex(l => !l.startsWith("//"))).map(l => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(0);
 }
 
-// Each viewer has a state directory with its control socket and pane ID.
 const stateRoot = join(process.env.XDG_STATE_HOME || join(homedir(), ".local/state"), "rex-view");
 const viewerName = (opt.name || (process.env.REX_BLOCK || "default").replace(/^block:/, "").slice(-12)).replace(/[^\w.-]/g, "_");
-const stateDir = opt.state || join(stateRoot, viewerName);
+const stateDir = resolve(opt.state || join(stateRoot, viewerName));
 const sockPath = join(stateDir, "sock");
-
-function toURL(target) {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return target;
-  const f = resolve(target);
-  if (!existsSync(f)) die(`no such file: ${f}`);
-  return pathToFileURL(f).href;
-}
-
-async function api(path, body, timeoutMs = 10000) {
-  const ctl = new AbortController(); const t = timeoutMs ? setTimeout(() => ctl.abort(), timeoutMs) : 0;
-  try {
-    const r = await fetch("http://rex-view" + path, { unix: sockPath, method: body === undefined ? "GET" : "POST",
-      body: body === undefined ? undefined : JSON.stringify(body), signal: ctl.signal });
-    return r;
-  } finally { clearTimeout(t); }
-}
-async function alive() { try { return (await api("/status", undefined, 1500)).ok; } catch { return false; } }
-
-// --- engines -------------------------------------------------------------------
-
-const TUI_DIR = join(dirname(fileURLToPath(import.meta.url)), "../tui");
+const TUI_DIR = resolve(dirname(import.meta.path), "../tui");
 const TUI_VIEW = join(TUI_DIR, "view.ts");
 
-// Installs the tui viewer's packages the first time. False if that fails.
 function tuiReady() {
-  if (existsSync(join(TUI_DIR, "node_modules/@opentui/core/package.json"))) return true;
+  if (existsSync(join(TUI_DIR, "node_modules/@opentui/core/package.json"))) return;
   const p = Bun.spawnSync([process.execPath, "install", "--frozen-lockfile"], { cwd: TUI_DIR, stdout: "ignore", stderr: "pipe" });
-  if (p.exitCode) console.error("rex-view: couldn't install the tui viewer's packages; using Chrome. " + p.stderr.toString().trim().split("\n").pop());
-  return p.exitCode === 0;
+  if (p.exitCode) die("couldn't install the tui viewer's packages: " + p.stderr.toString().trim());
 }
-
-// "tui" or "web" for a URL or file.
-function pickEngine(url) {
-  const md = /\.(md|markdown)$/i.test(url);
-  if (opt.engine === "web") return md ? die("the web engine can't draw Markdown; write HTML, or use --engine tui", 2) : "web";
-  if (!url.startsWith("file:")) return "web";
-  if (opt.engine !== "tui") {
-    let text = "";
-    try { text = readFileSync(fileURLToPath(url), "utf8"); } catch {}
-    if (!tuiCanDraw(text, fileURLToPath(url))) return "web";
-  }
-  if (tuiReady()) return "tui";
-  return md ? die("can't draw Markdown without the tui viewer's packages (see above)") : "web";
+function toURL(target) {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) return target;
+  const file = resolve(target);
+  if (!existsSync(file)) die(`no such file: ${file}`);
+  return pathToFileURL(file).href;
 }
-
-if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
-  mkdirSync(stateDir, { recursive: true });
-  if (cmd === "show") {
-    let target = rest[0] || die("usage: rex-view show FILE|URL|-", 2);
-    if (target === "-") {
-      // Markdown on stdin gets a .md name (only the tui engine draws Markdown).
-      const text = await Bun.stdin.text();
-      const md = !text.trimStart().startsWith("<");
-      for (const f of ["page.html", "page.md"]) try { unlinkSync(join(stateDir, f)); } catch {}
-      target = join(stateDir, md ? "page.md" : "page.html");
-      // Chrome reads a file with no charset as Latin-1 (× becomes Ã—)
-      writeFileSync(target, md || /<meta[^>]+charset/i.test(text) ? text : '<meta charset="utf-8">\n' + text);
-    }
-    const url = toURL(target);
-    const engine = pickEngine(url);
-    let r = null;
-    if (cmd === "show" && await alive()) {
-      // the open viewer keeps the page if it uses the same engine; otherwise it closes
-      const st = await (await api("/status")).json().catch(() => ({}));
-      if ((st.engine || "web") === engine) r = await api("/open", { url }).catch(() => null);
-      else { await api("/close", {}).catch(() => {}); for (let t = 0; t < 30 && await alive(); t++) await Bun.sleep(100); }
-    }
-    if (r) {
-      if (!r.ok) die(await r.text());
-      if (opt.focus) Bun.spawnSync(["rex", "block", "focus", readFileSync(join(stateDir, "block"), "utf8").trim()]);
-      console.log(`rex-view: updated ${viewerName}`);
-      process.exit(0);
-    }
-    if (!process.env.REX_BLOCK && !process.env.REX_SESSION) die("show needs a Rex terminal; use 'rex-view view' in other kitty-graphics terminals");
-    try { unlinkSync(sockPath); } catch {}
-    // Split beside the agent's pane when it is in a window. A pane that is not
-    // shown (a child agent the user hasn't switched to) can't be split, so
-    // then split the focused pane instead.
-    let anchor = process.env.REX_BLOCK || "";
-    if (anchor) {
-      const i = Bun.spawnSync(["rex", "block", "inspect", anchor, "--json"], { stdout: "pipe", stderr: "ignore" });
-      try { if (JSON.parse(i.stdout.toString()).block?.placement !== "placed") anchor = ""; } catch { anchor = ""; }
-    }
-    const label = url.startsWith("file:") ? basename(fileURLToPath(url)) : url;
-    const viewer = engine === "tui"
-      ? [process.execPath, TUI_VIEW, "--name", viewerName, "--state", stateDir, fileURLToPath(url)]
-      : [process.execPath, import.meta.path, "view", "--name", viewerName, "--state", stateDir, ...(scaleFlag ? ["--scale", String(scaleFlag)] : []), url];
-    const split = ["rex", "split", "--json", "--ratio", String(opt.ratio), "--split", opt.below ? "below" : "right",
-      `--focus=${opt.focus}`, "--label", label, "--shell=none",
-      ...(anchor ? ["-b", anchor] : []), "--",
-      // rex split doesn't pass this process's environment to the pane
-      ...(process.env.REX_VIEW_DEBUG ? ["env", `REX_VIEW_DEBUG=${process.env.REX_VIEW_DEBUG}`] : []), ...viewer];
-    const env = { ...process.env };
-    if (!anchor) delete env.REX_BLOCK; // rex split anchors to $REX_BLOCK when -b is missing
-    const p = Bun.spawnSync(split, { stdout: "pipe", stderr: "pipe", env });
-    if (p.exitCode) die("rex split failed: " + p.stderr.toString());
-    const block = JSON.parse(p.stdout.toString()).block_ids?.[0] || "";
-    writeFileSync(join(stateDir, "block"), block + "\n");
-    for (let t = 0; t < 100 && !(await alive()); t++) await Bun.sleep(100);
-    if (!(await alive())) die("viewer did not start; try REX_VIEW_DEBUG=/tmp/rex-view.log");
-    console.log(`rex-view: showing ${label} in ${block} (name ${viewerName}, ${engine})`);
-    process.exit(0);
-  }
-  if (!(await alive())) {
-    if (cmd === "hide") process.exit(0);
-    if (cmd === "status") { console.log(JSON.stringify({ name: viewerName, open: false })); process.exit(0); }
-    die(`no open viewer '${viewerName}'; run 'rex-view show' first`);
-  }
-  if (cmd === "status") { console.log(await (await api("/status")).text()); process.exit(0); }
-  if (cmd === "hide") { await api("/close", {}).catch(() => {}); for (let t = 0; t < 30 && await alive(); t++) await Bun.sleep(100); process.exit(0); }
-  if (cmd === "eval") {
-    const r = await api("/eval", { js: rest.join(" ") || await Bun.stdin.text() }, 30000);
-    const t = await r.text(); (r.ok ? console.log : console.error)(t); process.exit(r.ok ? 0 : 1);
-  }
-  if (cmd === "shot") {
-    const r = await api("/shot", {}, 30000);
-    if (r.status === 501) { // tui: the pane's screen as text
-      const block = readFileSync(join(stateDir, "block"), "utf8").trim();
-      const p = Bun.spawnSync(["rex", "capture", "-b", block, "--trim"], { stdout: "pipe", stderr: "pipe" });
-      if (p.exitCode) die("rex capture failed: " + p.stderr.toString());
-      const outPath = resolve(opt.out ? opt.out.replace(/\.png$/i, ".txt") : join(stateDir, "shot.txt"));
-      writeFileSync(outPath, p.stdout);
-      console.log(outPath); process.exit(0);
-    }
-    if (!r.ok) die(await r.text());
-    const outPath = resolve(opt.out || join(stateDir, "shot.png"));
-    writeFileSync(outPath, Buffer.from(await r.arrayBuffer()));
-    console.log(outPath); process.exit(0);
-  }
-  if (cmd === "wait") {
-    let r;
-    try { r = await api("/wait?timeout=" + (opt.timeout || 0), {}, 0); }
-    catch { die("the viewer closed before anything was sent", 3); }
-    const closePane = async () => { if (opt.close) { await api("/close", {}).catch(() => {}); for (let t = 0; t < 30 && await alive(); t++) await Bun.sleep(100); } };
-    if (r.status === 408) { await closePane(); die("timed out", 124); }
-    if (r.status === 410) die("the viewer closed before anything was sent", 3);
-    console.log(await r.text());
-    await closePane();
-    process.exit(0);
-  }
-}
-
-// --- viewer ------------------------------------------------------------------
-
-if (!CHROME) die("Chrome not found; set REX_VIEW_CHROME");
-let target = rest[0] || die("usage: rex-view view FILE|URL", 2);
-let tmpHtml = "";
-if (target === "-") {
-  tmpHtml = join(mkdtempSync(join(tmpdir(), "rex-view-")), "page.html");
-  writeFileSync(tmpHtml, await Bun.stdin.text());
-  target = tmpHtml;
-}
-let url = toURL(target);
-const serveControl = !!opt.name; // show passes --name
-
-// --- terminal --------------------------------------------------------------
-
-const out = process.stdout;
-const DEBUG = process.env.REX_VIEW_DEBUG; // path of a log file
-const log = (...a) => DEBUG && require("node:fs").appendFileSync(DEBUG, a.join(" ") + "\n");
-const ESC = "\x1b";
-let writing = Promise.resolve();
-function write(s) {
-  writing = writing.then(() => new Promise(r => { if (out.write(s)) r(); else out.once("drain", r); }));
-  return writing;
-}
-
-const theme = { fg: "#1f2328", bg: "#ffffff", palette: [] };
-let cell = { w: 8, h: 18 };
-let replyWaiters = [];
-
-// Decode stdin into key, mouse, and terminal-reply events.
-let inbuf = "";
-function feed(chunk) {
-  inbuf += chunk;
-  let i = 0;
-  const s = inbuf;
-  while (i < s.length) {
-    const c = s[i];
-    if (c !== ESC) {
-      const cp = s.codePointAt(i); const ch = String.fromCodePoint(cp);
-      onKey(ch); i += ch.length; continue;
-    }
-    if (i + 1 >= s.length) { onKey("\x1b"); i++; continue; } // lone ESC: Escape key
-    const n = s[i + 1];
-    if (n === "]" || n === "_" || n === "P") { // OSC / APC / DCS, ends in BEL or ST
-      let j = i + 2, end = -1, len = 0;
-      for (; j < s.length; j++) {
-        if (s[j] === "\x07") { end = j; len = 1; break; }
-        if (s[j] === ESC && s[j + 1] === "\\") { end = j; len = 2; break; }
-      }
-      if (end < 0) break; // incomplete
-      onString(n, s.slice(i + 2, end)); i = end + len; continue;
-    }
-    if (n === "[") {
-      let j = i + 2;
-      while (j < s.length && !(s.charCodeAt(j) >= 0x40 && s.charCodeAt(j) <= 0x7e)) j++;
-      if (j >= s.length) break;
-      onCSI(s.slice(i + 2, j), s[j]); i = j + 1; continue;
-    }
-    if (n === "O" && i + 2 < s.length) { onCSI("", s[i + 2]); i += 3; continue; }
-    onKey(n, { alt: true }); i += 2;
-  }
-  inbuf = s.slice(i);
-}
-
-let fileProbe = false;
-function onString(kind, body) {
-  if (kind === "_") { if (body.startsWith("Gi=4242;")) fileProbe = body.endsWith(";OK"); return; }
-  if (kind !== "]") return;
-  const m = body.match(/^(10|11|4;(\d+));rgb:([0-9a-f]+)\/([0-9a-f]+)\/([0-9a-f]+)/i);
-  if (!m) return;
-  const hex = [m[3], m[4], m[5]].map(h => h.slice(0, 2).padStart(2, "0")).join("");
-  if (m[1] === "10") theme.fg = "#" + hex;
-  else if (m[1] === "11") theme.bg = "#" + hex;
-  else theme.palette[Number(m[2])] = "#" + hex;
-}
-
-function onCSI(params, final) {
-  if (params.startsWith("<") && (final === "M" || final === "m")) return onMouse(params.slice(1), final === "M");
-  if (final === "t" && params.startsWith("6;")) { const [, h, w] = params.split(";").map(Number); if (h && w) cell = { w, h }; return; }
-  if (final === "t" && params.startsWith("4;") && !cell.exact) { // text area pixels: derive the cell
-    const [, h, w] = params.split(";").map(Number);
-    if (h && w && out.columns) cell = { w: w / out.columns, h: h / out.rows };
-    return;
-  }
-  if (final === "c" && params.startsWith("?")) { replyWaiters.splice(0).forEach(r => r()); return; }
-  if (final === "n" && params.startsWith("?997;")) { queryTheme(); return; } // theme changed
-  if (final === "y" || final === "t") return;
-  const keys = { A: "ArrowUp", B: "ArrowDown", C: "ArrowRight", D: "ArrowLeft", H: "Home", F: "End", Z: "ShiftTab" };
-  const tilde = { 1: "Home", 2: "Insert", 3: "Delete", 4: "End", 5: "PageUp", 6: "PageDown", 7: "Home", 8: "End" };
-  const [p0, mod] = params.split(";").map(Number);
-  const mods = mod ? mod - 1 : 0;
-  const flags = { shift: !!(mods & 1), alt: !!(mods & 2), ctrl: !!(mods & 4) };
-  if (final === "~" && tilde[p0]) return onSpecial(tilde[p0], flags);
-  if (keys[final]) return final === "Z" ? onSpecial("Tab", { shift: true }) : onSpecial(keys[final], flags);
-}
-
-async function query(seq) {
-  const done = new Promise(r => { replyWaiters.push(r); setTimeout(r, 1000); });
-  write(seq + `${ESC}[c`);
-  return done;
-}
-
-let applyTheme = () => {}, appliedTheme = "";
-async function queryTheme() {
-  let q = `${ESC}]10;?\x07${ESC}]11;?\x07`;
-  for (let k = 0; k < 16; k++) q += `${ESC}]4;${k};?\x07`;
-  await query(q);
-  // A new pane reports a default palette first and gets the real theme a
-  // moment later, so this runs a few times at start; apply only real changes.
-  const key = JSON.stringify(theme);
-  if (key === appliedTheme) return;
-  appliedTheme = key;
-  applyTheme();
-}
-
-// --- Chrome ----------------------------------------------------------------
-
-const profile = mkdtempSync(join(tmpdir(), "rex-view-profile-"));
-// Fonts: Nix Chromium reads /etc/fonts/fonts.conf. A headless host may have
-// none, and pages then render without text. Use the complete config Home
-// Manager writes (home/linux/common.nix) unless the system has its own or
-// FONTCONFIG_FILE is already set.
+// Headless Nix hosts can lack /etc/fonts; use Home Manager's complete config.
 function chromeEnv() {
   const env = { ...process.env };
   const own = join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "fontconfig", "fonts.conf");
-  if (!env.FONTCONFIG_FILE && process.platform === "linux" && !existsSync("/etc/fonts/fonts.conf") && existsSync(own)) {
-    env.FONTCONFIG_FILE = own;
-  }
+  if (!env.FONTCONFIG_FILE && process.platform === "linux" && !existsSync("/etc/fonts/fonts.conf") && existsSync(own)) env.FONTCONFIG_FILE = own;
   return env;
 }
-
-const chrome = Bun.spawn([CHROME, "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
-  "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "--mute-audio",
-  // No --allow-file-access-from-files: with it, any shown page could read
-  // every local file (~/.ssh, tokens) and send it out.
-  // Software rendering: the page is small and the GPU readback per frame
-  // costs far more than drawing on the CPU. REX_VIEW_GPU=1 turns it back on.
-  ...(process.env.REX_VIEW_GPU ? [] : ["--disable-gpu", "--disable-gpu-compositing"]),
-  "about:blank"], { stdout: "ignore", stderr: "pipe", env: chromeEnv() });
-
-async function browserWS() {
-  const dec = new TextDecoder(); let acc = "";
-  for await (const chunk of chrome.stderr) {
-    acc += dec.decode(chunk);
-    const m = acc.match(/DevTools listening on (ws:\/\/\S+)/);
-    if (m) return m[1];
-  }
-  throw new Error("Chrome exited before DevTools started:\n" + acc);
-}
-
-const port = new URL(await browserWS()).port;
-let pageWS;
-for (let t = 0; t < 50 && !pageWS; t++) {
-  const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  pageWS = list.find(p => p.type === "page")?.webSocketDebuggerUrl;
-  if (!pageWS) await Bun.sleep(50);
-}
-const ws = new WebSocket(pageWS);
-await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
-let msgId = 0; const pending = new Map(); const handlers = {};
-ws.onmessage = ev => {
-  const m = JSON.parse(ev.data);
-  if (m.id) { pending.get(m.id)?.(m); pending.delete(m.id); }
-  else handlers[m.method]?.(m.params);
-};
-function cdp(method, params = {}) {
-  const id = ++msgId;
-  ws.send(JSON.stringify({ id, method, params }));
-  return new Promise(r => pending.set(id, m => r(m.result)));
-}
-
-// --- the page's view of the theme ------------------------------------------
-
-function mix(a, b, t) {
-  const p = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
-  const [x, y] = [p(a), p(b)];
-  return "#" + x.map((v, k) => Math.round(v + (y[k] - v) * t).toString(16).padStart(2, "0")).join("");
-}
-function lum(h) { const [r, g, b] = [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16) / 255); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
-
-// @font-face rules that give the system font names real files.
-const fontFaces = (() => {
-  const sf = "/System/Library/Fonts/SFNS.ttf", sfi = "/System/Library/Fonts/SFNSItalic.ttf", mono = "/System/Library/Fonts/SFNSMono.ttf", monoi = "/System/Library/Fonts/SFNSMonoItalic.ttf";
-  if (!existsSync(sf)) return "";
-  const face = (name, file, italic) => existsSync(file) ? `@font-face{font-family:${name};src:url("${pathToFileURL(file).href}");font-weight:1 1000;font-style:${italic ? "italic" : "normal"};font-display:block}` : "";
-  return ["-apple-system", "BlinkMacSystemFont", "system-ui", '"SF Pro"', '"SF Pro Text"', '"SF Pro Display"', "ui-sans-serif"]
-    .flatMap(n => [face(n, sf), face(n, sfi, true)])
-    .concat(['"SF Mono"', "ui-monospace"].flatMap(n => [face(n, mono), face(n, monoi, true)])).join("");
-})();
-
-// Base styles for every page (zero specificity). REX_VIEW_KIT=0 turns them off.
-const kitCSS = (() => {
-  if (process.env.REX_VIEW_KIT === "0") return ":where(html){background:var(--rex-bg);color:var(--rex-fg);font-family:-apple-system,sans-serif}";
-  try { return readFileSync(join(dirname(import.meta.path), "../web/kit.css"), "utf8"); } catch { return ""; }
-})();
-
-function themeVars() {
-  const p = theme.palette, dark = lum(theme.bg) < 0.5;
-  const names = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"];
-  const t = {
-    fonts: fontFaces, kit: kitCSS, exprLib: exprLib.toString(), dark, fg: theme.fg, bg: theme.bg, palette: p.slice(0, 16),
-    accent: p[4] || "#0969da", muted: mix(theme.fg, theme.bg, 0.4), subtle: mix(theme.fg, theme.bg, 0.92),
-    border: mix(theme.fg, theme.bg, 0.84), surface: mix(theme.fg, theme.bg, dark ? 0.94 : 0.97),
-  };
-  names.forEach((n, k) => { if (p[k]) t[n] = p[k]; });
-  return t;
-}
-
-// Runs in the page: installs window.rex and the CSS variables.
-const pageInit = (t) => {
-  const apply = (t) => {
-    const r = document.documentElement;
-    if (!r) return;
-    const set = (k, v) => v && r.style.setProperty(k, v);
-    ["fg", "bg", "accent", "muted", "subtle", "border", "surface", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
-      .forEach(k => set(`--rex-${k}`, t[k]));
-    t.palette.forEach((c, k) => set(`--rex-${k}`, c));
-    r.style.colorScheme = t.dark ? "dark" : "light";
-    window.rex.theme = t;
-    window.dispatchEvent(new CustomEvent("rex:theme", { detail: t }));
-  };
-  const send = (m) => window.__rexHost?.(JSON.stringify(m));
-  window.rex = { theme: t, copy: text => send({ type: "copy", text }), close: () => send({ type: "close" }),
-    title: text => send({ type: "title", text }), send: value => send({ type: "send", value }), __apply: apply };
-  // <form data-rex>: submitting sends the fields (repeated names become arrays)
-  document.addEventListener("submit", e => {
-    const f = e.target;
-    if (!f.matches || !f.matches("form[data-rex]")) return;
-    e.preventDefault();
-    const o = {};
-    for (const [k, v] of new FormData(f, e.submitter)) o[k] = k in o ? [].concat(o[k], v) : v;
-    send({ type: "send", value: o });
-  }, true);
-  // data-expr formulas: fill them from the page's named inputs, live (the
-  // tui viewer does the same, so a page works in both engines).
-  const ex = (0, eval)(`(${t.exprLib})`)();
-  const cache = new Map();
-  const scope = () => {
-    const s = {};
-    for (const el of document.querySelectorAll("input[name], select[name], textarea[name]")) {
-      const n = el.name, type = el.type;
-      if (type === "checkbox") {
-        const group = document.querySelectorAll(`input[type=checkbox][name="${CSS.escape(n)}"]`);
-        s[n] = group.length === 1 ? el.checked : [...group].filter(x => x.checked).map(x => ex.value(x.value));
-      } else if (type === "radio") { if (el.checked) s[n] = ex.value(el.value); else if (!(n in s)) s[n] = ""; }
-      else s[n] = ex.value(el.value);
-    }
-    return s;
-  };
-  const recompute = () => {
-    const els = document.querySelectorAll("[data-expr]");
-    if (!els.length) return;
-    const s = scope();
-    for (const el of els) {
-      const src = el.getAttribute("data-expr");
-      let f = cache.get(src);
-      if (!f) { try { f = ex.compile(src); } catch (e) { f = e; } cache.set(src, f); }
-      let out;
-      try { out = f instanceof Error ? "⚠ " + f.message : ex.show(f(s)); } catch (e) { out = "⚠ " + e.message; }
-      if (el.textContent !== out) el.textContent = out;
-    }
-  };
-  document.addEventListener("input", recompute, true);
-  document.addEventListener("change", recompute, true);
-  document.addEventListener("DOMContentLoaded", recompute);
-  const base = () => {
-    if (document.getElementById("__rex_base")) return;
-    const s = document.createElement("style"); s.id = "__rex_base";
-    // fonts, then the base kit (web/kit.css): zero specificity, so any page style wins
-    s.textContent = t.fonts + t.kit;
-    (document.head || document.documentElement).prepend(s);
-  };
-  if (document.documentElement) { apply(t); base(); }
-  document.addEventListener("DOMContentLoaded", () => { apply(window.rex.theme); base(); });
-};
-
-let initScript;
-applyTheme = async () => {
-  const t = themeVars();
-  if (initScript) await cdp("Page.removeScriptToEvaluateOnNewDocument", { identifier: initScript });
-  initScript = (await cdp("Page.addScriptToEvaluateOnNewDocument", { source: `(${pageInit})(${JSON.stringify(t)})` })).identifier;
-  await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: t.dark ? "dark" : "light" }] });
-  const [r, g, b] = [1, 3, 5].map(k => parseInt(t.bg.slice(k, k + 2), 16));
-  await cdp("Emulation.setDefaultBackgroundColorOverride", { color: { r, g, b, a: 1 } });
-  await cdp("Runtime.evaluate", { expression: `window.rex ? window.rex.__apply(${JSON.stringify(t)}) : (${pageInit})(${JSON.stringify(t)})` });
-};
-
-// --- frames: screencast -> kitty graphics -----------------------------------
-//
-// Chrome sends a PNG only when the page changes. We decode it, diff it with
-// the last frame in 32 px tiles, and send only the changed rectangles as
-// kitty frame edits (a=f) on the one image already placed. The pixels go
-// through temp files (t=t) when the terminal can read them, so the pty only
-// carries a short command. A resize sends a whole new image.
-
-import { inflateSync, deflateSync } from "node:zlib";
-
-const FPS = Number(process.env.REX_VIEW_FPS || 30);
-const TILE = 32;
-// Frame edits (a=f) are kitty animation frames. The macOS Rex app draws them;
-// Rex Linux (Ghostty's engine) doesn't support animated kitty graphics, and
-// would show only the first frame. So partial updates are on only when the
-// app showing this session is the macOS one. REX_VIEW_PARTIAL overrides.
-function clientPlatform() {
+async function api(path, body, timeoutMs = 10000) {
+  const ctl = new AbortController(), t = timeoutMs ? setTimeout(() => ctl.abort(), timeoutMs) : 0;
   try {
-    const p = Bun.spawnSync(["rex", "api", "call", "client.list", JSON.stringify({ kinds: ["app"] })], { stdout: "pipe", stderr: "ignore", timeout: 3000 });
-    const apps = (JSON.parse(p.stdout.toString()).clients || []).filter((c) => c.connection_state === "connected");
-    const session = process.env.REX_SESSION;
-    const mine = apps.filter((c) => session && (c.session_ids || []).includes(session));
-    return ((mine.length ? mine : apps)[0] || {}).info?.platform;
-  } catch { return undefined; }
+    return await fetch("http://rex-view" + path, { unix: sockPath, method: body === undefined ? "GET" : "POST",
+      body: body === undefined ? undefined : JSON.stringify(body), signal: ctl.signal });
+  } finally { clearTimeout(t); }
 }
-const PARTIAL = process.env.REX_VIEW_PARTIAL ? process.env.REX_VIEW_PARTIAL !== "0"
-  : process.env.REX_SESSION ? clientPlatform() === "macos" : true; // outside Rex: a real kitty terminal
-const xfer = mkdtempSync(join(tmpdir(), "rex-view-px-"));
-let useFiles = false, fileSeq = 0;
+async function alive() { try { return (await api("/status", undefined, 1500)).ok; } catch { return false; } }
+async function closePane() {
+  await api("/close", {}).catch(() => {});
+  for (let t = 0; t < 30 && await alive(); t++) await Bun.sleep(100);
+}
 
-let size = { cols: 80, rows: 24, w: 640, h: 432 }; // w, h in device pixels
-let latest = null, drawing = false, imgId = 1, lastDraw = 0;
-let prev = null; // { w, h, bpp, px } of what the terminal shows
-const stats = { frames: 0, full: 0, rects: 0, bytes: 0, skipped: 0 };
-
-// Decode an 8-bit, non-interlaced PNG (what Chrome produces) to raw pixels.
-function decodePNG(buf) {
-  let p = 8, w = 0, h = 0, ct = 0; const idat = [];
-  while (p < buf.length) {
-    const len = buf.readUInt32BE(p), type = buf.toString("latin1", p + 4, p + 8);
-    if (type === "IHDR") { w = buf.readUInt32BE(p + 8); h = buf.readUInt32BE(p + 12); ct = buf[p + 17]; if (buf[p + 16] !== 8 || buf[p + 20]) throw new Error("unsupported PNG"); }
-    else if (type === "IDAT") idat.push(buf.subarray(p + 8, p + 8 + len));
-    else if (type === "IEND") break;
-    p += 12 + len;
+if (cmd === "view") {
+  const file = rest[0] || die("usage: rex-view view FILE", 2);
+  tuiReady();
+  const p = Bun.spawn([process.execPath, TUI_VIEW, file], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+  process.exit(await p.exited);
+}
+mkdirSync(stateDir, { recursive: true });
+if (cmd === "snap") {
+  const target = rest[0] || die("usage: rex-view snap URL|FILE [-o OUT.png] [--size WxH]", 2);
+  if (!CHROME) die("Chrome not found; set REX_VIEW_CHROME");
+  if (!/^[1-9]\d*x[1-9]\d*$/.test(opt.size)) die("size must be WxH with positive integers", 2);
+  const url = toURL(target), out = resolve(opt.out || join(stateDir, "snap.png"));
+  const profile = mkdtempSync(join(tmpdir(), "rex-view-profile-"));
+  let error = "";
+  try {
+    const p = Bun.spawnSync([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", `--screenshot=${out}`,
+      `--window-size=${opt.size.replace("x", ",")}`, `--user-data-dir=${profile}`, url],
+      { stdout: "ignore", stderr: "pipe", env: chromeEnv() });
+    if (p.exitCode || !existsSync(out)) error = p.stderr.toString().trim().split("\n").slice(-20).join("\n") || "Chrome did not write a screenshot";
+  } catch (e) { error = e.message; }
+  finally { rmSync(profile, { recursive: true, force: true }); }
+  if (error) die(error);
+  console.log(out);
+  process.exit(0);
+}
+if (cmd === "show") {
+  let target = rest[0] || die("usage: rex-view show FILE|-", 2);
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) die("rex-view shows Markdown files; for a web page use 'rex-view snap URL'");
+  const stdin = target === "-", base = stdin ? process.cwd() : dirname(resolve(target));
+  if (!stdin && !existsSync(resolve(target))) die(`no such file: ${resolve(target)}`);
+  const text = stdin ? await Bun.stdin.text() : readFileSync(resolve(target), "utf8");
+  if (text.trimStart().startsWith("<")) die("rex-view shows Markdown; see the visualise skill (HTML pages are gone)");
+  if (stdin) { target = join(stateDir, "page.md"); writeFileSync(target, text); }
+  target = resolve(target);
+  const url = pathToFileURL(target).href;
+  if (await alive()) {
+    const r = await api("/open", { url, base });
+    if (!r.ok) die(await r.text());
+    if (opt.focus) Bun.spawnSync(["rex", "block", "focus", readFileSync(join(stateDir, "block"), "utf8").trim()]);
+    console.log(`rex-view: updated ${viewerName}`);
+    process.exit(0);
   }
-  const bpp = ct === 6 ? 4 : ct === 2 ? 3 : 0;
-  if (!bpp) throw new Error("unsupported PNG color type " + ct);
-  const raw = inflateSync(Buffer.concat(idat)), stride = w * bpp, px = Buffer.allocUnsafe(stride * h);
-  for (let y = 0; y < h; y++) {
-    const f = raw[y * (stride + 1)], src = y * (stride + 1) + 1, dst = y * stride, up = dst - stride;
-    for (let i = 0; i < stride; i++) {
-      const x = raw[src + i], a = i >= bpp ? px[dst + i - bpp] : 0, b = y ? px[up + i] : 0, c = i >= bpp && y ? px[up + i - bpp] : 0;
-      let v;
-      switch (f) {
-        case 0: v = x; break;
-        case 1: v = x + a; break;
-        case 2: v = x + b; break;
-        case 3: v = x + ((a + b) >> 1); break;
-        default: { const q = a + b - c, pa = Math.abs(q - a), pb = Math.abs(q - b), pc = Math.abs(q - c); v = x + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c); }
-      }
-      px[dst + i] = v;
-    }
-  }
-  return { w, h, bpp, px };
-}
-
-// Changed rectangles between two same-sized frames, in tile units merged
-// into horizontal runs and then stacked vertically when the runs line up.
-function diff(a, b) {
-  const { w, h, bpp } = b, stride = w * bpp, tx = Math.ceil(w / TILE), ty = Math.ceil(h / TILE);
-  const dirty = new Uint8Array(tx * ty);
-  for (let y = 0; y < h; y++) {
-    const o = y * stride;
-    if (a.px.compare(b.px, o, o + stride, o, o + stride) === 0) continue; // whole row same
-    const row = (y / TILE | 0) * tx;
-    for (let t = 0; t < tx; t++) {
-      if (dirty[row + t]) continue;
-      const s = o + t * TILE * bpp, e = Math.min(o + stride, s + TILE * bpp);
-      if (a.px.compare(b.px, s, e, s, e) !== 0) dirty[row + t] = 1;
-    }
-  }
-  const rects = []; let open = new Map(); // "x0,x1" -> rect still growing downwards
-  for (let r = 0; r < ty; r++) {
-    const next = new Map();
-    for (let t = 0; t < tx; t++) {
-      if (!dirty[r * tx + t]) continue;
-      let e = t; while (e + 1 < tx && dirty[r * tx + e + 1]) e++;
-      const k = t + "," + e;
-      const rect = open.get(k);
-      if (rect) { rect.y1 = r; next.set(k, rect); } else { const n = { x0: t, x1: e, y0: r, y1: r }; rects.push(n); next.set(k, n); }
-      t = e;
-    }
-    open = next;
-  }
-  return rects.map(q => {
-    const x = q.x0 * TILE, y = q.y0 * TILE;
-    return { x, y, w: Math.min(w, (q.x1 + 1) * TILE) - x, h: Math.min(h, (q.y1 + 1) * TILE) - y };
-  });
-}
-
-function crop(f, r) {
-  if (r.x === 0 && r.y === 0 && r.w === f.w && r.h === f.h) return f.px;
-  const out = Buffer.allocUnsafe(r.w * r.h * f.bpp), stride = f.w * f.bpp, rs = r.w * f.bpp;
-  for (let y = 0; y < r.h; y++) f.px.copy(out, y * rs, (r.y + y) * stride + r.x * f.bpp, (r.y + y) * stride + r.x * f.bpp + rs);
-  return out;
-}
-
-// The kitty payload for pixels: a temp file path, or zlib + base64 inline.
-function payload(px, keys) {
-  if (useFiles) {
-    const path = join(xfer, `tty-graphics-protocol-${++fileSeq}.raw`);
-    writeFileSync(path, px);
-    return [[`${keys},t=t`, Buffer.from(path).toString("base64")]];
-  }
-  const data = deflateSync(px, { level: 1 }).toString("base64"), parts = [];
-  for (let k = 0; k < data.length; k += 4096) parts.push([k ? "" : `${keys},o=z`, data.slice(k, k + 4096), k + 4096 < data.length]);
-  return parts;
-}
-function apc(parts) {
-  return parts.map(([keys, data, more]) => `${ESC}_G${keys}${keys ? "," : ""}q=2${more !== undefined ? `,m=${more ? 1 : 0}` : ""};${data}${ESC}\\`).join("");
-}
-
-async function draw() {
-  if (drawing) return;
-  drawing = true;
-  while (latest) {
-    const wait = lastDraw + 1000 / FPS - performance.now();
-    if (wait > 0) await Bun.sleep(wait); // cap the frame rate; newer frames replace `latest` meanwhile
-    if (!latest) break; // a resize dropped it
-    const { data, sessionId } = latest; latest = null;
-    const t0 = performance.now();
-    let f;
-    try { f = decodePNG(Buffer.from(data, "base64")); } catch (e) { log("decode", e.message); cdp("Page.screencastFrameAck", { sessionId }); continue; }
-    const fmt = f.bpp === 4 ? 32 : 24;
-    let s = `${ESC}[?2026h`, kind;
-    const same = prev && prev.w === f.w && prev.h === f.h && prev.bpp === f.bpp;
-    const rects = same && PARTIAL ? diff(prev, f) : null;
-    if (rects && rects.length === 0) { stats.skipped++; kind = "same"; }
-    else if (rects && rects.reduce((n, r) => n + r.w * r.h, 0) < f.w * f.h * 0.6 && rects.length <= 64) {
-      for (const r of rects) s += apc(payload(crop(f, r), `a=f,i=${imgId},r=1,x=${r.x},y=${r.y},s=${r.w},v=${r.h},X=1,f=${fmt}`));
-      kind = rects.length + " rects " + rects.reduce((n, r) => n + r.w * r.h, 0) + "px"; stats.rects += rects.length;
-    } else {
-      // whole new image, placed before the old one is deleted: no flicker
-      const id = imgId === 1 ? 2 : 1, old = imgId; imgId = id;
-      s += `${ESC}[H` + apc(payload(f.px, `a=T,i=${id},p=1,f=${fmt},s=${f.w},v=${f.h},c=${size.cols},r=${size.rows},C=1`));
-      s += `${ESC}_Ga=d,d=I,i=${old},q=2${ESC}\\`;
-      kind = "full"; stats.full++;
-    }
-    s += `${ESC}[?2026l`;
-    const t1 = performance.now();
-    if (kind !== "same") await write(s);
-    prev = f; lastDraw = performance.now(); stats.frames++; stats.bytes += s.length;
-    log("frame", kind, "decode+diff=" + (t1 - t0).toFixed(0), "write=" + (lastDraw - t1).toFixed(0), "pty=" + s.length, f.w + "x" + f.h);
-    cdp("Page.screencastFrameAck", { sessionId }); // ack after drawing: Chrome waits for us
-  }
-  drawing = false;
-}
-handlers["Page.screencastFrame"] = p => { latest = p; draw(); };
-
-// Device pixels per CSS pixel. Rex reports device pixels; its cells are
-// about 17 pt tall, so 18 px cells mean 1x and 34-36 px cells mean 2x.
-function pickScale() {
-  if (scaleFlag) return scaleFlag;
-  return Math.max(1, Math.round(cell.h / 17 * 2) / 2);
-}
-
-async function resize() {
-  await query(`${ESC}[16t${ESC}[14t`);
-  size.cols = out.columns; size.rows = out.rows;
-  size.w = Math.floor(size.cols * cell.w); size.h = Math.floor(size.rows * cell.h);
-  scale = pickScale();
-  await cdp("Page.stopScreencast");
-  prev = null; latest = null;
-  await cdp("Emulation.setDeviceMetricsOverride", { width: Math.round(size.w / scale), height: Math.round(size.h / scale), deviceScaleFactor: scale, mobile: false });
-  log("resize", JSON.stringify(size), JSON.stringify(cell), "scale=" + scale, "files=" + useFiles);
-  await cdp("Page.startScreencast", { format: "png", everyNthFrame: 1 });
-}
-
-// Can the terminal read pixels from a temp file? (Rex can, locally.)
-async function probeFiles() {
-  const path = join(xfer, "tty-graphics-protocol-probe.raw");
-  writeFileSync(path, Buffer.from([0, 0, 0, 255]));
-  fileProbe = false;
-  await query(`${ESC}_Gi=4242,a=t,f=32,s=1,v=1,t=t;${Buffer.from(path).toString("base64")}${ESC}\\`);
-  useFiles = fileProbe && process.env.REX_VIEW_FILES !== "0";
-  write(`${ESC}_Ga=d,d=I,i=4242,q=2${ESC}\\`);
-}
-
-// --- input -> page --------------------------------------------------------------
-
-const BTN = ["left", "middle", "right"];
-let held = "none", heldMask = 0, pendingMove = null;
-function onMouse(params, press) {
-  let [b, x, y] = params.split(";").map(Number);
-  const mods = (b & 4 ? 8 : 0) | (b & 8 ? 1 : 0) | (b & 16 ? 2 : 0); // CDP: alt=1 ctrl=2 meta=4 shift=8
-  const motion = !!(b & 32), wheel = !!(b & 64);
-  const btn = b & 3;
-  x = Math.max(0, Math.min(size.w - 1, x - 1)) / scale; y = Math.max(0, Math.min(size.h - 1, y - 1)) / scale;
-  if (wheel) {
-    const d = 60; const [dx, dy] = [[0, -d], [0, d], [-d, 0], [d, 0]][btn];
-    return cdp("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: dx, deltaY: dy, modifiers: mods });
-  }
-  if (motion) { // send only the newest move per event-loop turn
-    const first = !pendingMove; pendingMove = { type: "mouseMoved", x, y, button: held, buttons: heldMask, modifiers: mods };
-    if (first) setImmediate(() => { const m = pendingMove; pendingMove = null; cdp("Input.dispatchMouseEvent", m); });
-    return;
-  }
-  if (btn === 3 && !press) { // legacy release with no button
-    cdp("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: held, buttons: 0, clickCount: 1, modifiers: mods });
-    held = "none"; heldMask = 0; return;
-  }
-  const name = BTN[btn];
-  if (press) { held = name; heldMask = [1, 4, 2][btn]; } else { held = "none"; heldMask = 0; }
-  cdp("Input.dispatchMouseEvent", { type: press ? "mousePressed" : "mouseReleased", x, y, button: name, buttons: heldMask, clickCount: 1, modifiers: mods });
-}
-
-const SPECIAL = {
-  Enter: [13, "\r"], Backspace: [8], Tab: [9, "\t"], Escape: [27], ArrowLeft: [37], ArrowUp: [38], ArrowRight: [39], ArrowDown: [40],
-  Delete: [46], Home: [36], End: [35], PageUp: [33], PageDown: [34], Insert: [45],
-};
-function key(type, k, code, vk, text, mods) {
-  return cdp("Input.dispatchKeyEvent", { type, key: k, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, text, unmodifiedText: text, modifiers: mods });
-}
-async function onSpecial(name, f = {}) {
-  const [vk, text] = SPECIAL[name];
-  const mods = (f.alt ? 1 : 0) | (f.ctrl ? 2 : 0) | (f.shift ? 8 : 0);
-  await key(text ? "keyDown" : "rawKeyDown", name, name, vk, text, mods);
-  await key("keyUp", name, name, vk, undefined, mods);
-}
-async function onKey(ch, f = {}) {
-  const c = ch.charCodeAt(0);
-  if (ch === "\x11" || ch === "\x03") return quit(); // Ctrl-Q, Ctrl-C
-  if (ch === "\x12") return cdp("Page.reload", { ignoreCache: true }); // Ctrl-R
-  if (ch === "\r" || ch === "\n") return onSpecial("Enter", f);
-  if (ch === "\x7f" || ch === "\b") return onSpecial("Backspace", f);
-  if (ch === "\t") return onSpecial("Tab", f);
-  if (ch === "\x1b") return onSpecial("Escape", f);
-  if (c < 32) { // other Ctrl-letter
-    const l = String.fromCharCode(c + 96);
-    await key("rawKeyDown", l, "Key" + l.toUpperCase(), c + 64, undefined, 2);
-    return key("keyUp", l, "Key" + l.toUpperCase(), c + 64, undefined, 2);
-  }
-  const up = ch.toUpperCase();
-  const vk = /^[A-Z0-9]$/.test(up) ? up.charCodeAt(0) : ch === " " ? 32 : 0;
-  const code = /^[A-Z]$/.test(up) ? "Key" + up : /^[0-9]$/.test(ch) ? "Digit" + ch : ch === " " ? "Space" : "";
-  const mods = (f.alt ? 1 : 0) | (ch !== ch.toLowerCase() ? 8 : 0);
-  await key("keyDown", ch, code, vk, f.alt ? undefined : ch, mods);
-  await key("keyUp", ch, code, vk, undefined, mods);
-}
-
-// --- page -> host ------------------------------------------------------------------
-
-handlers["Runtime.bindingCalled"] = ({ name, payload }) => {
-  if (name !== "__rexHost") return;
-  let m; try { m = JSON.parse(payload); } catch { return; }
-  if (m.type === "copy") write(`${ESC}]52;c;${Buffer.from(String(m.text)).toString("base64")}\x07`);
-  else if (m.type === "title") write(`${ESC}]2;${String(m.text).replace(/[\x00-\x1f]/g, "")}\x07`);
-  else if (m.type === "close") quit();
-  else if (m.type === "send") pushEvent(m.value);
-};
-
-// --- control socket (rex-view show / wait / shot / eval / hide) ----------------------
-
-const events = [], eventWaiters = [];
-function pushEvent(v) {
-  log("send", JSON.stringify(v));
-  const w = eventWaiters.shift();
-  if (w) w(v); else events.push(v);
-}
-let watcher = null;
-function watchFile() {
-  watcher?.close(); watcher = null;
-  if (!url.startsWith("file:")) return;
-  const f = fileURLToPath(url); let t;
-  // watch the directory: editors replace files instead of writing in place
-  watcher = watch(dirname(f), (_, name) => {
-    if (name && name !== basename(f)) return; // other files there (shot.png, /tmp noise)
-    clearTimeout(t); t = setTimeout(() => cdp("Page.reload"), 80);
-  });
-}
-async function navigate(u) {
-  url = u; events.length = 0;
-  watchFile();
-  await cdp("Page.navigate", { url });
-}
-let control = null;
-function startControl() {
-  mkdirSync(stateDir, { recursive: true });
+  if (!process.env.REX_BLOCK && !process.env.REX_SESSION) die("show needs a Rex terminal; use 'rex-view view' in other terminals");
+  tuiReady();
   try { unlinkSync(sockPath); } catch {}
-  control = Bun.serve({
-    unix: sockPath, idleTimeout: 0,
-    async fetch(req) {
-      const u = new URL(req.url), path = u.pathname;
-      const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-      if (path === "/status") return Response.json({ name: viewerName, open: true, engine: "web", url, cols: size.cols, rows: size.rows, width: size.w, height: size.h, scale, pending: events.length, pid: process.pid });
-      if (path === "/open") { await navigate(body.url); return new Response("ok"); }
-      if (path === "/close") { try { unlinkSync(sockPath); } catch {} setTimeout(quit, 10); return new Response("ok"); }
-      if (path === "/shot") {
-        const r = await cdp("Page.captureScreenshot", { format: "png" });
-        return r?.data ? new Response(Buffer.from(r.data, "base64"), { headers: { "content-type": "image/png" } }) : new Response("screenshot failed", { status: 500 });
-      }
-      if (path === "/eval") {
-        const r = await cdp("Runtime.evaluate", { expression: body.js, returnByValue: true, awaitPromise: true });
-        if (r?.exceptionDetails) return new Response(r.exceptionDetails.exception?.description || r.exceptionDetails.text, { status: 400 });
-        return new Response(JSON.stringify(r?.result?.value ?? null));
-      }
-      if (path === "/wait") {
-        if (events.length) return new Response(JSON.stringify(events.shift()));
-        const timeout = Number(u.searchParams.get("timeout") || 0);
-        return new Promise(res => {
-          let timer = 0;
-          const w = v => { clearTimeout(timer); res(v === CLOSED ? new Response("closed", { status: 410 }) : new Response(JSON.stringify(v))); };
-          if (timeout) timer = setTimeout(() => { eventWaiters.splice(eventWaiters.indexOf(w), 1); res(new Response("timeout", { status: 408 })); }, timeout * 1000);
-          eventWaiters.push(w);
-        });
-      }
-      return new Response("not found", { status: 404 });
-    },
-  });
+  // A hidden agent pane cannot be split; use the focused pane instead.
+  let anchor = process.env.REX_BLOCK || "";
+  if (anchor) {
+    const p = Bun.spawnSync(["rex", "block", "inspect", anchor, "--json"], { stdout: "pipe", stderr: "ignore" });
+    try { if (JSON.parse(p.stdout.toString()).block?.placement !== "placed") anchor = ""; } catch { anchor = ""; }
+  }
+  const viewer = [process.execPath, TUI_VIEW, "--name", viewerName, "--state", stateDir, "--base", base, target];
+  const split = ["rex", "split", "--json", "--ratio", String(opt.ratio), "--split", opt.below ? "below" : "right",
+    `--focus=${opt.focus}`, "--label", basename(target), "--shell=none", ...(anchor ? ["-b", anchor] : []), "--",
+    // rex split does not pass this process's environment to the pane.
+    ...(process.env.REX_VIEW_DEBUG ? ["env", `REX_VIEW_DEBUG=${process.env.REX_VIEW_DEBUG}`] : []), ...viewer];
+  const env = { ...process.env };
+  if (!anchor) delete env.REX_BLOCK;
+  const p = Bun.spawnSync(split, { stdout: "pipe", stderr: "pipe", env });
+  if (p.exitCode) die("rex split failed: " + p.stderr.toString());
+  const block = JSON.parse(p.stdout.toString()).block_ids?.[0] || "";
+  writeFileSync(join(stateDir, "block"), block + "\n");
+  for (let t = 0; t < 100 && !(await alive()); t++) await Bun.sleep(100);
+  if (!(await alive())) die("viewer did not start; try REX_VIEW_DEBUG=/tmp/rex-view.log");
+  console.log(`rex-view: showing ${basename(target)} in ${block} (name ${viewerName})`);
+  process.exit(0);
 }
-const CLOSED = Symbol("closed");
-
-// --- run ---------------------------------------------------------------------------
-
-let quitting = false;
-// Kill Chrome first and synchronously: when the pane closes, the terminal is
-// gone and writes to it may never finish.
-function cleanup() {
-  try { chrome.kill("SIGKILL"); } catch {}
-  try { rmSync(profile, { recursive: true, force: true }); } catch {}
-  try { rmSync(xfer, { recursive: true, force: true }); } catch {}
-  if (tmpHtml) try { rmSync(dirname(tmpHtml), { recursive: true, force: true }); } catch {}
-  if (control) { try { unlinkSync(sockPath); } catch {} }
+if (!(await alive())) {
+  if (cmd === "hide") process.exit(0);
+  if (cmd === "status") { console.log(JSON.stringify({ name: viewerName, open: false })); process.exit(0); }
+  die(`no open viewer '${viewerName}'; run 'rex-view show' first`);
 }
-function quit() {
-  if (quitting) return; quitting = true;
-  log("stats", JSON.stringify(stats));
-  eventWaiters.splice(0).forEach(w => w(CLOSED)); // tell waiting agents
-  cleanup();
-  try { process.stdin.setRawMode(false); } catch {}
-  try { out.write(`${ESC}_Ga=d,d=A,q=2${ESC}\\${ESC}[?2031l${ESC}[?1016l${ESC}[?1006l${ESC}[?1003l${ESC}[?25h${ESC}[?1049l`); } catch {}
-  setTimeout(() => process.exit(0), 100); // let replies and the reset get out
+if (cmd === "status") { console.log(await (await api("/status")).text()); process.exit(0); }
+if (cmd === "hide") { await closePane(); process.exit(0); }
+if (cmd === "shot") {
+  const block = readFileSync(join(stateDir, "block"), "utf8").trim();
+  const p = Bun.spawnSync(["rex", "capture", "-b", block, "--trim"], { stdout: "pipe", stderr: "pipe" });
+  if (p.exitCode) die("rex capture failed: " + p.stderr.toString());
+  const out = resolve(opt.out ? opt.out.replace(/\.png$/i, ".txt") : join(stateDir, "shot.txt"));
+  writeFileSync(out, p.stdout);
+  console.log(out);
+  process.exit(0);
 }
-process.on("SIGTERM", quit); process.on("SIGHUP", quit); process.on("SIGINT", quit);
-process.on("exit", cleanup);
-process.on("uncaughtException", e => { log("crash", e.stack); quit(); });
-process.stdin.on("end", quit); process.stdin.on("close", quit);
-out.on("error", quit);
-chrome.exited.then(() => quitting || (console.error("rex-view: Chrome exited"), quit()));
-// If our parent (the pane) dies without a signal, stop.
-const ppid = process.ppid;
-setInterval(() => { try { process.kill(ppid, 0); } catch { quit(); } }, 2000).unref();
-
-process.stdin.setRawMode(true);
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", feed);
-write(`${ESC}[?1049h${ESC}[?25l${ESC}[H${ESC}[2J${ESC}[?1003h${ESC}[?1006h${ESC}[?1016h${ESC}[?2031h`);
-
-await cdp("Page.enable"); await cdp("Runtime.enable");
-// Headless Chrome doesn't resolve -apple-system or "SF Pro". The pageInit
-// style maps those names to the font files (see fontFaces), and the default
-// families point at them, so unstyled pages get SF too.
-await cdp("Page.setFontFamilies", { fontFamilies: { standard: "-apple-system", sansSerif: "-apple-system", fixed: "SF Mono" } });
-await cdp("Runtime.addBinding", { name: "__rexHost" });
-await queryTheme();
-await probeFiles();
-await resize();
-await navigate(url);
-if (serveControl) startControl();
-for (const ms of [300, 1200, 3000]) setTimeout(() => { if (!quitting) queryTheme(); }, ms); // see queryTheme
-
-let resizeTimer;
-out.on("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 60); });
+if (cmd === "wait") {
+  let r;
+  try { r = await api("/wait?timeout=" + (opt.timeout || 0), {}, 0); }
+  catch { die("the viewer closed before anything was sent", 3); }
+  if (r.status === 408) { if (opt.close) await closePane(); die("timed out", 124); }
+  if (r.status === 410) die("the viewer closed before anything was sent", 3);
+  console.log(await r.text());
+  if (opt.close) await closePane();
+}

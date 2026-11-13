@@ -1,4 +1,4 @@
-// Mermaid diagrams as PNGs in the theme's colors: Pele lays the diagram out
+// SVG and Mermaid as PNGs in the theme's colors. Pele lays diagrams out
 // as SVG, the theme's colors replace its CSS variables (resvg has no var()),
 // and resvg rasterizes it. One font file keeps resvg fast (a few ms, versus
 // seconds when it scans every system font). resvg can't read SF Pro (a
@@ -51,6 +51,19 @@ function resolve(svg: string, set: Record<string, string>): string {
   svg = svg.replace(/^<svg /, `<svg font-family="${FAMILY}" `);
   return svg.replace(/style="([^"]*)"/g, (_, s) => `style="${s.replace(/--[\w-]+\s*:[^;]*;?/g, "").replace(/(^|;)\s*font(-family)?\s*:[^;]*/g, "$1")}"`)
     .replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/g, (_, a, css, b) => a + css.replace(/--[\w-]+\s*:[^;}]*;?/g, "") + b);
+}
+
+// An SVG as a PNG in the theme's colors. `width`/`height` are its own size
+// (so a small icon stays small); the PNG is 2x that for sharpness, and at
+// most 2x `maxWidthPx`.
+export function svgToPng(svg: string, t: Theme, maxWidthPx: number): { png: Uint8Array; width: number; height: number } {
+  const colors = Object.fromEntries(["fg", "bg", "accent", "muted", "border", "surface", "red", "green", "yellow", "blue", "magenta", "cyan"].map(k => [`--${k}`, t[k as keyof Theme] as string]));
+  const font = FONT ? { loadSystemFonts: false, fontFiles: [FONT], defaultFontFamily: FAMILY } : { loadSystemFonts: true };
+  const source = resolve(svg.replace(/currentColor/g, t.fg), colors);
+  const own = new Resvg(source, { font });
+  const width = Math.min(own.width, Math.max(1, maxWidthPx)), height = own.height * width / own.width;
+  const png = new Resvg(source, { fitTo: { mode: "width", value: Math.round(width * 2) }, font }).render().asPng();
+  return { png, width, height };
 }
 
 // PNG at most `width` px wide (and never more than 3x the layout size).

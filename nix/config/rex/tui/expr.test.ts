@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { exprLib } from "./expr.js";
-
-const { compile, value, show } = exprLib();
+import { compile, value, show } from "./expr.ts";
 const run = (src: string, s: Record<string, unknown> = {}) => compile(src)(s);
 
 describe("expr", () => {

@@ -15,8 +15,8 @@
   home.file.".config/rex".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/rex";
 
-  # rex-view: Markdown, diagrams and HTML in a Rex pane (skill: config/agents/skills/visualise). On the
-  # PATH every shell gets, including the non-interactive ones agents run.
+  # rex-view: Markdown in a Rex pane (skill: config/agents/skills/visualise).
+  # Chrome is only for rex-view snap. On PATH for interactive and agent shells.
   home.file.".local/bin/rex-view".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/rex/bin/rex-view";
 }

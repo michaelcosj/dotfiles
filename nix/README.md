@@ -163,9 +163,9 @@ git pull --ff-only
 nix-rebuild
 ```
 
-rex-view renders pages with Nix Chromium, which Ubuntu's user-namespace
-restriction blocks. Load its AppArmor exception once per host (it covers every
-account and survives Chromium upgrades):
+rex-view uses Nix Chromium only for `rex-view snap` screenshots. Ubuntu's
+user-namespace restriction blocks Chromium. Load its AppArmor exception once
+per host (it covers every account and survives Chromium upgrades):
 
 ```sh
 sudo bash ~/.dotfiles/nix/scripts/setup-chromium-apparmor

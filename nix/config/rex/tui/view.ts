@@ -1,11 +1,7 @@
-// rex-view's tui viewer: draws Markdown, Mermaid diagrams and <form data-rex>
-// as terminal text with OpenTUI, in the Rex theme. rex-view starts it in a
-// pane (`rex-view show` picks it for pages it can draw); it serves the same
-// control socket as the Chrome viewer, so `wait`, `hide` and `status` work
-// the same.
-//
-//   bun view.ts --name NAME --state DIR FILE    (from rex-view show)
-//   bun view.ts FILE                            (try it in any terminal)
+// rex-view: Markdown with live inputs, questions, charts, columns, images,
+// SVG and color swatches, drawn in the Rex theme. The control socket serves
+// show, wait, hide and status.
+//   bun view.ts --name NAME --state DIR --base DIR FILE
 //
 // Keys: tab / shift-tab move between fields, j/k or arrows move within a
 // choice list, space toggles, enter submits (alt+enter: new line in a text
@@ -16,24 +12,25 @@ import {
   createCliRenderer, BoxRenderable, TextRenderable, ScrollBoxRenderable, MarkdownRenderable, ImageRenderable,
   InputRenderable, TextareaRenderable, SyntaxStyle, RGBA, type CliRenderer, type Renderable, type KeyEvent,
 } from "@opentui/core";
-import { fromMarkdown, formValue, type Block, type Control } from "./content.ts";
+import { fromMarkdown, controlValue, formValue, type Block, type Control } from "./content.ts";
 import { makeTheme, mix, themeKey, type Theme } from "./theme.ts";
-import type { Diagram } from "./mermaid.ts";
-import { exprLib } from "./expr.js";
+import type { Diagram } from "./graphics.ts";
+import { compile, value, show } from "./expr.ts";
 
-// The HTML parser and the diagram renderer load only when a page needs them.
-let mermaidLib: typeof import("./mermaid.ts") | null = null;
+let mermaidLib: typeof import("./graphics.ts") | null = null;
 
 // ---- arguments ----
 const args = process.argv.slice(2);
-let name = "", stateDir = "", file = "";
+let name = "", stateDir = "", file = "", baseDir = "";
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--name") name = args[++i];
   else if (args[i] === "--state") stateDir = args[++i];
+  else if (args[i] === "--base") baseDir = args[++i];
   else file = args[i];
 }
 if (!file) { console.error("usage: view.ts [--name N --state DIR] FILE"); process.exit(2); }
 file = resolve(file.replace(/^file:\/\//, ""));
+baseDir = resolve(baseDir || dirname(file));
 
 const DEBUG = process.env.REX_VIEW_DEBUG;
 const log = (...a: any[]) => DEBUG && require("node:fs").appendFileSync(DEBUG, "[tui] " + a.join(" ") + "\n");
@@ -98,10 +95,9 @@ function syntax(): SyntaxStyle {
 let blocks: Block[] = [];
 async function load() {
   const text = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const md = /\.(md|markdown)$/i.test(file) || !text.trimStart().startsWith("<");
-  blocks = md ? fromMarkdown(text) : (await import("./html.ts")).fromHTML(text);
-  if (blocks.some(b => b.kind === "mermaid")) mermaidLib ??= await import("./mermaid.ts");
-  const title = md ? /^#\s+(.+)$/m.exec(text)?.[1] : /<h1[^>]*>([^<]+)/i.exec(text)?.[1] || /<title>([^<]+)/i.exec(text)?.[1];
+  blocks = fromMarkdown(text, baseDir);
+  if (blocks.some(b => ["mermaid", "chart", "svg", "image"].includes(b.kind))) mermaidLib ??= await import("./graphics.ts");
+  const title = /^# (.+)$/m.exec(text)?.[1];
   if (title) process.stdout.write(`\x1b]2;${title.replace(/[\x00-\x1f]/g, "")}\x07`);
 }
 
@@ -117,34 +113,34 @@ const diagrams = new Map<string, Diagram | { error: string }>();
 let scroll: ScrollBoxRenderable;
 let mdStyle: SyntaxStyle | null = null;
 
-// ---- live results: data-expr formulas over the page's named inputs ----
-const expr = exprLib();
-const compiled = new Map<string, ReturnType<typeof expr.compile> | Error>();
+// ---- live formulas over the page's named inputs ----
+const compiled = new Map<string, ReturnType<typeof compile> | Error>();
 let liveInputs = new Map<string, () => any>(); // name -> current value
 let liveBlocks: { md: MarkdownRenderable; text: string }[] = [];
+let liveCharts: ((scope: Record<string, any>) => void)[] = [];
 const LIVE = /\uE000([^\uE001]*)\uE001/g;
 const mdEscape = (s: string) => s.replace(/([\\*_`[\]<>|#~])/g, "\\$1");
 
 function evaluate(src: string, scope: Record<string, any>): string {
   let f = compiled.get(src);
-  if (!f) { try { f = expr.compile(src); } catch (e) { f = e as Error; } compiled.set(src, f); }
+  if (!f) { try { f = compile(src); } catch (e) { f = e as Error; } compiled.set(src, f); }
   if (f instanceof Error) return `⚠ ${f.message}`;
-  try { return expr.show(f(scope)); } catch (e) { return `⚠ ${(e as Error).message}`; }
+  try { return show(f(scope)); } catch (e) { return `⚠ ${(e as Error).message}`; }
 }
 const fill = (text: string, scope: Record<string, any> | null) =>
   text.replace(LIVE, (_, src) => scope ? mdEscape(evaluate(decodeURIComponent(src), scope)) : "…");
 
 // Re-evaluates every formula; cheap, so it runs on each input change.
 function recompute() {
-  if (!liveBlocks.length) return;
   const scope: Record<string, any> = {};
   for (const [name, get] of liveInputs) scope[name] = get();
   for (const b of liveBlocks) b.md.content = fill(b.text, scope) + "\n";
+  for (const draw of liveCharts) draw(scope);
 }
 
 function build() {
   const keepScroll = scroll?.scrollTop ?? 0;
-  liveInputs = new Map(); liveBlocks = [];
+  liveInputs = new Map(); liveBlocks = []; liveCharts = [];
   const keepFocus = focused;
   r.root.getChildren().forEach(c => { r.root.remove(c); c.destroyRecursively(); });
   mdStyle?.destroy?.();
@@ -163,7 +159,38 @@ function build() {
   for (const b of blocks) {
     if (b.kind === "markdown") scroll.add(markdown(b.text));
     else if (b.kind === "mermaid") scroll.add(mermaid(b.source));
-    else scroll.add(form(b.controls, formIndex++));
+    else if (b.kind === "form") scroll.add(form(b.controls, formIndex++));
+    else if (b.kind === "chart") scroll.add(chart(b));
+    else if (b.kind === "cols") {
+      const row = new BoxRenderable(r, { flexDirection: r.width < 80 ? "column" : "row", gap: 2, width: "100%" });
+      for (const col of b.columns) {
+        const box = new BoxRenderable(r, { flexDirection: "column", flexGrow: 1, flexBasis: 0 });
+        box.add(markdown(col)); row.add(box);
+      }
+      scroll.add(row);
+    } else if (b.kind === "svg" || b.kind === "image") {
+      try {
+        if (b.kind === "svg" || extname(b.path).toLowerCase() === ".svg") {
+          const svg = b.kind === "svg" ? b.source : readFileSync(b.path, "utf8");
+          const d = mermaidLib!.svgToPng(svg, theme, Math.round((r.width - 6) * cellSize().w));
+          scroll.add(image(d.png, d.width, d.height));
+        } else {
+          const bytes = readFileSync(b.path);
+          const png = bytes.subarray(1, 4).toString() === "PNG" && bytes.length >= 24;
+          scroll.add(image(bytes, png ? bytes.readUInt32BE(16) : 640, png ? bytes.readUInt32BE(20) : 360));
+        }
+      } catch (e: any) { scroll.add(text("Image: " + e.message, theme.red)); }
+    } else if (b.kind === "colors") {
+      const row = new BoxRenderable(r, { flexDirection: "row", flexWrap: "wrap", gap: 2 });
+      for (const c of b.colors) {
+        const swatch = new BoxRenderable(r, { flexDirection: "column" });
+        swatch.add(new BoxRenderable(r, { width: 6, height: 2, backgroundColor: c.value }));
+        swatch.add(text(c.name, FG(), { attributes: 1 })); swatch.add(text(c.value, theme.muted)); row.add(swatch);
+      }
+      scroll.add(row);
+    } else if (b.kind === "error") {
+      scroll.add(text(b.message, theme.red)); scroll.add(markdown("\`\`\`\n" + b.source + "\n\`\`\`"));
+    }
   }
   if (sent !== null) scroll.add(text(`✓ Sent ${sent}`, theme.green));
   recompute();
@@ -202,15 +229,47 @@ function mermaid(source: string): Renderable {
     return box;
   }
   // Size: the pane's width in pixels (or the diagram's own), height from its aspect ratio.
-  const cols = Math.max(10, r.width - 6);
-  const cell = cellSize();
-  const pxWidth = Math.min(cols * cell.w, d.width * 2);
-  const rows = Math.max(3, Math.min(Math.round((pxWidth * d.height / d.width) / cell.h), Math.max(8, r.height * 2)));
-  const widthCells = Math.max(10, Math.min(cols, Math.round(pxWidth / cell.w)));
-  const png = mermaidLib!.rasterize(d, theme, Math.round(widthCells * cell.w * 2)); // 2x for sharpness
-  const img = new ImageRenderable(r, { source: png, fit: "fit", width: widthCells, height: rows, protocol: "auto",
-    onError: (e) => log("image", String(e)) });
-  return img;
+  const size = imageSize(d.width, d.height);
+  const png = mermaidLib!.rasterize(d, theme, Math.round(size.width * cellSize().w * 2));
+  return image(png, d.width, d.height);
+}
+
+function imageSize(width: number, height: number) {
+  const cols = Math.max(1, r.width - 6), cell = cellSize();
+  const px = Math.min(cols * cell.w, width * 2);
+  return { width: Math.max(1, Math.min(cols, Math.round(px / cell.w))),
+    height: Math.max(3, Math.min(Math.round(px * height / width / cell.h), Math.max(8, r.height * 2))) };
+}
+function image(png: Uint8Array, width: number, height: number): Renderable {
+  return new ImageRenderable(r, { source: png, fit: "fit", ...imageSize(width, height), protocol: "auto",
+    onError: e => log("image", String(e)) });
+}
+
+function chart(b: Extract<Block, { kind: "chart" }>): Renderable {
+  const box = new BoxRenderable(r, { flexDirection: "column", width: "100%" });
+  let previous = "";
+  liveCharts.push(scope => {
+    let source: string, failed = false;
+    try {
+      const rows = b.rows.map(row => row.values.map(src => {
+        const n = compile(src)(scope);
+        if (typeof n !== "number" || !Number.isFinite(n)) throw new Error(`${row.label}: ${src} is not a finite number`);
+        return n;
+      }));
+      const quote = (s: string) => JSON.stringify(s.replace(/[\r\n]/g, " "));
+      source = b.type === "pie"
+        ? `pie${b.title ? " title " + b.title.replace(/[\r\n]/g, " ") : ""}\n` + b.rows.map((row, i) => `${quote(row.label)} : ${rows[i][0]}`).join("\n")
+        : ["xychart-beta", ...(b.title ? [`title ${quote(b.title)}`] : []),
+          `x-axis [${b.rows.map(row => quote(row.label)).join(", ")}]`,
+          ...Array.from({ length: rows[0]?.length || 1 }, (_, j) => `${b.type} [${rows.map(row => row[j]).join(", ")}]`)].join("\n");
+    } catch (e: any) { source = "Chart: " + e.message; failed = true; }
+    const key = (failed ? "error:" : "") + source;
+    if (key === previous) return;
+    previous = key; log("chart", source);
+    box.getChildren().forEach(c => { box.remove(c); c.destroyRecursively(); });
+    box.add(failed ? text(source, theme.red) : mermaid(source));
+  });
+  return box;
 }
 
 function cellSize() {
@@ -223,21 +282,12 @@ function cellSize() {
 function form(controls: Control[], fi: number): Renderable {
   const box = new BoxRenderable(r, { flexDirection: "column", width: "100%", gap: 1 });
   const keyOf = (c: Control, k: number) => `${fi}:${k}:${c.kind}:${(c as any).name ?? ""}`;
-  const state = new Map<Control, any>();
 
   controls.forEach((c, k) => {
     const sk = keyOf(c, k);
     // what formulas see under the control's name
     if ("name" in c && c.name) {
-      const get = c.kind === "hidden" ? () => expr.value(c.value)
-        : c.kind === "radio" ? () => { const i = formState.get(sk); return i >= 0 ? expr.value(c.choices[i].value) : ""; }
-        : c.kind === "checkbox" ? () => {
-            const on: boolean[] = formState.get(sk) ?? c.choices.map(x => x.checked);
-            return c.choices.length === 1 ? !!on[0] : c.choices.filter((_, j) => on[j]).map(x => expr.value(x.value));
-          }
-        : c.kind === "range" ? () => formState.get(sk) ?? c.value
-        : () => expr.value(formState.get(sk) ?? c.value);
-      liveInputs.set(c.name, get);
+      liveInputs.set(c.name, () => controlValue(c, formState.get(sk)));
     }
     if (c.kind === "note") { box.add(markdown(c.markdown)); return; }
     if (c.kind === "hidden") return;
@@ -246,7 +296,7 @@ function form(controls: Control[], fi: number): Renderable {
       const multi = c.kind === "checkbox";
       if (!formState.has(sk)) formState.set(sk, multi ? c.choices.map(x => x.checked) : c.choices.findIndex(x => x.checked));
       const group = new BoxRenderable(r, { flexDirection: "column", width: "100%", gap: 0 });
-      if (c.label) group.add(text(c.label, FG(), { attributes: 1 }));
+      if (c.label && !(c.kind === "checkbox" && c.single)) group.add(text(c.label, FG(), { attributes: 1 }));
       let cursor = multi ? 0 : Math.max(0, formState.get(sk) as number);
       const rows: BoxRenderable[] = [];
       const paint = () => {
@@ -293,7 +343,6 @@ function form(controls: Control[], fi: number): Renderable {
         },
       };
       fields.push(field);
-      state.set(c, undefined);
       box.add(group);
       queueMicrotask(paint);
       return;
@@ -323,7 +372,6 @@ function form(controls: Control[], fi: number): Renderable {
         blur: () => { save(); frame.borderColor = c.required && !formState.get(sk) && errorLine ? theme.red : theme.border; input.blur(); },
       };
       fields.push(field);
-      state.set(c, undefined);
       box.add(group);
       return;
     }
@@ -352,16 +400,17 @@ function form(controls: Control[], fi: number): Renderable {
   errorLine = text("", theme.red);
   box.add(errorLine);
 
-  // Values from formState, as FormData would send them.
+  // Convert control state to typed values only when submitting.
   const submit = (button?: { name: string; value: string; submit?: boolean }) => {
+    if (!controls.some(c => c.kind === "buttons" && c.buttons.some(b => b.submit))) return;
     const st = new Map<Control, any>();
     const missing: string[] = [];
+    // formValue fills in defaults for controls with no state yet.
     controls.forEach((c, k) => {
       const v = formState.get(keyOf(c, k));
-      if (c.kind === "radio") { st.set(c, v); if (c.required && (v == null || v < 0)) missing.push(c.label || c.name); }
-      else if (c.kind === "checkbox") st.set(c, v ?? c.choices.map(x => x.checked));
-      else if (c.kind === "text") { st.set(c, v ?? c.value); if (c.required && !String(v ?? "").trim()) missing.push(c.label || c.name); }
-      else if (c.kind === "range") st.set(c, v ?? c.value);
+      st.set(c, v);
+      if (c.kind === "radio" && c.required && (v == null || v < 0)) missing.push(c.label || c.name);
+      if (c.kind === "text" && c.required && !String(v ?? c.value).trim()) missing.push(c.label || c.name);
     });
     // A named button (like "Neither") answers on its own; required fields don't block it.
     if (missing.length && !button?.name) {
@@ -399,7 +448,7 @@ function range(c: Extract<Control, { kind: "range" }>, sk: string, box: BoxRende
     const at = c.max > c.min ? Math.round(((v - c.min) / (c.max - c.min)) * (w - 1)) : 0;
     done.content = "━".repeat(at); rest.content = "─".repeat(w - 1 - at);
     thumb.fg = here ? FG() : theme.accent;
-    shown.content = expr.show(v);
+    shown.content = show(v);
   };
   const set = (v: number) => { const s = snap(v); if (s === formState.get(sk)) return; formState.set(sk, s); paint(); recompute(); };
   const fromMouse = (ev: any) => {
@@ -469,14 +518,12 @@ function startControl() {
       if (path === "/open") {
         const target = String(body.url || "").replace(/^file:\/\//, "");
         if (!target) return new Response("no url", { status: 400 });
-        // page.md and page.html (stdin) swap names, so always re-read
-        file = resolve(decodeURIComponent(target)); events.length = 0; sent = null; formState.clear(); diagrams.clear();
+        // Always re-read, even when a stdin page keeps its filename.
+        file = resolve(decodeURIComponent(target)); baseDir = resolve(body.base || dirname(file)); events.length = 0; sent = null; formState.clear(); diagrams.clear();
         watchFile(); await load(); build();
         return new Response("ok");
       }
       if (path === "/close") { setTimeout(quit, 10); return new Response("ok"); }
-      if (path === "/shot") return new Response("tui", { status: 501 });
-      if (path === "/eval") return new Response("eval needs the web engine (rex-view show --engine web)", { status: 400 });
       if (path === "/wait") {
         if (events.length) return new Response(JSON.stringify(events.shift()));
         const timeout = Number(u.searchParams.get("timeout") || 0);
@@ -572,5 +619,5 @@ for (const ms of [300, 1200, 3000]) setTimeout(async () => { if (!quitting && aw
 let resizeTimer: any;
 // The pixel size often arrives after the first draw, which then guessed it.
 let knewPixels = !!r.resolution;
-r.on("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (blocks.some(b => b.kind === "mermaid")) build(); }, 150); });
-r.on("capabilities", () => { if (!knewPixels && r.resolution) { knewPixels = true; if (blocks.some(b => b.kind === "mermaid")) build(); } });
+r.on("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { build(); }, 80); });
+r.on("capabilities", () => { if (!knewPixels && r.resolution) { knewPixels = true; build(); } });

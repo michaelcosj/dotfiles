@@ -15,8 +15,8 @@
   targets.genericLinux.gpu.enable = lib.mkDefault false;
 
   home.packages = with pkgs; [
-    # Headless Chrome for rex-view (HTML in a Rex pane). It runs on the machine
-    # whose Rex pane shows the page, so every Linux machine needs one.
+    # Headless Chrome only for `rex-view snap` screenshots.
+    # Each Linux machine can take screenshots locally.
     chromium
     # rex-view is a Bun script. macOS has Bun in ~/.bun (fish.nix).
     bun
@@ -43,7 +43,7 @@
   # Lets Nix Chromium find the fonts above; desktop.nix sets it too.
   fonts.fontconfig.enable = true;
   # A complete fontconfig file. Home Manager's conf.d is read only through
-  # /etc/fonts/fonts.conf, and a headless host may have no /etc/fonts. rex-view
+  # /etc/fonts/fonts.conf, and a headless host may have no /etc/fonts. rex-view snap
   # points Chromium here (FONTCONFIG_FILE) when /etc/fonts/fonts.conf is missing.
   xdg.configFile."fontconfig/fonts.conf".text = ''
     <?xml version="1.0"?>
