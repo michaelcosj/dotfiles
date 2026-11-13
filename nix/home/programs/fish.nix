@@ -167,8 +167,6 @@ in
       # -g: keep these out of the universal fish_user_paths.
       fish_add_path -g "$HOME/.dotfiles/nix/scripts"
       fish_add_path -g "$HOME/.config/composer/vendor/bin"
-      set -gx BUN_INSTALL "$HOME/.bun"
-      fish_add_path -g "$BUN_INSTALL/bin"
 
       # load .env file if it exists
       function load_env

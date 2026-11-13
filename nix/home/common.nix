@@ -45,11 +45,13 @@
     (writeShellScriptBin "lazygit-nvim-edit" (builtins.readFile ../pkgs/lazygit-nvim-edit.sh))
   ];
 
-  # ~/.local/bin holds rex-view and other linked tools. fish adds it only in
-  # interactive shells; this covers every login session, agents' shells too.
-  home.sessionPath = [ "$HOME/.local/bin" ];
+  # ~/.local/bin holds rex-view and other linked tools; ~/.bun/bin holds pi
+  # and other global Bun tools. In every login session, so non-interactive
+  # shells (child agent panes, rex-view) find them too.
+  home.sessionPath = [ "$HOME/.local/bin" "$HOME/.bun/bin" ];
 
   home.sessionVariables = {
+    BUN_INSTALL = "$HOME/.bun";
     EDITOR = "nvim";
     VISUAL = "nvim";
     CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1";
