@@ -578,7 +578,8 @@ r.keyInput.on("keypress", (e: KeyEvent) => {
   else if (!f && (e.name === "j" || e.name === "down")) by(1);
   else if (!f && (e.name === "k" || e.name === "up")) by(-1);
   else if (e.name === "g" && !e.shift) scroll.scrollTo(0);
-  else if (e.name === "g" && e.shift || e.name === "G") scroll.scrollTo(Infinity);
+  else if (e.name === "g" && e.shift || e.name === "G" || e.name === "end") scroll.scrollTo(scroll.scrollHeight);
+  else if (e.name === "home") scroll.scrollTo(0);
 });
 
 // ---- run ----
