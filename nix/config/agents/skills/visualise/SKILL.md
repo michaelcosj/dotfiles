@@ -24,13 +24,15 @@ Not for short answers or code the user will copy. Tell the user in text what
 the pane shows, and close it when they are done with it.
 
 Two engines; `show` picks one:
-- **tui** (preferred: fast, light, selectable text): Markdown, Mermaid, and
-  plain HTML forms, drawn as terminal text. Used for `.md` files, Markdown on
-  stdin, and HTML with only plain elements and the kit classes.
+- **tui** (preferred: fast, light, selectable text): Markdown, Mermaid, plain
+  HTML forms, and live `data-expr` tools, drawn as terminal text. Used for
+  `.md` files, Markdown on stdin, and HTML with only plain elements and the
+  kit classes.
 - **web** (headless Chrome): anything else: `<script>`, `<style>`, `style=`,
   images, SVG, charts, other classes. Live: click, type, scroll, hover.
 
-Write Markdown when it's enough; use HTML and scripts when the page must move.
+Write Markdown when it's enough; for a live tool, use `data-expr` formulas
+(both engines). Use scripts only when formulas can't do it.
 
 ## Commands
 
@@ -100,29 +102,38 @@ Web pages:
 
 ### Live tools
 
-Inputs (`range`, `number`, `select`, `checkbox`) update the result on
-`input`, with no submit. Show the parts of the result, not only the total, so
-the user can check the math. Put the model's numbers in one `const` at the
-top of the script, so you can correct them when the user says one is wrong.
+Give each input a `name`, and put a formula in `data-expr` on any element
+(`<output>`, `<span>`, `.value`): it shows the result and updates as the user
+moves a slider, ticks a box, or types. No script, so it opens in the light
+tui engine; Chrome evaluates the same formulas.
+
+- Formulas use the inputs' names: numbers (`seats`), a lone checkbox is
+  `true`/`false`, a checkbox group is a list, a radio or `<select>` is the
+  picked value. Constants go in `<input type="hidden" name="base" value="49">`.
+- Operators: `+ - * / % **`, `== != < <= > >=`, `&& || !`, `a ? b : c`,
+  `'text'`. Functions: `money(x, '$', decimals)`, `pct(x)`, `fmt(x, decimals)`,
+  `round(x, n)`, `min`, `max`, `clamp(x, lo, hi)`, `abs`, `floor`, `ceil`,
+  `sqrt`, `pow`, `has(list, v)`, `count(list)`.
+- Show the parts of the result, not only the total, so the user can check the
+  math. tui keys: Tab moves, ←/→ steps a slider (shift: ×10), Space toggles.
 
 ```html
+<meta charset="utf-8">
 <h2>Price estimate</h2>
-<div class="row"><label>Seats <input id="seats" type="range" min="1" max="200" value="20"></label> <b id="seatsV"></b></div>
-<label><input id="annual" type="checkbox" checked> Annual billing (-15%)</label>
-<div class="stat"><span class="label">Per month</span><span class="value" id="total"></span></div>
-<p class="muted" id="parts"></p>
-<script>
-const PRICE = { seat: 12, base: 49, annualOff: 0.15 };
-function update() {
-  const n = +seats.value, sub = PRICE.base + n * PRICE.seat;
-  const t = annual.checked ? sub * (1 - PRICE.annualOff) : sub;
-  seatsV.textContent = n;
-  total.textContent = `$${t.toFixed(0)}`;
-  parts.textContent = `$${PRICE.base} base + ${n} × $${PRICE.seat}` + (annual.checked ? " − 15%" : "");
-}
-addEventListener("input", update); update();
-</script>
+<form data-rex>
+  <label>Seats <input type="range" name="seats" min="1" max="200" value="20"></label>
+  <label><input type="checkbox" name="annual" checked> Annual billing (−15%)</label>
+  <select name="plan"><option value="12">Team ($12)</option><option value="20">Business ($20)</option></select>
+  <input type="hidden" name="base" value="49">
+</form>
+<div class="stat"><span class="label">Per month</span>
+  <span class="value" data-expr="money((base + seats * plan) * (annual ? 0.85 : 1))"></span></div>
+<p class="muted"><output data-expr="money(base)"></output> base + <output data-expr="seats"></output> ×
+  <output data-expr="money(plan)"></output><output data-expr="annual ? ' − 15%' : ''"></output></p>
 ```
+
+A page that needs more (charts, loops, data from a file) uses a `<script>`
+and opens in Chrome. Start files you write with `<meta charset="utf-8">`.
 
 ## Getting a value back
 
@@ -130,8 +141,8 @@ A page can send the user's choice back to you: the settings they landed on in
 a live tool, or a pick between options you showed. `rex-view wait` blocks until
 it arrives and prints it as JSON.
 
-- `rex.send(value)` (web) sends any JSON value, e.g. a "Use this" button:
-  `<button onclick="rex.send({seats: +seats.value})">Use this</button>`.
+- In a live tool, a submit button (`<button type="submit">Use this</button>`)
+  sends the inputs' current values. `rex.send(value)` (web) sends any JSON value.
 - `<form data-rex>` sends its fields as an object on submit (tui and web).
   The submit button's `name`/`value` replaces the field of that name, so
   several buttons can give different answers. Repeated names become arrays.
