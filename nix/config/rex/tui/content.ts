@@ -8,6 +8,7 @@ export type Control =
   | { kind: "text"; name: string; label: string; value: string; placeholder: string; required: boolean; multiline: boolean; type: string }
   | { kind: "buttons"; buttons: { name: string; value: string; text: string; submit: boolean; primary: boolean; danger: boolean }[] }
   | { kind: "hidden"; name: string; value: string }
+  | { kind: "range"; name: string; label: string; min: number; max: number; step: number; value: number }
   | { kind: "note"; markdown: string };
 
 export type Block =
@@ -46,6 +47,7 @@ export function formValue(controls: Control[], state: Map<Control, any>, button?
     else if (c.kind === "radio") { const i = state.get(c); if (i != null && i >= 0) add(c.name, c.choices[i].value); }
     else if (c.kind === "checkbox") (state.get(c) as boolean[]).forEach((on, k) => on && add(c.name, c.choices[k].value));
     else if (c.kind === "text") add(c.name, state.get(c) ?? c.value);
+    else if (c.kind === "range") add(c.name, String(state.get(c) ?? c.value));
   }
   // A named button's value replaces a field of the same name (a "Neither"
   // button answers instead of the radio choice), which is what agents mean.

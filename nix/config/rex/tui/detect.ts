@@ -3,7 +3,7 @@
 
 const TAGS = new Set(("html head body title meta h1 h2 h3 h4 h5 h6 p br hr b strong i em u s del ins mark code kbd samp pre a ul ol li " +
   "table thead tbody tfoot tr th td caption blockquote small span div section article main header footer nav aside " +
-  "form fieldset legend label input textarea select option optgroup button").split(" "));
+  "form fieldset legend label input textarea select option optgroup button output").split(" "));
 const CLASSES = new Set(("muted card row stack grid spacer primary danger choice mermaid stat label value badge " +
   "red green yellow blue magenta cyan").split(" "));
 const BLOCKERS = /<(script|style|link|img|svg|canvas|iframe|video|audio|picture|object|embed|template|dialog|details)\b|\sstyle\s*=|\son[a-z]+\s*=|\brex\.\w+\(|javascript:/i;

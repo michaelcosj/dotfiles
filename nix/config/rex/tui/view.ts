@@ -19,6 +19,7 @@ import {
 import { fromMarkdown, formValue, type Block, type Control } from "./content.ts";
 import { makeTheme, mix, themeKey, type Theme } from "./theme.ts";
 import type { Diagram } from "./mermaid.ts";
+import { exprLib } from "./expr.js";
 
 // The HTML parser and the diagram renderer load only when a page needs them.
 let mermaidLib: typeof import("./mermaid.ts") | null = null;
@@ -116,8 +117,34 @@ const diagrams = new Map<string, Diagram | { error: string }>();
 let scroll: ScrollBoxRenderable;
 let mdStyle: SyntaxStyle | null = null;
 
+// ---- live results: data-expr formulas over the page's named inputs ----
+const expr = exprLib();
+const compiled = new Map<string, ReturnType<typeof expr.compile> | Error>();
+let liveInputs = new Map<string, () => any>(); // name -> current value
+let liveBlocks: { md: MarkdownRenderable; text: string }[] = [];
+const LIVE = /\uE000([^\uE001]*)\uE001/g;
+const mdEscape = (s: string) => s.replace(/([\\*_`[\]<>|#~])/g, "\\$1");
+
+function evaluate(src: string, scope: Record<string, any>): string {
+  let f = compiled.get(src);
+  if (!f) { try { f = expr.compile(src); } catch (e) { f = e as Error; } compiled.set(src, f); }
+  if (f instanceof Error) return `⚠ ${f.message}`;
+  try { return expr.show(f(scope)); } catch (e) { return `⚠ ${(e as Error).message}`; }
+}
+const fill = (text: string, scope: Record<string, any> | null) =>
+  text.replace(LIVE, (_, src) => scope ? mdEscape(evaluate(decodeURIComponent(src), scope)) : "…");
+
+// Re-evaluates every formula; cheap, so it runs on each input change.
+function recompute() {
+  if (!liveBlocks.length) return;
+  const scope: Record<string, any> = {};
+  for (const [name, get] of liveInputs) scope[name] = get();
+  for (const b of liveBlocks) b.md.content = fill(b.text, scope) + "\n";
+}
+
 function build() {
   const keepScroll = scroll?.scrollTop ?? 0;
+  liveInputs = new Map(); liveBlocks = [];
   const keepFocus = focused;
   r.root.getChildren().forEach(c => { r.root.remove(c); c.destroyRecursively(); });
   mdStyle?.destroy?.();
@@ -139,6 +166,7 @@ function build() {
     else scroll.add(form(b.controls, formIndex++));
   }
   if (sent !== null) scroll.add(text(`✓ Sent ${sent}`, theme.green));
+  recompute();
 
   quietFocus = true;
   if (fields.length) setFocus(keepFocus >= 0 && keepFocus < fields.length ? keepFocus : 0);
@@ -154,11 +182,13 @@ const reveal = (n: Renderable) => { if (!quietFocus) scroll.scrollChildIntoView(
 const text = (s: string, color: string | RGBA = FG(), extra: any = {}) => new TextRenderable(r, { content: s, fg: color, wrapMode: "word", ...extra });
 
 function markdown(md: string): Renderable {
-  return new MarkdownRenderable(r, {
+  const m = new MarkdownRenderable(r, {
     // a final newline: OpenTUI leaves a lone last heading unstyled without one
-    content: md + "\n", syntaxStyle: mdStyle!, fg: FG(), width: "100%", conceal: true,
+    content: fill(md, null) + "\n", syntaxStyle: mdStyle!, fg: FG(), width: "100%", conceal: true,
     tableOptions: { style: "grid", widthMode: "content", wrapMode: "word", borderColor: theme.border, borderStyle: "rounded" },
   });
+  if (md.includes("\uE000")) liveBlocks.push({ md: m, text: md });
+  return m;
 }
 
 // ---- mermaid ----
@@ -197,8 +227,21 @@ function form(controls: Control[], fi: number): Renderable {
 
   controls.forEach((c, k) => {
     const sk = keyOf(c, k);
+    // what formulas see under the control's name
+    if ("name" in c && c.name) {
+      const get = c.kind === "hidden" ? () => expr.value(c.value)
+        : c.kind === "radio" ? () => { const i = formState.get(sk); return i >= 0 ? expr.value(c.choices[i].value) : ""; }
+        : c.kind === "checkbox" ? () => {
+            const on: boolean[] = formState.get(sk) ?? c.choices.map(x => x.checked);
+            return c.choices.length === 1 ? !!on[0] : c.choices.filter((_, j) => on[j]).map(x => expr.value(x.value));
+          }
+        : c.kind === "range" ? () => formState.get(sk) ?? c.value
+        : () => expr.value(formState.get(sk) ?? c.value);
+      liveInputs.set(c.name, get);
+    }
     if (c.kind === "note") { box.add(markdown(c.markdown)); return; }
     if (c.kind === "hidden") return;
+    if (c.kind === "range") { range(c, sk, box); return; }
     if (c.kind === "radio" || c.kind === "checkbox") {
       const multi = c.kind === "checkbox";
       if (!formState.has(sk)) formState.set(sk, multi ? c.choices.map(x => x.checked) : c.choices.findIndex(x => x.checked));
@@ -235,6 +278,7 @@ function form(controls: Control[], fi: number): Renderable {
         if (multi) { const v = [...formState.get(sk)]; v[j] = !v[j]; formState.set(sk, v); }
         else formState.set(sk, j);
         paint();
+        recompute();
       };
       const field: Field = {
         box: group, control: c,
@@ -268,7 +312,7 @@ function form(controls: Control[], fi: number): Renderable {
             keyBindings: [{ name: "return", action: "submit" }, { name: "return", meta: true, action: "newline" }, { name: "linefeed", action: "newline" }] as any,
             onSubmit: () => submit() })
         : new InputRenderable(r, { ...opts, value: formState.get(sk) });
-      const save = () => formState.set(sk, c.multiline ? (input as TextareaRenderable).plainText : (input as InputRenderable).value);
+      const save = () => { formState.set(sk, c.multiline ? (input as TextareaRenderable).plainText : (input as InputRenderable).value); recompute(); };
       input.onContentChange = save;
       if (!c.multiline) input.on("enter", () => { save(); submit(); });
       frame.add(input); group.add(frame);
@@ -317,6 +361,7 @@ function form(controls: Control[], fi: number): Renderable {
       if (c.kind === "radio") { st.set(c, v); if (c.required && (v == null || v < 0)) missing.push(c.label || c.name); }
       else if (c.kind === "checkbox") st.set(c, v ?? c.choices.map(x => x.checked));
       else if (c.kind === "text") { st.set(c, v ?? c.value); if (c.required && !String(v ?? "").trim()) missing.push(c.label || c.name); }
+      else if (c.kind === "range") st.set(c, v ?? c.value);
     });
     // A named button (like "Neither") answers on its own; required fields don't block it.
     if (missing.length && !button?.name) {
@@ -333,6 +378,56 @@ function form(controls: Control[], fi: number): Renderable {
   return box;
 }
 
+// A slider: label, a bar to drag or click, and the value. ←/→ (h/l) step,
+// shift+←/→ ten steps, Home/End the ends.
+function range(c: Extract<Control, { kind: "range" }>, sk: string, box: BoxRenderable) {
+  if (!formState.has(sk)) formState.set(sk, c.value);
+  const decimals = (String(c.step).split(".")[1] || "").length;
+  const snap = (v: number) => Math.min(c.max, Math.max(c.min, Number((Math.round((v - c.min) / c.step) * c.step + c.min).toFixed(decimals))));
+  const group = new BoxRenderable(r, { flexDirection: "column", width: "100%" });
+  if (c.label) group.add(text(c.label, FG(), { attributes: 1 }));
+  const line = new BoxRenderable(r, { flexDirection: "row", width: "100%", gap: 2 });
+  const bar = new BoxRenderable(r, { flexDirection: "row" });
+  const done = text("", theme.accent, { wrapMode: "none" }), thumb = text("●", theme.accent), rest = text("", theme.border, { wrapMode: "none" });
+  bar.add(done); bar.add(thumb); bar.add(rest);
+  const shown = text("", FG(), { attributes: 1 });
+  line.add(bar); line.add(shown); group.add(line);
+  const width = () => Math.max(10, Math.min(48, r.width - 16));
+  let here = false;
+  const paint = () => {
+    const v = formState.get(sk) as number, w = width();
+    const at = c.max > c.min ? Math.round(((v - c.min) / (c.max - c.min)) * (w - 1)) : 0;
+    done.content = "━".repeat(at); rest.content = "─".repeat(w - 1 - at);
+    thumb.fg = here ? FG() : theme.accent;
+    shown.content = expr.show(v);
+  };
+  const set = (v: number) => { const s = snap(v); if (s === formState.get(sk)) return; formState.set(sk, s); paint(); recompute(); };
+  const fromMouse = (ev: any) => {
+    const w = width(), x = Math.min(w - 1, Math.max(0, ev.x - bar.screenX));
+    set(c.min + (x / (w - 1)) * (c.max - c.min));
+  };
+  // drag only after a press on the bar (a drag elsewhere can pass over it)
+  let dragging = false;
+  bar.onMouseDown = (ev) => { dragging = true; setFocus(fields.indexOf(field)); fromMouse(ev); };
+  bar.onMouseDrag = (ev) => { if (dragging) fromMouse(ev); };
+  bar.onMouseUp = bar.onMouseDragEnd = () => { dragging = false; };
+  const field: Field = {
+    box: group, control: c,
+    focus: () => { here = true; paint(); reveal(group); },
+    blur: () => { here = false; paint(); },
+    key: (e) => {
+      const v = formState.get(sk) as number, n = e.shift ? 10 : 1;
+      if (e.name === "right" || e.name === "l") { set(v + n * c.step); return true; }
+      if (e.name === "left" || e.name === "h") { set(v - n * c.step); return true; }
+      if (e.name === "home") { set(c.min); return true; }
+      if (e.name === "end") { set(c.max); return true; }
+      return false;
+    },
+  };
+  fields.push(field);
+  box.add(group);
+  paint();
+}
 
 function setFocus(i: number) {
   if (i < 0 || i >= fields.length) return;

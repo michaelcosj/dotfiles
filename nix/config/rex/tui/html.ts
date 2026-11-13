@@ -8,8 +8,14 @@ const tag = (n: HTMLElement) => (n.rawTagName || "").toLowerCase();
 const cls = (n: HTMLElement) => (n.getAttribute("class") || "").split(/\s+/);
 const squash = (s: string) => s.replace(/\s+/g, " ");
 
+// A data-expr formula, as a placeholder the viewer fills in (and refills
+// when an input changes). Private-use characters keep Markdown away from it.
+const live = (n: HTMLElement) => "\uE000" + encodeURIComponent(n.getAttribute("data-expr") || "").replace(/[!'()*~]/g, c => "%" + c.charCodeAt(0).toString(16)) + "\uE001";
+const hasExpr = (n: HTMLElement) => n.hasAttribute("data-expr");
+
 export function fromHTML(html: string): Block[] {
   const root = parse(html, { blockTextElements: { textarea: true } });
+  const livePage = !!root.querySelector("[data-expr]");
   const body = root.querySelector("body") ?? root;
   const out: Block[] = [];
   const md: string[] = [];
@@ -20,7 +26,8 @@ export function fromHTML(html: string): Block[] {
       if (!isEl(n)) { const t = squash(n.text).trim(); if (t) md.push(escape(t)); continue; }
       const t = tag(n);
       if (t === "head" || t === "title" || t === "meta") continue;
-      if (t === "form" && n.hasAttribute("data-rex")) { flush(); out.push({ kind: "form", controls: formControls(n) }); continue; }
+      if (hasExpr(n)) { md.push(live(n)); continue; }
+      if (t === "form" && n.hasAttribute("data-rex")) { flush(); out.push({ kind: "form", controls: formControls(n, livePage) }); continue; }
       if (t === "pre" && cls(n).includes("mermaid")) { flush(); out.push({ kind: "mermaid", source: n.text.trim() }); continue; }
       const code = t === "pre" ? n.querySelector("code") : null;
       if (code && /language-mermaid/.test(code.getAttribute("class") || "")) { flush(); out.push({ kind: "mermaid", source: code.text.trim() }); continue; }
@@ -52,11 +59,12 @@ function blockMd(n: HTMLElement): string | null {
     }
     case "ul": case "ol": return list(n, 0);
     case "table": return table(n);
-    case "label": case "a": case "b": case "strong": case "i": case "em": case "code": case "span": case "kbd": case "u": case "s": case "del": case "mark":
+    case "output": case "label": case "a": case "b": case "strong": case "i": case "em": case "code": case "span": case "kbd": case "u": case "s": case "del": case "mark":
       return inline(n);
   }
   if (cls(n).includes("stat")) {
-    const label = n.querySelector(".label")?.text.trim(), value = n.querySelector(".value")?.text.trim();
+    const v = n.querySelector(".value");
+    const label = n.querySelector(".label")?.text.trim(), value = v ? inline(v) : "";
     if (label || value) return `${label ? `*${label}*  ` : ""}**${value ?? ""}**`;
   }
   if (cls(n).includes("badge")) return `\`${n.text.trim()}\``;
@@ -88,8 +96,10 @@ function table(n: HTMLElement): string {
 // Inline Markdown for an element's children.
 function inline(n: Node, skip = new Set<Node>()): string {
   if (!isEl(n)) return escape(squash(n.text));
+  if (hasExpr(n)) return live(n);
   const parts = n.childNodes.filter(c => !skip.has(c)).map(c => {
     if (!isEl(c)) return escape(squash(c.text));
+    if (hasExpr(c)) return live(c);
     const t = tag(c), inner = inline(c).trim();
     if (t === "input" || t === "textarea" || t === "select" || t === "button") return "";
     if (!inner && t !== "br") return "";
@@ -112,7 +122,7 @@ const escape = (s: string) => s.replace(/([\\*_`[\]<>|#&])/g, "\\$1");
 
 // ---- forms ----
 
-function formControls(form: HTMLElement): Control[] {
+function formControls(form: HTMLElement, livePage = false): Control[] {
   const out: Control[] = [];
   const groups = new Map<string, Control & { choices: Choice[] }>();
   let buttons: Extract<Control, { kind: "buttons" }> | null = null;
@@ -156,6 +166,13 @@ function formControls(form: HTMLElement): Control[] {
           if (type === "radio" && n.hasAttribute("required")) (g as any).required = true;
           g.choices.push(choice(n));
         } else if (type === "hidden") out.push({ kind: "hidden", name, value: n.getAttribute("value") || "" });
+        else if (type === "range") {
+          buttons = null;
+          const num = (a: string, d: number) => { const x = Number(n.getAttribute(a)); return n.hasAttribute(a) && Number.isFinite(x) ? x : d; };
+          const min = num("min", 0), max = num("max", 100), step = num("step", 1);
+          out.push({ kind: "range", name, label: labelFor(n) || (closest(n, "label") ? inline(closest(n, "label")!) : ""),
+            min, max, step: step > 0 ? step : 1, value: Math.min(max, Math.max(min, num("value", (min + max) / 2))) });
+        }
         else if (type === "submit" || type === "button" || type === "reset") addButton(n, n.getAttribute("value") || "Submit", type === "submit");
         else {
           buttons = null;
@@ -186,6 +203,7 @@ function formControls(form: HTMLElement): Control[] {
         if (n.getAttribute("for") && form.querySelector(`#${n.getAttribute("for")}`)) continue; // drawn with its control
         note(inline(n)); continue;
       }
+      if (hasExpr(n)) { note(live(n)); continue; }
       const md = blockMd(n);
       if (md !== null && !n.querySelector("input, textarea, select, button")) { note(md); continue; }
       walk(n.childNodes, inLabel);
@@ -198,7 +216,8 @@ function formControls(form: HTMLElement): Control[] {
       primary: c.includes("primary") || (submit && (n.getAttribute("type") || "submit") === "submit" && !n.getAttribute("name")), danger: c.includes("danger") });
   };
   walk(form.childNodes, false);
-  if (!out.some(c => c.kind === "buttons")) out.push({ kind: "buttons", buttons: [{ name: "", value: "", text: "Submit", submit: true, primary: true, danger: false }] });
+  // A live page (data-expr results) updates as you type: no default submit.
+  if (!livePage && !out.some(c => c.kind === "buttons")) out.push({ kind: "buttons", buttons: [{ name: "", value: "", text: "Submit", submit: true, primary: true, danger: false }] });
   return out;
 }
 

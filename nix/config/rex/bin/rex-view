@@ -42,6 +42,7 @@ import { tmpdir, homedir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { tuiCanDraw } from "../tui/detect.ts";
+import { exprLib } from "../tui/expr.js";
 
 // Chrome: REX_VIEW_CHROME, the macOS apps, then the usual Linux names on PATH
 // (Nix puts them in a profile, not /usr/bin).
@@ -144,7 +145,8 @@ if (["show", "wait", "shot", "eval", "hide", "status"].includes(cmd)) {
       const md = !text.trimStart().startsWith("<");
       for (const f of ["page.html", "page.md"]) try { unlinkSync(join(stateDir, f)); } catch {}
       target = join(stateDir, md ? "page.md" : "page.html");
-      writeFileSync(target, text);
+      // Chrome reads a file with no charset as Latin-1 (× becomes Ã—)
+      writeFileSync(target, md || /<meta[^>]+charset/i.test(text) ? text : '<meta charset="utf-8">\n' + text);
     }
     const url = toURL(target);
     const engine = pickEngine(url);
@@ -430,7 +432,7 @@ function themeVars() {
   const p = theme.palette, dark = lum(theme.bg) < 0.5;
   const names = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"];
   const t = {
-    fonts: fontFaces, kit: kitCSS, dark, fg: theme.fg, bg: theme.bg, palette: p.slice(0, 16),
+    fonts: fontFaces, kit: kitCSS, exprLib: exprLib.toString(), dark, fg: theme.fg, bg: theme.bg, palette: p.slice(0, 16),
     accent: p[4] || "#0969da", muted: mix(theme.fg, theme.bg, 0.4), subtle: mix(theme.fg, theme.bg, 0.92),
     border: mix(theme.fg, theme.bg, 0.84), surface: mix(theme.fg, theme.bg, dark ? 0.94 : 0.97),
   };
@@ -463,6 +465,38 @@ const pageInit = (t) => {
     for (const [k, v] of new FormData(f, e.submitter)) o[k] = k in o ? [].concat(o[k], v) : v;
     send({ type: "send", value: o });
   }, true);
+  // data-expr formulas: fill them from the page's named inputs, live (the
+  // tui viewer does the same, so a page works in both engines).
+  const ex = (0, eval)(`(${t.exprLib})`)();
+  const cache = new Map();
+  const scope = () => {
+    const s = {};
+    for (const el of document.querySelectorAll("input[name], select[name], textarea[name]")) {
+      const n = el.name, type = el.type;
+      if (type === "checkbox") {
+        const group = document.querySelectorAll(`input[type=checkbox][name="${CSS.escape(n)}"]`);
+        s[n] = group.length === 1 ? el.checked : [...group].filter(x => x.checked).map(x => ex.value(x.value));
+      } else if (type === "radio") { if (el.checked) s[n] = ex.value(el.value); else if (!(n in s)) s[n] = ""; }
+      else s[n] = ex.value(el.value);
+    }
+    return s;
+  };
+  const recompute = () => {
+    const els = document.querySelectorAll("[data-expr]");
+    if (!els.length) return;
+    const s = scope();
+    for (const el of els) {
+      const src = el.getAttribute("data-expr");
+      let f = cache.get(src);
+      if (!f) { try { f = ex.compile(src); } catch (e) { f = e; } cache.set(src, f); }
+      let out;
+      try { out = f instanceof Error ? "⚠ " + f.message : ex.show(f(s)); } catch (e) { out = "⚠ " + e.message; }
+      if (el.textContent !== out) el.textContent = out;
+    }
+  };
+  document.addEventListener("input", recompute, true);
+  document.addEventListener("change", recompute, true);
+  document.addEventListener("DOMContentLoaded", recompute);
   const base = () => {
     if (document.getElementById("__rex_base")) return;
     const s = document.createElement("style"); s.id = "__rex_base";
