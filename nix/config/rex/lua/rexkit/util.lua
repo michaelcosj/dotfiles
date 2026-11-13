@@ -111,6 +111,27 @@ function M.subdirs(dir)
 	return out
 end
 
+-- The server's OS: "macos", "linux", ... (from uname, lower case).
+local host_os
+function M.host_os()
+	if not host_os then
+		local r = rex.exec({ "uname", "-s" })
+		local name = ((r and r.stdout) or ""):gsub("%s+$", ""):lower()
+		host_os = name == "darwin" and "macos" or name
+	end
+	return host_os
+end
+
+-- The server's short hostname (`hostname -s`), lower case.
+local host_name
+function M.host_name()
+	if not host_name then
+		local r = rex.exec({ "hostname", "-s" })
+		host_name = ((r and r.stdout) or ""):gsub("%s+$", ""):lower()
+	end
+	return host_name
+end
+
 function M.is_dir(path)
 	local r = rex.exec({ "test", "-d", path })
 	return r ~= nil and r.ok == true

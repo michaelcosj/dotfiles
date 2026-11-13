@@ -6,10 +6,17 @@ local ui = require("rexkit.ui")
 
 local M = {}
 
-local fallback = { tabs = { { name = "edit", layout = L.col(L.pane({ cmd = "nvim" }), L.pane(), 0.7) } } }
+local fallback = { tabs = { { name = "main", layout = L.row(L.pane({ cmd = "nvim" }), L.pane({ cmd = "pi" }), 0.6) } } }
 
+-- projects.lua's `hosts` entry for this server: by hostname, else by OS,
+-- else `default`. The whole file when it has no `hosts`.
 function M.config()
 	local cfg, err = util.load_config(util.config_dir .. "/projects.lua")
+	if cfg and cfg.hosts then
+		local h = cfg.hosts
+		local name = util.host_name()
+		cfg = (name ~= "" and h[name]) or h[util.host_os()] or h.default
+	end
 	if not cfg then return { groups = {}, projects = {}, default = fallback }, err end
 	cfg.groups = cfg.groups or {}
 	cfg.projects = cfg.projects or {}
@@ -39,27 +46,28 @@ function M.list()
 		return fallback.tabs
 	end
 
-	local function add(root, tabs, base)
+	-- rank: 0 for named projects, then each group's place in `groups`
+	local function add(root, tabs, base, rank)
 		root = util.expand(root):gsub("/$", "")
 		if by_root[root] then return end
-		local item = { base = base or util.basename(root), root = root, tabs = tabs }
+		local item = { base = base or util.basename(root), root = root, tabs = tabs, rank = rank }
 		by_root[root] = item
 		table.insert(found, item)
 	end
 
 	-- named projects with their own root
 	for name, def in pairs(cfg.projects) do
-		if def.root then add(def.root, tabs_of(def, cfg.default), name) end
+		if def.root then add(def.root, tabs_of(def, cfg.default), name, 0) end
 	end
 	-- every folder in each group; a named project without a root claims its folder by name
-	for _, g in ipairs(cfg.groups) do
+	for rank, g in ipairs(cfg.groups) do
 		local dir = util.expand(g.dir)
 		for _, path in ipairs(util.subdirs(dir)) do
 			local base = util.basename(path)
 			if not util.matches_any(base, g.exclude) then
 				local named = cfg.projects[base]
 				named = (named and not named.root) and named or nil
-				add(path, tabs_of(named, g.defaults, cfg.default), base)
+				add(path, tabs_of(named, g.defaults, cfg.default), base, rank)
 			end
 		end
 	end
@@ -80,6 +88,7 @@ function M.list()
 	for _, item in ipairs(found) do
 		for _, w in ipairs(worktrees.items(item, all)) do
 			names[w.name] = true
+			w.rank = item.rank
 			table.insert(items, w)
 		end
 	end
@@ -93,6 +102,10 @@ function M.list()
 
 	table.sort(items, function(a, b)
 		if (a.session ~= nil) ~= (b.session ~= nil) then return a.session ~= nil end
+		if cfg.ordered then
+			local ra, rb = a.rank or math.huge, b.rank or math.huge
+			if ra ~= rb then return ra < rb end
+		end
 		return a.name:lower() < b.name:lower()
 	end)
 	return items
