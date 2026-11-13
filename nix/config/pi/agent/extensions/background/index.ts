@@ -734,7 +734,7 @@ export default function (pi: ExtensionAPI) {
         emitBusy();
         arm();
         const extra = params.persist ? `\nPersistent. Manage after Pi exits: PI_BG_DIR=${dir} bg.sh status|kill ${name}` : "";
-        const n = params.notify ? " Will notify on exit. End your turn unless you have other work; do not wait for it." : "";
+        const n = params.notify ? " Will notify on exit." : "";
         if (!initialWait) return text(`${name}: ${restarting ? "restarted" : "started"} (pid ${pid}).${n} Log: ${logPath}${extra}`);
         startNote = extra;
       }
