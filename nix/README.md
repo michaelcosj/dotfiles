@@ -120,19 +120,21 @@ changed `flake.lock` as for other updates.
 ## Browser for agents (macOS and Fedora)
 
 Agents drive Helium through [browse](https://opencode.ai/product/browse): an
-MCP server (`browse mcp`) and a browser extension. The pi and OpenCode entries
-are in this repo (`config/pi/agent/mcp.json`, `config/opencode/opencode.json`).
-browse updates itself, so it isn't a Nix package. Set it up once per machine,
-with Helium open:
+MCP server (`browse mcp`) and a browser extension. Only pi and OpenCode use it;
+their entries are in this repo (`config/pi/agent/mcp.json`,
+`config/opencode/opencode.json`). browse updates itself, so it isn't a Nix
+package. Set it up once per machine, with Helium open:
 
 ```sh
 curl -fsSL https://opencode.ai/browse/install | bash -s -- --no-setup
-browse install -a claude codex   # their configs aren't in this repo
+browse install -a none   # pairs Helium; leaves agent configs alone
 ```
 
 `install` opens the Chrome Web Store in Helium. Add the extension; `install`
-pairs it on its own. `browse doctor` checks the setup. Devboxes have no browser
-for now.
+pairs it on its own. For another Helium profile, add the extension there and
+run `browse pair`; then give each a name on its browse settings page, so agents
+can pick one (`browser: "Michael"`). `browse doctor` checks the setup.
+Devboxes have no browser for now.
 
 ## Ubuntu devbox bootstrap
 
