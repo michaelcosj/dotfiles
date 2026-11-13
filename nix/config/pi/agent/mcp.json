@@ -4,6 +4,14 @@
       "url": "https://devbox.danio-wezen.ts.net/mcp",
       "exposure": "codemode",
       "description": "Design and edit Doop canvases and HTML frames; inspect designs and work with connected agents."
+    },
+    "browse": {
+      "command": "browse",
+      "args": [
+        "mcp"
+      ],
+      "exposure": "deferred",
+      "description": "Drive the user's real browser (Helium): open tabs, run Playwright, screenshots, recordings, handoffs for logins."
     }
   }
 }

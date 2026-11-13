@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// rex-view: Markdown pages in a Rex pane; Chrome only for one-shot screenshots.
+// rex-view: Markdown pages in a Rex pane.
 //
 //   rex-view show [--below] [--ratio PCT] [--focus] FILE|-   open or update Markdown
 //   rex-view wait [--timeout SEC] [--close]                print a submitted answer as JSON
@@ -7,27 +7,20 @@
 //   rex-view hide                                        close the pane
 //   rex-view status                                      print the pane's state as JSON
 //   rex-view view FILE                                   run the tui viewer in this terminal
-//   rex-view snap URL|FILE [-o OUT.png] [--size WxH]       screenshot (default 1280x800)
 //   rex-view help                                        show this help
 //
 // All commands accept --name NAME (or REX_VIEW_NAME) and --state DIR.
 // show - reads Markdown from stdin. wait --close closes after an answer or timeout.
-// snap uses REX_VIEW_CHROME when set; its default output is STATE/snap.png.
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, unlinkSync } from "node:fs";
-import { tmpdir, homedir } from "node:os";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// Nix puts Chrome on PATH, not in /usr/bin.
-const CHROME = process.env.REX_VIEW_CHROME ||
-  ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-   "/Applications/Chromium.app/Contents/MacOS/Chromium"].find(existsSync) ||
-  ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"].map(n => Bun.which(n)).find(Boolean);
 const die = (msg, code = 1) => { console.error("rex-view: " + msg); process.exit(code); };
-const COMMANDS = ["show", "wait", "shot", "hide", "status", "view", "snap", "help"];
+const COMMANDS = ["show", "wait", "shot", "hide", "status", "view", "help"];
 const argv = process.argv.slice(2), rest = [];
-const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "", size: "1280x800",
+const opt = { ratio: "50", below: false, focus: false, timeout: 0, close: false, out: "",
   name: process.env.REX_VIEW_NAME || "", state: "" };
 let cmd = "";
 for (let i = 0; i < argv.length; i++) {
@@ -41,7 +34,6 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "-o" || a === "--output") opt.out = value();
   else if (a === "--name") opt.name = value();
   else if (a === "--state") opt.state = value();
-  else if (a === "--size") opt.size = value();
   else if (a === "-h" || a === "--help") cmd = "help";
   else if (a.startsWith("-") && a !== "-") die(`unknown option: ${a}`, 2);
   else if (!cmd && !rest.length && COMMANDS.includes(a)) cmd = a;
@@ -66,19 +58,6 @@ function tuiReady() {
   const p = Bun.spawnSync([process.execPath, "install", "--frozen-lockfile"], { cwd: TUI_DIR, stdout: "ignore", stderr: "pipe" });
   if (p.exitCode) die("couldn't install the tui viewer's packages: " + p.stderr.toString().trim());
 }
-function toURL(target) {
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) return target;
-  const file = resolve(target);
-  if (!existsSync(file)) die(`no such file: ${file}`);
-  return pathToFileURL(file).href;
-}
-// Headless Nix hosts can lack /etc/fonts; use Home Manager's complete config.
-function chromeEnv() {
-  const env = { ...process.env };
-  const own = join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "fontconfig", "fonts.conf");
-  if (!env.FONTCONFIG_FILE && process.platform === "linux" && !existsSync("/etc/fonts/fonts.conf") && existsSync(own)) env.FONTCONFIG_FILE = own;
-  return env;
-}
 async function api(path, body, timeoutMs = 10000) {
   const ctl = new AbortController(), t = timeoutMs ? setTimeout(() => ctl.abort(), timeoutMs) : 0;
   try {
@@ -99,27 +78,9 @@ if (cmd === "view") {
   process.exit(await p.exited);
 }
 mkdirSync(stateDir, { recursive: true });
-if (cmd === "snap") {
-  const target = rest[0] || die("usage: rex-view snap URL|FILE [-o OUT.png] [--size WxH]", 2);
-  if (!CHROME) die("Chrome not found; set REX_VIEW_CHROME");
-  if (!/^[1-9]\d*x[1-9]\d*$/.test(opt.size)) die("size must be WxH with positive integers", 2);
-  const url = toURL(target), out = resolve(opt.out || join(stateDir, "snap.png"));
-  const profile = mkdtempSync(join(tmpdir(), "rex-view-profile-"));
-  let error = "";
-  try {
-    const p = Bun.spawnSync([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", `--screenshot=${out}`,
-      `--window-size=${opt.size.replace("x", ",")}`, `--user-data-dir=${profile}`, url],
-      { stdout: "ignore", stderr: "pipe", env: chromeEnv() });
-    if (p.exitCode || !existsSync(out)) error = p.stderr.toString().trim().split("\n").slice(-20).join("\n") || "Chrome did not write a screenshot";
-  } catch (e) { error = e.message; }
-  finally { rmSync(profile, { recursive: true, force: true }); }
-  if (error) die(error);
-  console.log(out);
-  process.exit(0);
-}
 if (cmd === "show") {
   let target = rest[0] || die("usage: rex-view show FILE|-", 2);
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) die("rex-view shows Markdown files; for a web page use 'rex-view snap URL'");
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) die("rex-view shows Markdown files; drive web pages with the browse MCP server");
   const stdin = target === "-", base = stdin ? process.cwd() : dirname(resolve(target));
   if (!stdin && !existsSync(resolve(target))) die(`no such file: ${resolve(target)}`);
   const text = stdin ? await Bun.stdin.text() : readFileSync(resolve(target), "utf8");

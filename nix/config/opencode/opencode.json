@@ -31,5 +31,19 @@
     "explore": {
       "model": "openai/gpt-6-luna#high"
     }
+  },
+  "mcp": {
+    "servers": {
+      "browse": {
+        "type": "local",
+        "command": [
+          "browse",
+          "mcp"
+        ],
+        "environment": {
+          "OPENCODE_BROWSER_RUNTIME": "auto-update"
+        }
+      }
+    }
   }
 }

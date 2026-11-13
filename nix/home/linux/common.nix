@@ -15,13 +15,10 @@
   targets.genericLinux.gpu.enable = lib.mkDefault false;
 
   home.packages = with pkgs; [
-    # Headless Chrome only for `rex-view snap` screenshots.
-    # Each Linux machine can take screenshots locally.
-    chromium
     # rex-view is a Bun script. macOS has Bun in ~/.bun (fish.nix).
     bun
-    # Fonts for headless Chromium: a headless host has none, and pages render
-    # without text. Desktops add their own on top (desktop.nix).
+    # Fonts for headless hosts, which have none (rex-view draws chart and
+    # diagram text with them). Desktops add their own on top (desktop.nix).
     dejavu_fonts
     noto-fonts
     noto-fonts-color-emoji
@@ -40,11 +37,10 @@
   # Nix owns the installed Claude Code version.
   home.sessionVariables.DISABLE_AUTOUPDATER = "1";
 
-  # Lets Nix Chromium find the fonts above; desktop.nix sets it too.
+  # Lets Nix programs find the fonts above; desktop.nix sets it too.
   fonts.fontconfig.enable = true;
   # A complete fontconfig file. Home Manager's conf.d is read only through
-  # /etc/fonts/fonts.conf, and a headless host may have no /etc/fonts. rex-view snap
-  # points Chromium here (FONTCONFIG_FILE) when /etc/fonts/fonts.conf is missing.
+  # /etc/fonts/fonts.conf, and a headless host may have no /etc/fonts.
   xdg.configFile."fontconfig/fonts.conf".text = ''
     <?xml version="1.0"?>
     <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">

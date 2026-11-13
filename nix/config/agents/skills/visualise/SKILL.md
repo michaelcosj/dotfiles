@@ -32,7 +32,6 @@ rex-view show --below --ratio 40 F     # where the pane opens; --focus gives it 
 rex-view shot                          # the pane as text; read it before you tell the user
 rex-view wait [--timeout S] [--close]  # wait for a submit; print it as JSON
 rex-view hide                          # close the pane
-rex-view snap URL|FILE.html [-o out.png] [--size 1280x800]   # one screenshot (Chrome)
 ```
 
 One pane per agent pane; `show` again replaces its page (`--name N` keeps a
@@ -55,7 +54,8 @@ Pages are GitHub Markdown (tables, code, task lists). The pane is often 60 to
 | `svg` | inline SVG; `currentColor` and `var(--accent)` etc. use the theme |
 
 `![alt](file.png)` alone in a paragraph shows an image (PNG, JPEG, SVG), with
-the path relative to the page. For a real web UI, `snap` it and show the PNG.
+the path relative to the page. For a real web UI, use the `browse` MCP server
+(the user's browser): take a screenshot there and show the PNG.
 A bad line in a block shows an error with its line number: fix it and `show` again.
 
 ### Live tools

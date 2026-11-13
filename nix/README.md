@@ -117,6 +117,23 @@ nix-rebuild
 `nix-update` also updates it, because it updates all flake inputs. Commit the
 changed `flake.lock` as for other updates.
 
+## Browser for agents (macOS and Fedora)
+
+Agents drive Helium through [browse](https://opencode.ai/product/browse): an
+MCP server (`browse mcp`) and a browser extension. The pi and OpenCode entries
+are in this repo (`config/pi/agent/mcp.json`, `config/opencode/opencode.json`).
+browse updates itself, so it isn't a Nix package. Set it up once per machine,
+with Helium open:
+
+```sh
+curl -fsSL https://opencode.ai/browse/install | bash -s -- --no-setup
+browse install -a claude codex   # their configs aren't in this repo
+```
+
+`install` opens the Chrome Web Store in Helium. Add the extension; `install`
+pairs it on its own. `browse doctor` checks the setup. Devboxes have no browser
+for now.
+
 ## Ubuntu devbox bootstrap
 
 The current devbox is an x86_64 Ubuntu 26.04 VPS, reached over Tailscale as
@@ -161,14 +178,6 @@ To deploy committed changes, run as each account:
 cd ~/.dotfiles
 git pull --ff-only
 nix-rebuild
-```
-
-rex-view uses Nix Chromium only for `rex-view snap` screenshots. Ubuntu's
-user-namespace restriction blocks Chromium. Load its AppArmor exception once
-per host (it covers every account and survives Chromium upgrades):
-
-```sh
-sudo bash ~/.dotfiles/nix/scripts/setup-chromium-apparmor
 ```
 
 Initial source snapshots are retained as `~/.dotfiles.before-git-*` when replaced
