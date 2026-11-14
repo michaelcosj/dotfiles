@@ -64,11 +64,11 @@ background({ action: "start", name: "scout-auth", notify: true, command: 'pi -p 
 
 Opus: claude-code/claude-opus-5-5
 Sol: openai-codex/gpt-6.1-sol
-Luna: openai-codex/gpt-6-luna
+Terra: openai-codex/gpt-6.1-terra
 
 - For code-related tasks, use Opus at low or medium thinking.
-- For reviews, use Sol at medium or high thinking.
-- For cheaper mechanical tasks that don't need agent autonomy, use Luna.
+- For reviews, use Sol at high thinking.
+- For cheaper mechanical tasks that don't need agent autonomy, use Terra.
 
 ## Write Precise Prompts
 

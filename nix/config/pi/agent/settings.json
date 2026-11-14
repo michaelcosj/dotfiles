@@ -45,12 +45,9 @@
   "steeringMode": "all",
   "fullscreenExitOutput": "resume-hint",
   "enabledModels": [
-    "openai-codex/gpt-6.1-sol",
     "claude-code/claude-opus-5-5",
-    "opencode/claude-fable-5-2",
-    "opencode-go/claude-haiku-5-5",
-    "opencode/claude-sonnet-5-5",
-    "openai-codex/gpt-6.1-terra",
-    "openai-codex/gpt-6-luna"
+    "claude-code/claude-fable-5-2",
+    "claude-code/claude-haiku-5-5",
+    "openai/gpt-6.1-sol"
   ]
 }
