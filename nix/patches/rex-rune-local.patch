@@ -1,0 +1,189 @@
+diff --git a/src/app/panes.rs b/src/app/panes.rs
+index 3fc096d..ae666f2 100644
+--- a/src/app/panes.rs
++++ b/src/app/panes.rs
+@@ -331,6 +331,7 @@ fn pane_card(
+     // cards) retain the existing density-following cue unless explicitly overridden.
+     let outlined = focused && outlines(s, window, bleed);
+     let ring = bleed && (outlined || s.drop_hover.as_deref() == Some(block));
++    let outline_width = s.settings.interface.active_pane_outline_width;
+     if !bleed {
+         c = c
+             .radius(CARD_RADIUS)
+@@ -338,7 +339,11 @@ fn pane_card(
+             .clip_rounded(CARD_RADIUS);
+         c = match state {
+             CardState::Focused if outlined => c
+-                .border_gradient(1., rgb(accent()).alpha(0.85), rgb(accent()).alpha(0.5))
++                .border_gradient(
++                    outline_width,
++                    rgb(accent()).alpha(0.85),
++                    rgb(accent()).alpha(0.5),
++                )
+                 .box_shadow(shadow(0., 0., 24., rgb(accent()).alpha(0.2)))
+                 .box_shadow(shadow(0., 14., 40., black(0.55))),
+             CardState::Target => c.border(1., rgb(accent()).alpha(0.85)).box_shadow(shadow(
+@@ -719,7 +724,7 @@ fn pane_card(
+             el().key(format!("pane-outline:{block}"))
+                 .absolute(0., 0.)
+                 .size(rect[2], rect[3])
+-                .border(1., rgb(accent()).alpha(0.85))
++                .border(outline_width, rgb(accent()).alpha(0.85))
+                 .inert()
+                 .motion(STILL),
+         )
+diff --git a/src/app/theme.rs b/src/app/theme.rs
+index 44f4f67..0c5aa31 100644
+--- a/src/app/theme.rs
++++ b/src/app/theme.rs
+@@ -140,6 +140,24 @@ pub static GRUVBOX_DARK: Palette = Palette {
+     kit: OnceLock::new(),
+ };
+ 
++/// Charcoal Atelier, from Rex Beta's theme of the same name. Danger is a cooler red than
++/// the theme's own (#d96a4d) so it stays 30 degrees of hue from warning.
++pub static CHARCOAL_ATELIER: Palette = Palette {
++    ground: 0x161616,
++    card: 0x161616,
++    popover: 0x262626,
++    ink: 0xd6d2cc,
++    muted: 0x8f8c88,
++    accent: 0xe05d3a,
++    accent2: 0xb193a8,
++    live: 0x9aab84,
++    warning: 0xcfae7a,
++    danger: 0xe06c6c,
++    on_accent: 0x161616,
++    terminal_selection: 0x3a3835,
++    kit: OnceLock::new(),
++};
++
+ /// The palette a chrome theme draws in.
+ pub fn palette_of(chrome: ChromeTheme) -> &'static Palette {
+     match chrome {
+@@ -147,6 +165,7 @@ pub fn palette_of(chrome: ChromeTheme) -> &'static Palette {
+         ChromeTheme::RosePine => &ROSE_PINE,
+         ChromeTheme::RosePineMoon => &ROSE_PINE_MOON,
+         ChromeTheme::GruvboxDark => &GRUVBOX_DARK,
++        ChromeTheme::CharcoalAtelier => &CHARCOAL_ATELIER,
+     }
+ }
+ 
+diff --git a/src/settings.rs b/src/settings.rs
+index 6140c77..28793a9 100644
+--- a/src/settings.rs
++++ b/src/settings.rs
+@@ -137,16 +137,18 @@ pub enum ChromeTheme {
+     RosePine,
+     RosePineMoon,
+     GruvboxDark,
++    CharcoalAtelier,
+     #[default]
+     #[serde(other)]
+     Midnight,
+ }
+ impl ChromeTheme {
+-    pub const ALL: [ChromeTheme; 4] = [
++    pub const ALL: [ChromeTheme; 5] = [
+         ChromeTheme::Midnight,
+         ChromeTheme::RosePine,
+         ChromeTheme::RosePineMoon,
+         ChromeTheme::GruvboxDark,
++        ChromeTheme::CharcoalAtelier,
+     ];
+     pub fn name(self) -> &'static str {
+         match self {
+@@ -154,6 +156,7 @@ impl ChromeTheme {
+             ChromeTheme::RosePine => "Rosé Pine",
+             ChromeTheme::RosePineMoon => "Rosé Pine Moon",
+             ChromeTheme::GruvboxDark => "Gruvbox Dark",
++            ChromeTheme::CharcoalAtelier => "Charcoal Atelier",
+         }
+     }
+ }
+@@ -762,6 +765,7 @@ mod tests {
+             (ChromeTheme::RosePine, "rose_pine"),
+             (ChromeTheme::RosePineMoon, "rose_pine_moon"),
+             (ChromeTheme::GruvboxDark, "gruvbox_dark"),
++            (ChromeTheme::CharcoalAtelier, "charcoal_atelier"),
+         ] {
+             let s = Settings {
+                 chrome_theme: chrome,
+diff --git a/src/settings/interface.rs b/src/settings/interface.rs
+index 7f77a5c..a9bd71f 100644
+--- a/src/settings/interface.rs
++++ b/src/settings/interface.rs
+@@ -40,6 +40,9 @@ pub struct InterfaceConfig {
+     /// None follows density: Comfortable cards are outlined, Compact panes are not.
+     #[serde(skip_serializing_if = "Option::is_none")]
+     pub highlight_active_pane: Option<bool>,
++    /// Width in points of the focused pane's accent outline (0.5–6, default 2). Local patch:
++    /// edit `workspace.json` and restart; there is no Settings control.
++    pub active_pane_outline_width: f32,
+     /// Local header name and enabled-button fading only; never terminal content.
+     pub fade_inactive_pane_headers: bool,
+     pub fade_pane_headers_in_inactive_window: bool,
+@@ -54,6 +57,7 @@ impl Default for InterfaceConfig {
+             tab_icon_color: TabIconColor::default(),
+             pane_padding_vertical: None,
+             highlight_active_pane: None,
++            active_pane_outline_width: Self::DEFAULT_OUTLINE_WIDTH,
+             fade_inactive_pane_headers: false,
+             fade_pane_headers_in_inactive_window: false,
+         }
+@@ -62,6 +66,7 @@ impl Default for InterfaceConfig {
+ 
+ impl InterfaceConfig {
+     pub const MAX_TAB_ICONS: u8 = 5;
++    pub const DEFAULT_OUTLINE_WIDTH: f32 = 2.;
+ 
+     pub(super) fn normalize(&mut self) {
+         self.tab_icon_count = self.tab_icon_count.min(Self::MAX_TAB_ICONS);
+@@ -69,6 +74,11 @@ impl InterfaceConfig {
+             .pane_padding_vertical
+             .filter(|padding| padding.is_finite())
+             .map(|padding| padding.clamp(0., 32.));
++        self.active_pane_outline_width = if self.active_pane_outline_width.is_finite() {
++            self.active_pane_outline_width.clamp(0.5, 6.)
++        } else {
++            Self::DEFAULT_OUTLINE_WIDTH
++        };
+     }
+ }
+ 
+diff --git a/src/terminal_theme.rs b/src/terminal_theme.rs
+index 7dcf600..338c062 100644
+--- a/src/terminal_theme.rs
++++ b/src/terminal_theme.rs
+@@ -80,6 +80,12 @@ pub const BUILTINS: &[Builtin] = &[
+         chrome: ChromeTheme::GruvboxDark,
+         theme: TerminalTheme::gruvbox_dark,
+     },
++    Builtin {
++        id: "charcoal-atelier",
++        name: "Charcoal Atelier",
++        chrome: ChromeTheme::CharcoalAtelier,
++        theme: TerminalTheme::charcoal_atelier,
++    },
+ ];
+ 
+ /// The built-in theme a `named:` id refers to, if it names one.
+@@ -142,6 +148,18 @@ impl TerminalTheme {
+         }
+     }
+ 
++    /// Charcoal Atelier, from Rex Beta's theme of the same name.
++    pub fn charcoal_atelier() -> Self {
++        Self::full(
++            0x161616,
++            [0xd6d2cc, 0xe05d3a, 0x161616, 0x3a3835, 0xefece7],
++            [
++                0x222222, 0xd96a4d, 0x9aab84, 0xcfae7a, 0x8aa0b4, 0xb193a8, 0x8fafa8, 0xb5b1ab,
++                0x5f5c58, 0xe8886e, 0xb3c39d, 0xe0c493, 0xa4b9cc, 0xc8adc0, 0xa8c7c0, 0xefece7,
++            ],
++        )
++    }
++
+     /// A dark theme with every colour: foreground, cursor, cursor text, selection background
+     /// and selection foreground, then palette colours 0–15.
+     fn full(

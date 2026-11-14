@@ -34,6 +34,10 @@
       config-file = ${dir}/common
       config-file = ${dir}/linux
     '';
+  # Custom theme files, linked from the repo so new themes need no rebuild.
+  # Rex Rune also reads this directory for its terminal themes.
+  xdg.configFile."ghostty/themes".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/ghostty/themes";
 
   # Local dictation. The module installs the desktop entry and runs the
   # single Hex process as a user service once the graphical session is up.
