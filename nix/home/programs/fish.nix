@@ -120,7 +120,7 @@ in
       cp = "cp -i";
       mv = "mv -i";
       cat = "bat";
-      ls = "eza --hyperlink";
+      ls = "eza --hyperlink=auto";
       reload-env = "load_env";
       sg = "ast-grep";
     };
