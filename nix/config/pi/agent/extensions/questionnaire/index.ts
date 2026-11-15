@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
+  CURSOR_MARKER,
   Editor,
   type EditorTheme,
   Key,
@@ -124,6 +125,7 @@ export async function askQuestionnaire(
     let inputQuestionId: string | null = null;
     let cachedLines: string[] | undefined;
     let cachedWidth: number | undefined;
+    let cachedRows: number | undefined;
     let finished = false;
     const answers = new Map<string, QuestionnaireAnswer>();
 
@@ -139,7 +141,9 @@ export async function askQuestionnaire(
     };
     const editor = new Editor(tui, editorTheme);
 
+    let focused = false;
     const refresh = () => {
+      editor.focused = focused && inputMode;
       cachedLines = undefined;
       cachedWidth = undefined;
       tui.requestRender();
@@ -305,7 +309,8 @@ export async function askQuestionnaire(
     }
 
     function render(width: number): string[] {
-      if (cachedLines && cachedWidth === width) return cachedLines;
+      const rows = tui.terminal?.rows;
+      if (cachedLines && cachedWidth === width && cachedRows === rows) return cachedLines;
 
       const lines: string[] = [];
       const q = currentQuestion();
@@ -356,16 +361,27 @@ export async function askQuestionnaire(
             addWrapped(theme.fg(color, `${i + 1}. ${opt.label}`), prefix, "     ");
           }
           if (opt.description) addWrapped(theme.fg("muted", opt.description), "     ", "     ");
+          // Pi scrolls a component taller than its space to the line with the
+          // cursor marker, so a short terminal (a phone with its keyboard up)
+          // keeps the selected option in view. The marker is invisible.
+          if (selected && focused && !inputMode) lines[lines.length - 1] += CURSOR_MARKER;
         }
       };
 
       if (inputMode && q) {
         addWrapped(theme.fg("text", q.prompt), " ", " ");
         lines.push("");
+        // Pi shows the top of a component taller than its space, so on a short
+        // terminal (a phone with its keyboard up) the answer box fell off the
+        // bottom. Keep the options only while everything fits.
+        const before = lines.length;
         renderOptions();
-        lines.push("");
+        const answer = editor.render(width - 2);
+        const budget = (rows ?? Infinity) - 4; // footer and margins
+        if (lines.length + answer.length + 6 > budget) lines.length = before;
+        else lines.push("");
         add(theme.fg("muted", " Your answer:"));
-        for (const line of editor.render(width - 2)) add(` ${line}`);
+        for (const line of answer) add(` ${line}`);
         lines.push("");
         add(theme.fg("dim", " Enter to submit • Esc to cancel"));
       } else if (currentTab === questions.length) {
@@ -407,10 +423,21 @@ export async function askQuestionnaire(
 
       cachedLines = lines;
       cachedWidth = width;
+      cachedRows = rows;
       return lines;
     }
 
     return {
+      // Focusable: pass focus on to the answer editor, so it places the
+      // terminal cursor (and IME) where the user types.
+      get focused() {
+        return focused;
+      },
+      set focused(value: boolean) {
+        focused = value;
+        editor.focused = value && inputMode;
+        cachedLines = undefined;
+      },
       render,
       invalidate: () => {
         cachedLines = undefined;
