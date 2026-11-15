@@ -58,6 +58,19 @@ export function registerAgentsUI(
   let unsubscribe: (() => void) | undefined;
   let switching = false;
   let dialogs = 0; // open dialogs (questionnaire, select, ...) own the keys
+  let tuiRef: any; // from the widget factory, to see what has focus
+
+  // Terminal-input hooks run before the focused component, so a menu that
+  // replaces the prompt (/model, Ctrl+L, settings, a questionnaire) would lose
+  // its arrow keys to the list. Act only while the prompt editor has focus:
+  // pi's editor and every custom one (ChildEditor) extend CustomEditor, which
+  // alone has onAction; the menus focus a list, an Input or a plain Editor.
+  // (Not instanceof: extensions load without a module cache, so their
+  // CustomEditor can be another copy of the class.)
+  const editorFocused = () => {
+    const focused = tuiRef?.getFocusedComponent?.();
+    return focused == null || typeof focused.onAction === "function";
+  };
 
   const rows = (): Row[] =>
     roster
@@ -77,7 +90,7 @@ export function registerAgentsUI(
     }
     ui.setWidget(
       WIDGET,
-      (_tui: any, theme: any) => ({
+      (tui: any, theme: any) => (tuiRef = tui, {
         invalidate() {},
         render(width: number) {
           const list = rows();
@@ -138,7 +151,7 @@ export function registerAgentsUI(
   function onInput(data: string) {
     const list = rows();
     if (list.length < 2) return undefined;
-    if (dialogs > 0) {
+    if (dialogs > 0 || !editorFocused()) {
       if (selected !== undefined) {
         selected = undefined;
         render();
