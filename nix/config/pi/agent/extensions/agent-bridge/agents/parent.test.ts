@@ -518,3 +518,34 @@ describe("busy", () => {
     expect(busy).toEqual([1, 0]);
   });
 });
+
+describe("renderCall", () => {
+  const theme = { fg: (_c: string, s: string) => s, bold: (s: string) => s };
+  const render = (args: any, expanded: boolean) => {
+    const tool = setup().tools.get("agent");
+    const keyHint = (_id: string, d: string) => `ctrl+o ${d}`;
+    return tool.renderCall(args, theme, { expanded, keyHint }).render(200).map((l: string) => l.trimEnd()).join("\n");
+  };
+  const task = "Line one of the task\nline two\nline three";
+
+  test("start hides the task until expanded", () => {
+    const collapsed = render({ action: "start", name: "scout", title: "Scout", task }, false);
+    expect(collapsed).toBe("agent start scout Scout\n(task: 3 lines, ctrl+o to expand)");
+    expect(render({ action: "start", name: "scout", title: "Scout", task }, true)).toBe(`agent start scout Scout\n${task}`);
+  });
+
+  test("send previews the first line and expands to the full message", () => {
+    const long = "x".repeat(100);
+    expect(render({ action: "send", name: "scout", text: long }, false)).toBe(
+      `agent send scout ${"x".repeat(80)}…\n(message: 1 line, ctrl+o to expand)`,
+    );
+    expect(render({ action: "send", name: "scout", text: long }, true)).toBe(`agent send scout\n${long}`);
+    expect(render({ action: "send", name: "scout", text: task }, false)).toBe(
+      "agent send scout Line one of the task\n(message: 3 lines, ctrl+o to expand)",
+    );
+  });
+
+  test("a short one-line message needs no hint", () => {
+    expect(render({ action: "send", name: "scout", text: "go on" }, false)).toBe("agent send scout go on");
+  });
+});

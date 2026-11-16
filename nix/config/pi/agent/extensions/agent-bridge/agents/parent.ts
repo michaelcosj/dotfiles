@@ -29,6 +29,8 @@ const LABEL_PREFIX = "pi-agent:";
 const REMOTE_SESSION = "pi-agents";
 const MACHINE = os.hostname().split(".")[0];
 const MAX_RESULT_BYTES = 16 * 1024;
+/** Characters of a send/resume message shown on the collapsed call line. */
+const PROMPT_PREVIEW = 80;
 
 export interface Agent {
   id: string;
@@ -876,14 +878,33 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       throw new Error(`unknown action ${p.action}`);
     },
 
-    renderCall(args: any, theme: any) {
+    renderCall(args: any, theme: any, context: any) {
       let t = theme.fg("toolTitle", theme.bold("agent ")) + theme.fg("muted", args.action ?? "");
       if (args.name) t += ` ${theme.fg("accent", args.name)}`;
       if (args.action === "start" && args.host) t += theme.fg("dim", `@${args.host}`);
       if (args.action === "start" && args.title) t += ` ${theme.fg("dim", args.title)}`;
       if (args.action === "start" && args.worktree) t += theme.fg("dim", ` ⎇ ${typeof args.worktree === "string" ? args.worktree : args.name}`);
       if (args.model) t += ` ${theme.fg("dim", `(${args.model}${args.thinking ? `:${args.thinking}` : ""})`)}`;
-      if ((args.action === "send" || args.action === "resume") && args.text) t += ` ${theme.fg("dim", args.text.split("\n")[0].slice(0, 80))}`;
+      // The prompt: the task for start, the message for send and resume.
+      // Collapsed shows a one-line preview; expanded (click or the expand
+      // key) shows all of it below the header.
+      const prompt: string | undefined =
+        args.action === "start" ? args.task : args.action === "send" || args.action === "resume" ? args.text : undefined;
+      if (prompt) {
+        if (context?.expanded) t += `\n${theme.fg("toolOutput", prompt)}`;
+        else {
+          const first = prompt.split("\n")[0];
+          const preview = first.length > PROMPT_PREVIEW ? `${first.slice(0, PROMPT_PREVIEW)}…` : first;
+          // start already shows its title; its task stays hidden until expanded.
+          if (args.action !== "start") t += ` ${theme.fg("dim", preview)}`;
+          if (args.action === "start" || preview !== prompt) {
+            const lines = prompt.split("\n").length;
+            const what = args.action === "start" ? "task" : "message";
+            const hint = context?.keyHint?.("app.tools.expand", "to expand") || "expand to view";
+            t += `\n${theme.fg("muted", `(${what}: ${lines} line${lines === 1 ? "" : "s"}, `)}${hint}${theme.fg("muted", ")")}`;
+          }
+        }
+      }
       return new Text(t, 0, 0);
     },
 
