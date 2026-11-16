@@ -40,6 +40,7 @@
     uv
     vscode-langservers-extracted # CSS, HTML, and JSON language servers
     (callPackage ../pkgs/opencode.nix { })
+    (callPackage ../pkgs/tsrs.nix { }) # TypeScript LSP for Neovim (config/nvim/after/lsp/tsc.lua)
     (callPackage ../pkgs/vite-plus.nix { })
     # lazygit's edit command (programs.lazygit below)
     (writeShellScriptBin "lazygit-nvim-edit" (builtins.readFile ../pkgs/lazygit-nvim-edit.sh))

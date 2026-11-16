@@ -9,6 +9,7 @@
 #
 # Each pin names its npm package and where the platform goes:
 #   platformIn = "name":    one package per platform, <package>-<suffix>@<version>
+#   platformIn = "scope":   one package per platform, <package>/<suffix>@<version>
 #   platformIn = "version": one package, <package>@<version>-<suffix>
 set -euo pipefail
 
@@ -46,6 +47,7 @@ meta_url() {
   local suffix=$1 version=$2
   case $platform_in in
     name) echo "$registry/$package-$suffix/$version" ;;
+    scope) echo "$registry/$package/$suffix/$version" ;;
     version) echo "$registry/$package/$version-$suffix" ;;
     *) echo "unknown platformIn for $name: $platform_in" >&2; exit 1 ;;
   esac
@@ -53,9 +55,9 @@ meta_url() {
 
 if [ -n "${2:-}" ]; then
   version=$2
-elif [ "$platform_in" = name ]; then
+elif [ "$platform_in" = name ] || [ "$platform_in" = scope ]; then
   first=$(jq -r --arg n "$name" --arg s "${systems[0]}" '.[$n].platforms[$s].suffix' "$pins")
-  version=$(curl -fsSL "$registry/$package-$first/latest" | jq -r .version)
+  version=$(curl -fsSL "$(meta_url "$first" latest)" | jq -r .version)
 else
   version=$(curl -fsSL "$registry/$package/latest" | jq -r .version)
 fi

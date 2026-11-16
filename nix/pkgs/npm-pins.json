@@ -39,5 +39,20 @@
         "hash": "sha512-fjkt6aSsgfVZlc4EmLrAazA0PeFzsdSnRfGbh7fWn5UWGQJLiz0LDvCUyLcfmGoZQqDjhwkwBun2YkK1leNTnQ=="
       }
     }
+  },
+  "tsrs": {
+    "package": "@tsrs",
+    "platformIn": "scope",
+    "version": "0.25.0-ts7.1.0-beta",
+    "platforms": {
+      "x86_64-linux": {
+        "suffix": "linux-x64-gnu",
+        "hash": "sha512-dGRvubxWQXNP3aow+RLgFAbW3pR4oQ+UPfwrSgdggKCKKL9sAPr8nFGYM50JWAiqGQYSwRJl48AzIC7bHuQ2cQ=="
+      },
+      "x86_64-darwin": {
+        "suffix": "darwin-x64",
+        "hash": "sha512-MnD5Bv48TdIcTpNavsg7PV6RUuwAKhozJ29CZDlKq6oZwGjGulcQLI3Sok6MvvCG7U6v4l9RONKO8BhNXCytvQ=="
+      }
+    }
   }
 }

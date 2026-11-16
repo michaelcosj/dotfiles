@@ -1,5 +1,6 @@
 # Packages a prebuilt binary that's published to npm as one package per platform
-# (`<packagePrefix>-<suffix>`, e.g. @opencode/cli-linux-x64). Used by the files
+# (`<packagePrefix>-<suffix>`, e.g. @opencode/cli-linux-x64, or with
+# `scoped = true` `<packagePrefix>/<suffix>`, e.g. @tsrs/linux-x64-gnu). Used by the files
 # next to this one. Their pins are in npm-pins.json; update them with
 # `update-npm-binary <name>`.
 {
@@ -16,13 +17,18 @@
   platforms,
   # { <command name> = "<path inside the npm tarball>"; }
   binaries,
+  # The platform package is `<packagePrefix>/<suffix>` (an npm scope of its own).
+  scoped ? false,
+  # Install the whole tarball to $out/lib/<pname> and symlink the binaries, for
+  # binaries that read files next to their real path.
+  keepTree ? false,
   meta ? { },
 }:
 let
   platform =
     platforms.${stdenv.hostPlatform.system}
       or (throw "${pname}: unsupported system ${stdenv.hostPlatform.system}");
-  npmName = "${packagePrefix}-${platform.suffix}";
+  npmName = "${packagePrefix}${if scoped then "/" else "-"}${platform.suffix}";
   tarballName = lib.last (lib.splitString "/" npmName);
 in
 stdenv.mkDerivation {
@@ -44,7 +50,17 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
     ${lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (name: path: "install -Dm755 ${path} $out/bin/${name}") binaries
+      lib.optionals keepTree [
+        "mkdir -p $out/lib $out/bin"
+        "cp -r . $out/lib/${pname}"
+      ]
+      ++ lib.mapAttrsToList (
+        name: path:
+        if keepTree then
+          "ln -s $out/lib/${pname}/${path} $out/bin/${name}"
+        else
+          "install -Dm755 ${path} $out/bin/${name}"
+      ) binaries
     )}
     runHook postInstall
   '';
