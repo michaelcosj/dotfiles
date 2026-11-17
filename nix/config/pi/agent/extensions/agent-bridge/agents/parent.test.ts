@@ -9,8 +9,20 @@ const PI_MODULES =
   process.env.PI_NODE_MODULES ??
   path.join(path.dirname(fs.realpathSync(execFileSync("which", ["pi"]).toString().trim())), "../lib/node_modules/pi-monorepo/node_modules");
 process.env.NODE_PATH = PI_MODULES;
+// Some installed Pi builds cannot load pi-ai outside Pi (a missing @earendil-works/pi-schema),
+// so fall back to stubs of the few exports these modules use.
+const STUBS: Record<string, () => object> = {
+  "@earendil-works/pi-ai": () => ({ StringEnum: (values: string[], opts: object = {}) => ({ type: "string", enum: values, ...opts }) }),
+  "@earendil-works/pi-coding-agent": () => ({ CustomEditor: class {} }),
+};
 for (const id of ["@earendil-works/pi-ai", "@earendil-works/pi-tui", "@earendil-works/pi-coding-agent", "typebox"]) {
-  const mod = await import(Bun.resolveSync(id, path.dirname(PI_MODULES)));
+  let mod: object;
+  try {
+    mod = await import(Bun.resolveSync(id, path.dirname(PI_MODULES)));
+  } catch (e) {
+    if (!STUBS[id]) throw e;
+    mod = STUBS[id]();
+  }
   mock.module(id, () => mod);
 }
 
