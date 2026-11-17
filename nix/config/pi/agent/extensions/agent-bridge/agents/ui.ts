@@ -7,10 +7,10 @@
 //
 // Keys: ↓ on an empty prompt, or alt+↓ with text in it, enters the list; ↑/↓ select; Enter switches;
 // Esc (or any other key) leaves the list. /agents does the same from a menu.
-import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import * as rex from "../../lib/rex.js";
 import { duration } from "../../lib/duration.js";
+import { VimEditor } from "../../vim-editor/editor.ts";
 import type { Roster, RosterEntry } from "./protocol.js";
 
 const WIDGET = "agents";
@@ -255,12 +255,12 @@ export function registerAgentsUI(
   };
 }
 
-/** A child's editor: "Message @name…" when empty, and its title in the top border. */
+/** A child's editor: vim mode, "Message @name…" when empty, and its title in the top border. */
 export function childEditor(pi: any, name: string, title: string) {
   pi.on("session_start", (_e: any, ctx: any) => {
     if (ctx.mode !== "tui") return;
     const theme = ctx.ui.theme;
-    class ChildEditor extends CustomEditor {
+    class ChildEditor extends VimEditor {
       render(width: number): string[] {
         const lines = super.render(width);
         if (this.getText() === "" && lines.length >= 2) {
@@ -279,6 +279,6 @@ export function childEditor(pi: any, name: string, title: string) {
         return this.borderColor("─".repeat(w - visibleWidth(label) - 2)) + theme.inverse(theme.fg("accent", label)) + this.borderColor("──");
       }
     }
-    ctx.ui.setEditorComponent((tui: any, t: any, kb: any) => new ChildEditor(tui, t, kb, { embedWorkingStatus: true }));
+    ctx.ui.setEditorComponent((tui: any, t: any, kb: any) => new ChildEditor(tui, t, kb, { embedWorkingStatus: true, getTheme: () => ctx.ui.theme }));
   });
 }

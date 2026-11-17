@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "insertRemaps": { "jj": "<Esc>" },
+  "clipboard": "unnamedplus"
+}
