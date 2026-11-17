@@ -34,7 +34,7 @@ mock.module("../../lib/rex.js", () => ({
 }));
 
 process.env.PI_AGENT_TASK_START_MS = "300";
-const { registerParent, remoteCwd } = await import("./parent.ts");
+const { registerParent, remoteCwd, childSessionDir } = await import("./parent.ts");
 
 const g = globalThis as { __piAgents?: Map<string, Agent> };
 
@@ -373,17 +373,44 @@ describe("worktree", () => {
   });
 });
 
+describe("childSessionDir", () => {
+  test("stores child sessions in the parent's agents folder", () => {
+    expect(childSessionDir({ sessionManager: { getSessionDir: () => "/s/x", getSessionFile: () => "/s/x/f.jsonl" } })).toBe("/s/x/agents");
+  });
+
+  test("does not override storage for a parent without a session file", () => {
+    expect(childSessionDir({ sessionManager: { getSessionDir: () => "/s/x", getSessionFile: () => undefined } })).toBeUndefined();
+  });
+
+  test("handles missing and stale session managers", () => {
+    expect(childSessionDir({})).toBeUndefined();
+    expect(childSessionDir({ sessionManager: { getSessionDir: () => { throw new Error("stale context"); } } })).toBeUndefined();
+    expect(childSessionDir({ get sessionManager() { throw new Error("stale context"); } })).toBeUndefined();
+  });
+
+  test("requires non-empty strings for the directory and file", () => {
+    for (const dir of [undefined, "", 1]) {
+      expect(childSessionDir({ sessionManager: { getSessionDir: () => dir, getSessionFile: () => "/s/x/f.jsonl" } })).toBeUndefined();
+    }
+    for (const file of ["", 1]) {
+      expect(childSessionDir({ sessionManager: { getSessionDir: () => "/s/x", getSessionFile: () => file } })).toBeUndefined();
+    }
+  });
+});
+
 describe("start", () => {
   const fakeClient = () => {
     const socket = { destroyed: false, destroy: () => void (socket.destroyed = true) };
     return { role: "agent", info: {} as any, socket };
   };
   /** A local pane that runs `onOpen` with the child's id; `alive` sets whether its program runs. */
-  function pane(onOpen: (id: string) => void, alive = true) {
+  function pane(onOpen: (id: string) => void, alive = true, onCommand?: (command: string[]) => void) {
     rexReplies.push((args) => {
       if (args.includes("session.new_block")) {
         const params = JSON.parse(args[args.length - 1]);
-        const id = (params.options.command as string[]).find((x) => x.startsWith("PI_AGENT_ID="))!.split("=")[1];
+        const command = params.options.command as string[];
+        onCommand?.(command);
+        const id = command.find((x) => x.startsWith("PI_AGENT_ID="))!.split("=")[1];
         setTimeout(() => onOpen(id), 0);
         return JSON.stringify({ block_id: "block:child" });
       }
@@ -394,6 +421,33 @@ describe("start", () => {
   }
   const start = (tools: Map<string, any>) =>
     tools.get("agent").execute("1", { action: "start", name: "kid", task: "do it" }, undefined, undefined, { cwd: "/tmp" });
+
+  test("stores new child sessions under the parent's session directory", async () => {
+    const { tools, begin } = setup();
+    const client = fakeClient();
+    let command: string[] = [];
+    pane((id) => {
+      client.info.id = id;
+      begin(client);
+    }, true, (cmd) => { command = cmd; });
+    const ctx = { cwd: "/tmp", sessionManager: { getSessionDir: () => "/s/x", getSessionFile: () => "/s/x/f.jsonl" } };
+    const r = await tools.get("agent").execute("1", { action: "start", name: "kid", task: "do it" }, undefined, undefined, ctx);
+    expect(r.content[0].text).toContain("Started agent kid");
+    expect(command.slice(command.indexOf("pi"), command.indexOf("pi") + 3)).toEqual(["pi", "--session-dir", "/s/x/agents"]);
+  });
+
+  test("does not override child storage without a parent session manager", async () => {
+    const { tools, begin } = setup();
+    const client = fakeClient();
+    let command: string[] = [];
+    pane((id) => {
+      client.info.id = id;
+      begin(client);
+    }, true, (cmd) => { command = cmd; });
+    await start(tools);
+    expect(command).toContain("pi");
+    expect(command).not.toContain("--session-dir");
+  });
 
   test("waits for the child to begin its task; idle while ready is not idle", async () => {
     const { tools, methods, connect } = setup();
@@ -463,8 +517,12 @@ describe("start", () => {
         bridge.connect(client);
         methods.get("state")(client, { status: "idle" });
       });
+      bridge.ctx = { sessionManager: { getSessionDir: () => "/s/x", getSessionFile: () => "/s/x/f.jsonl" } };
       await p2.resume("kid");
       expect(g.__piAgents!.get("kid")!.status).toBe("idle");
+      const open = rexCalls.find((c) => c.includes("session.new_block"))!;
+      const command = JSON.parse(open.at(-1)!).options.command as string[];
+      expect(command.slice(command.indexOf("pi"))).toEqual(["pi", "--session-dir", "/s/x/agents", "--session", file]);
     } finally {
       fs.rmSync(file, { force: true });
     }

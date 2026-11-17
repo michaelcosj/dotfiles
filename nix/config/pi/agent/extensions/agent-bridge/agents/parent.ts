@@ -89,6 +89,17 @@ export interface SavedAgent {
 }
 const SAVED_TYPE = "agent-child";
 
+/** Where a local child's sessions go: an `agents/` folder in the parent's session folder, hidden from `pi --continue` and the picker. */
+export function childSessionDir(ctx: any): string | undefined {
+  try {
+    const dir = ctx?.sessionManager?.getSessionDir?.();
+    const file = ctx?.sessionManager?.getSessionFile?.();
+    return typeof dir === "string" && dir.length > 0 && typeof file === "string" && file.length > 0 ? path.join(dir, "agents") : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** This machine's cwd as a path on another host: the same place under ~. */
 export function remoteCwd(cwd: string, home = os.homedir()): string {
   if (cwd === home) return "~";
@@ -441,9 +452,10 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     }
   }
 
-  /** The command line a child runs: pi with its bridge env. */
-  function piArgs(name: string, title: string, model?: string, thinking?: string, resume?: SavedAgent) {
+  /** The command line a child runs: pi with an optional session directory. */
+  function piArgs(name: string, title: string, model?: string, thinking?: string, resume?: SavedAgent, sessionDir?: string) {
     const args = ["pi"];
+    if (sessionDir) args.push("--session-dir", sessionDir);
     // A resumed session keeps its own model, thinking level and name.
     if (resume) args.push("--session", resume.sessionFile);
     else {
@@ -582,7 +594,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     const title = resume ? resume.title : (p.title?.trim() || name).slice(0, 60);
     const model = resume ? resume.model : p.model;
     const thinking = resume ? resume.thinking : p.thinking;
-    const args = piArgs(name, title, model, thinking, resume);
+    const args = piArgs(name, title, model, thinking, resume, childSessionDir(ctx));
     // The child reads its first prompt from the file (see child.ts), so no quoting issues.
     const env = [
       `${ENV.parent}=${bridge.socketPath}`,
