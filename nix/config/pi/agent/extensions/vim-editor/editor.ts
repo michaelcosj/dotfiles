@@ -1,6 +1,7 @@
 // VimEditor: pi's prompt editor with vim modes. The engine (engine.ts) does
 // the vim work; this class turns terminal input into engine keys, applies the
-// engine's buffer to the editor, syncs the clipboard and draws the mode badge.
+// engine's buffer to the editor, syncs the clipboard, and draws the mode badge
+// and the visual selection.
 //
 // Extend this class (not CustomEditor) to customise the editor and keep vim,
 // as agent-bridge's child editor does.
@@ -13,11 +14,14 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import {
+  CURSOR_MARKER,
   decodeKittyPrintable,
   type EditorTheme,
   getNativeClipboard,
   matchesKey,
+  renderFakeCursor,
   type TUI,
+  truncateToWidth,
   visibleWidth,
 } from "@earendil-works/pi-tui";
 import { vimState } from "./config.ts";
@@ -26,6 +30,7 @@ import {
   clampNormal,
   clipboardText,
   InsertRemap,
+  type Mode,
   type Register,
   type Result,
   VimEngine,
@@ -50,12 +55,21 @@ type Internals = {
   navigateHistory?(direction: -1 | 1): void;
   isInPaste?: boolean;
   lastAction?: unknown;
+  // Render state, for the visual selection.
+  scrollOffset?: number;
+  renderedVisibleLineCount?: number;
+  lastWidth?: number;
+  paddingX?: number;
+  buildVisualLineMap?(width: number): { logicalLine: number; startCol: number; length: number }[];
 };
 
+type BadgeColor = "success" | "accent" | "warning";
+
 const CLIPBOARD_TIMEOUT_MS = 200;
-const BADGE: Record<"insert" | "normal", { letter: string; color: "success" | "accent" }> = {
+const BADGE: Record<Mode, { letter: string; color: BadgeColor }> = {
   insert: { letter: "I", color: "success" },
   normal: { letter: "N", color: "accent" },
+  visual: { letter: "V", color: "warning" },
 };
 const ARROWS = { up: "\x1b[A", down: "\x1b[B" } as const;
 
@@ -125,7 +139,7 @@ export class VimEditor extends CustomEditor {
     this.wasEnabled = vimState().enabled;
   }
 
-  get mode(): "insert" | "normal" {
+  get mode(): Mode {
     return this.vim.mode;
   }
 
@@ -303,11 +317,96 @@ export class VimEditor extends CustomEditor {
   }
 
   /** Badge text and color for the current mode, or undefined when vim is off. */
-  badge(): { text: string; color: "success" | "accent" } | undefined {
+  badge(): { text: string; color: BadgeColor } | undefined {
     if (!vimState().enabled) return undefined;
     const { letter, color } = BADGE[this.vim.mode];
     const pending = this.vim.pendingKeys;
     return { text: ` ${letter}${pending ? ` ${pending}` : ""} `, color };
+  }
+
+  render(width: number): string[] {
+    const lines = super.render(width);
+    if (vimState().enabled && this.vim.mode === "visual") this.drawSelection(lines);
+    return lines;
+  }
+
+  /**
+   * Redraw the editor rows that hold the visual selection. Uses pi's own wrap
+   * map, so wrapped lines line up. Draws nothing if pi-tui's internals changed
+   * (the V badge still shows the mode).
+   */
+  private drawSelection(rows: string[]): void {
+    const self = this as unknown as Internals;
+    const sel = this.vim.selection(this.buf());
+    const scroll = self.scrollOffset;
+    const count = self.renderedVisibleLineCount;
+    const layoutWidth = self.lastWidth;
+    if (
+      !sel ||
+      scroll === undefined ||
+      count === undefined ||
+      !layoutWidth ||
+      !self.buildVisualLineMap
+    )
+      return;
+    const map = self.buildVisualLineMap(layoutWidth);
+    const lines = this.getLines();
+    const cursor = this.getCursor();
+    const width = visibleWidth(rows[0] ?? "");
+    const pad = " ".repeat(Math.min(self.paddingX ?? 0, Math.max(0, Math.floor((width - 1) / 2))));
+    const theme = this.getTheme?.();
+    const on = theme ? theme.getBgAnsi("selectedBg") : "\x1b[7m";
+    const off = theme ? "\x1b[49m" : "\x1b[27m";
+    const marker = this.focused ? CURSOR_MARKER : "";
+    for (let i = 0; i < count; i++) {
+      const vl = map[scroll + i];
+      const row = i + 1;
+      if (!vl || row >= rows.length - 1) continue;
+      const l = vl.logicalLine;
+      if (l < sel.start.line || l > sel.end.line) continue;
+      const line = lines[l] ?? "";
+      const a = vl.startCol;
+      const b = vl.startCol + vl.length;
+      // Selected columns on this logical line: [s, e).
+      let s = l === sel.start.line ? sel.start.col : 0;
+      let e = line.length;
+      if (sel.kind === "char" && l === sel.end.line) e = Math.min(line.length, sel.end.col + 1);
+      if (sel.kind === "char" && l === sel.end.line && sel.end.col < line.length) {
+        const c = line.charCodeAt(sel.end.col);
+        if (c >= 0xd800 && c <= 0xdbff) e = Math.min(line.length, sel.end.col + 2);
+      }
+      if (sel.kind === "line") s = 0;
+      s = Math.max(s, a);
+      e = Math.min(e, b);
+      const isLastChunk = b >= line.length;
+      // An empty line, or a char selection that runs on to the next line, shows one selected cell.
+      const tail =
+        isLastChunk &&
+        (line.length === 0 || (sel.kind === "char" && l < sel.end.line && e >= line.length));
+      const hasCursor = l === cursor.line && cursor.col >= a && (cursor.col < b || isLastChunk);
+      let out = "";
+      const cell = (text: string, col: number, selected: boolean) => {
+        if (!text) return;
+        if (hasCursor && col <= cursor.col && cursor.col < col + text.length) {
+          const k = cursor.col - col;
+          const g = [...text.slice(k)][0] ?? "";
+          cell(text.slice(0, k), col, selected);
+          out += marker + (selected ? on : "") + renderFakeCursor(g) + (selected ? off : "");
+          cell(text.slice(k + g.length), cursor.col + g.length, selected);
+          return;
+        }
+        out += selected ? on + text + off : text;
+      };
+      cell(line.slice(a, Math.max(a, s)), a, false);
+      if (e > s) cell(line.slice(s, e), s, true);
+      cell(line.slice(Math.max(a, e, s), b), Math.max(a, e, s), false);
+      if (hasCursor && cursor.col >= b) out += marker + renderFakeCursor(" ");
+      else if (tail) out += `${on} ${off}`;
+      const body = pad + out;
+      const used = visibleWidth(body);
+      rows[row] =
+        used >= width ? truncateToWidth(body, width, "") : body + " ".repeat(width - used);
+    }
   }
 
   protected renderBottomBorder(width: number, hiddenLineCount: number): string {

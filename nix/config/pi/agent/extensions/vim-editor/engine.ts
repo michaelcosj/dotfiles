@@ -12,7 +12,10 @@
 import * as M from "./motions.ts";
 
 export type Pos = M.Pos;
-export type Mode = "insert" | "normal";
+export type Mode = "insert" | "normal" | "visual";
+export type VisualKind = "char" | "line";
+/** A visual selection: inclusive start and end, in buffer order. */
+export type Selection = { kind: VisualKind; start: Pos; end: Pos };
 export type Buf = { lines: string[]; cursor: Pos };
 export type Register = { text: string; linewise: boolean };
 export type Result = {
@@ -55,7 +58,12 @@ type Exec = {
   vertical?: boolean;
   wantEnd?: boolean;
 };
-type InsertSession = { before: Buf; start: Buf; keys: string[] };
+/** Size of a visual selection, so `.` can act on the same amount of text. */
+type VisualSpan = { kind: VisualKind; lines: number; len: number };
+type Change = { keys: string[]; insert?: string; visual?: VisualSpan };
+type InsertSession = { before: Buf; start: Buf; keys: string[]; visual?: VisualSpan };
+/** A resolved selection: [s, e) flat offsets and the lines it touches. */
+type Span = { kind: VisualKind; s: number; e: number; l1: number; l2: number; start: Pos };
 
 const OPS = new Set(["d", "c", "y", ">", "<"]);
 const MOTIONS = new Set([
@@ -104,6 +112,34 @@ const COMMANDS = new Set([
   "A",
   "o",
   "O",
+  "v",
+  "V",
+]);
+/** Commands in VISUAL mode. */
+const VISUAL_COMMANDS = new Set([
+  "d",
+  "x",
+  "X",
+  "D",
+  "y",
+  "Y",
+  "c",
+  "s",
+  "C",
+  "S",
+  "R",
+  "~",
+  "u",
+  "U",
+  ">",
+  "<",
+  "J",
+  "p",
+  "P",
+  "o",
+  "O",
+  "v",
+  "V",
 ]);
 /** Commands that are an operator plus a motion. */
 const ALIASES: Record<string, [Op, string]> = {
@@ -180,6 +216,48 @@ export function parse(keys: string[]): Parsed {
   return COMMANDS.has(k) ? ok(k) : bad;
 }
 
+/** VISUAL mode keys: count, then a motion, a text object or a command. */
+export function parseVisual(keys: string[]): Parsed {
+  let i = 0;
+  let s = "";
+  while (isDigit(keys[i]) && !(s === "" && keys[i] === "0")) s += keys[i++];
+  const n = s ? Math.min(Number(s), MAX_COUNT) : undefined;
+  if (i >= keys.length) return { status: "more" };
+  const k = keys[i++]!;
+  const ok = (name: string, extra: Partial<Cmd> = {}): Parsed => ({
+    status: "ok",
+    cmd: { count: n ?? 1, countGiven: n !== undefined, name, ...extra },
+  });
+  if (k === "i" || k === "a") {
+    if (i >= keys.length) return { status: "more" };
+    const ch = keys[i++]!;
+    return M.TEXT_OBJECTS.has(ch) ? ok("obj", { arg: ch, inner: k === "i" }) : { status: "bad" };
+  }
+  if (k === "g") {
+    if (i >= keys.length) return { status: "more" };
+    return keys[i++] === "g" ? ok("gg") : { status: "bad" };
+  }
+  if (k === "r" || ("fFtT".includes(k) && k.length === 1)) {
+    if (i >= keys.length) return { status: "more" };
+    const ch = keys[i++]!;
+    return isChar(ch) ? ok(k, { arg: ch }) : { status: "bad" };
+  }
+  if (MOTIONS.has(k)) return ok(k);
+  return VISUAL_COMMANDS.has(k) ? ok(k) : { status: "bad" };
+}
+
+/** `next` with the cursor where it first differs from `prev`, as vim places it after undo. */
+function atChange(prev: Buf, next: Buf): Buf {
+  const a = flat(prev);
+  const b = flat(next);
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  if (p === a.length && p === b.length) return next;
+  return { lines: next.lines, cursor: M.fromOff(next.lines, p) };
+}
+
+const swapCase = (c: string) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase());
+
 /** The register as the clipboard holds it: linewise text ends with a newline. */
 export function clipboardText(r: Register): string {
   return r.linewise ? `${r.text}\n` : r.text;
@@ -239,7 +317,9 @@ export class VimEngine {
   private undoStack: Buf[] = [];
   private redoStack: Buf[] = [];
   private lastFind: { kind: M.FindKind; ch: string } | undefined;
-  private lastChange: { keys: string[]; insert?: string } | undefined;
+  private lastChange: Change | undefined;
+  private visualKind: VisualKind = "char";
+  private anchor: Pos = { line: 0, col: 0 };
   private session: InsertSession | undefined;
   private wantCol = 0;
 
@@ -272,9 +352,29 @@ export class VimEngine {
     this.pending = [];
   }
 
+  /** The visual selection in buffer order, for highlighting. */
+  selection(buf: Buf): Selection | undefined {
+    if (this.mode !== "visual") return undefined;
+    const sp = this.span(buf);
+    if (sp.kind === "line") {
+      return {
+        kind: "line",
+        start: { line: sp.l1, col: 0 },
+        end: { line: sp.l2, col: buf.lines[sp.l2]!.length },
+      };
+    }
+    const a = M.toOff(buf.lines, this.anchor);
+    const b = M.toOff(buf.lines, buf.cursor);
+    return {
+      kind: "char",
+      start: M.fromOff(buf.lines, Math.min(a, b)),
+      end: M.fromOff(buf.lines, Math.max(a, b)),
+    };
+  }
+
   /** The next key would paste, so the editor should read the clipboard first. */
   wantsRegister(key: string): boolean {
-    if (this.mode !== "normal" || (key !== "p" && key !== "P")) return false;
+    if (this.mode === "insert" || (key !== "p" && key !== "P")) return false;
     return this.pending.every(isDigit);
   }
 
@@ -290,6 +390,20 @@ export class VimEngine {
     if (this.mode === "insert") {
       if (key === "<esc>") return this.finishInsert(buf);
       return { pass: true };
+    }
+    if (this.mode === "visual") {
+      if (key === "<esc>") {
+        this.pending = [];
+        this.mode = "normal";
+        return { buf: clampNormal(buf) };
+      }
+      this.pending.push(key);
+      const keys = this.pending;
+      const parsed = parseVisual(keys);
+      if (parsed.status === "more") return {};
+      this.pending = [];
+      if (parsed.status === "bad") return {};
+      return this.runVisual(parsed.cmd, keys, buf);
     }
     if (key === "<esc>") {
       if (this.pending.length === 0) return { pass: true };
@@ -309,6 +423,12 @@ export class VimEngine {
     if (cmd.name === "u") return this.undo(cmd.count, buf);
     if (cmd.name === "<c-r>") return this.redo(cmd.count, buf);
     if (cmd.name === ".") return this.repeat(cmd, buf);
+    if (cmd.name === "v" || cmd.name === "V") {
+      this.mode = "visual";
+      this.visualKind = cmd.name === "v" ? "char" : "line";
+      this.anchor = { ...buf.cursor };
+      return {};
+    }
     const r = this.exec(cmd, buf);
     if (!r) return {};
     if (r.insert) {
@@ -332,7 +452,11 @@ export class VimEngine {
     this.pending = [];
     if (s && flat(buf) !== flat(s.before)) {
       this.pushUndo(s.before);
-      this.lastChange = { keys: s.keys, insert: insertedText(flat(s.start), flat(buf)) };
+      this.lastChange = {
+        keys: s.keys,
+        insert: insertedText(flat(s.start), flat(buf)),
+        visual: s.visual,
+      };
     }
     const { line, col } = buf.cursor;
     const out = clampNormal({
@@ -358,7 +482,7 @@ export class VimEngine {
       cur = prev;
     }
     if (cur === buf) return {};
-    return { buf: clampNormal(cur), changed: true };
+    return { buf: clampNormal(atChange(buf, cur)), changed: true };
   }
 
   private redo(count: number, buf: Buf): Result {
@@ -370,7 +494,7 @@ export class VimEngine {
       cur = next;
     }
     if (cur === buf) return {};
-    return { buf: clampNormal(cur), changed: true };
+    return { buf: clampNormal(atChange(buf, cur)), changed: true };
   }
 
   private repeat(cmd: Cmd, buf: Buf): Result {
@@ -382,9 +506,39 @@ export class VimEngine {
       while (isDigit(keys[i]) && !(i === 0 && keys[i] === "0")) i++;
       keys = [...String(cmd.count), ...keys.slice(i)];
     }
-    const parsed = parse(keys);
-    if (parsed.status !== "ok") return {};
-    const r = this.exec(parsed.cmd, buf);
+    let r: Exec | null;
+    if (lc.visual) {
+      const v = lc.visual;
+      const { lines, cursor } = buf;
+      const text = lines.join("\n");
+      const off = M.toOff(lines, cursor);
+      const l2 = Math.min(cursor.line + v.lines - 1, lines.length - 1);
+      const sp: Span =
+        v.kind === "line"
+          ? {
+              kind: "line",
+              s: M.toOff(lines, { line: cursor.line, col: 0 }),
+              e: M.toOff(lines, { line: l2, col: lines[l2]!.length }),
+              l1: cursor.line,
+              l2,
+              start: cursor,
+            }
+          : {
+              kind: "char",
+              s: off,
+              e: Math.min(off + v.len, text.length),
+              l1: cursor.line,
+              l2: M.fromOff(lines, Math.min(off + v.len, text.length)).line,
+              start: cursor,
+            };
+      const parsed = parseVisual(lc.keys);
+      if (parsed.status !== "ok") return {};
+      r = this.visualOp(parsed.cmd, sp, buf);
+    } else {
+      const parsed = parse(keys);
+      if (parsed.status !== "ok") return {};
+      r = this.exec(parsed.cmd, buf);
+    }
     if (!r) return {};
     let out = r.buf;
     if (r.insert) {
@@ -403,6 +557,198 @@ export class VimEngine {
     out = clampNormal(out);
     this.wantCol = out.cursor.col;
     return { buf: out, changed, yanked: r.yanked };
+  }
+
+  // ---- visual mode ----
+
+  /** The current selection as offsets. A char selection includes the end character. */
+  private span(buf: Buf): Span {
+    const { lines, cursor } = buf;
+    const text = lines.join("\n");
+    const a = M.toOff(lines, this.anchor);
+    const b = M.toOff(lines, cursor);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const start = M.fromOff(lines, lo);
+    const endPos = M.fromOff(lines, hi);
+    if (this.visualKind === "line") {
+      const l1 = Math.min(this.anchor.line, cursor.line);
+      const l2 = Math.max(this.anchor.line, cursor.line);
+      return {
+        kind: "line",
+        s: M.toOff(lines, { line: l1, col: 0 }),
+        e: M.toOff(lines, { line: l2, col: lines[l2]!.length }),
+        l1,
+        l2,
+        start: { line: l1, col: start.line === l1 ? start.col : 0 },
+      };
+    }
+    // An empty line (or the end of a line) selects its newline.
+    const e = text[hi] === "\n" ? hi + 1 : hi >= text.length ? hi : M.nextIdx(text, hi);
+    return { kind: "char", s: lo, e, l1: start.line, l2: endPos.line, start };
+  }
+
+  private runVisual(cmd: Cmd, keys: string[], buf: Buf): Result {
+    const { lines } = buf;
+    switch (cmd.name) {
+      case "v":
+      case "V": {
+        const kind = cmd.name === "v" ? "char" : "line";
+        if (kind === this.visualKind) {
+          this.mode = "normal";
+          return { buf: clampNormal(buf) };
+        }
+        this.visualKind = kind;
+        return {};
+      }
+      case "o":
+      case "O": {
+        const cur = this.anchor;
+        this.anchor = { ...buf.cursor };
+        this.wantCol = cur.col;
+        return { buf: clampNormal({ lines, cursor: cur }) };
+      }
+      case "obj": {
+        const r = M.textObject(lines, buf.cursor, cmd.arg!, cmd.inner!);
+        if (!r || r[0] >= r[1]) return {};
+        const text = lines.join("\n");
+        this.visualKind = "char";
+        this.anchor = M.fromOff(lines, r[0]);
+        const cur = M.fromOff(lines, M.prevIdx(text, r[1]));
+        this.wantCol = cur.col;
+        return { buf: { lines, cursor: cur } };
+      }
+    }
+    if (VISUAL_COMMANDS.has(cmd.name) || cmd.name === "r") {
+      const sp = this.span(buf);
+      const r = this.visualOp(cmd, sp, buf);
+      this.mode = "normal";
+      if (!r) return { buf: clampNormal(buf) };
+      const visual: VisualSpan = { kind: sp.kind, lines: sp.l2 - sp.l1 + 1, len: sp.e - sp.s };
+      const opKeys = [...keys];
+      if (r.insert) {
+        this.mode = "insert";
+        this.session = { before: copy(buf), start: copy(r.buf), keys: opKeys, visual };
+        return { buf: r.buf, changed: r.changed, yanked: r.yanked };
+      }
+      if (r.changed) {
+        this.pushUndo(buf);
+        this.lastChange = { keys: opKeys, visual };
+      }
+      const out = clampNormal(r.buf);
+      this.wantCol = out.cursor.col;
+      return { buf: out, changed: r.changed, yanked: r.yanked };
+    }
+    // A motion moves the cursor; the anchor stays.
+    const m = this.motion(cmd, buf);
+    if (!m || "history" in m) return {};
+    const out = clampNormal({ lines, cursor: m.pos });
+    if (!m.vertical) this.wantCol = m.wantEnd ? Number.POSITIVE_INFINITY : out.cursor.col;
+    return { buf: out };
+  }
+
+  /** Apply a VISUAL command to a selection. */
+  private visualOp(cmd: Cmd, sp: Span, buf: Buf): Exec | null {
+    const { lines } = buf;
+    const text = lines.join("\n");
+    const linewise = sp.kind === "line" || "XDYCSR".includes(cmd.name);
+    const at = (b: Buf): Buf => ({ lines: b.lines, cursor: b.cursor });
+    const replaceRange = (fn: (seg: string) => string): Exec => {
+      const seg = text.slice(sp.s, sp.e);
+      const next = fromText(text.slice(0, sp.s) + fn(seg) + text.slice(sp.e), { line: 0, col: 0 });
+      return {
+        buf: { lines: next.lines, cursor: M.fromOff(next.lines, sp.s) },
+        changed: fn(seg) !== seg,
+      };
+    };
+    switch (cmd.name) {
+      case "d":
+      case "x":
+      case "X":
+      case "D":
+      case "c":
+      case "s":
+      case "C":
+      case "S":
+      case "R": {
+        const change = "csCSR".includes(cmd.name);
+        if (linewise) return this.lineOp(change ? "c" : "d", sp.l1, sp.l2, buf);
+        const removed = text.slice(sp.s, sp.e);
+        const reg: Register = { text: removed, linewise: false };
+        this.register = reg;
+        const next = fromText(text.slice(0, sp.s) + text.slice(sp.e), { line: 0, col: 0 });
+        return {
+          buf: { lines: next.lines, cursor: M.fromOff(next.lines, sp.s) },
+          changed: removed !== "",
+          insert: change,
+          yanked: reg,
+        };
+      }
+      case "y":
+      case "Y": {
+        if (linewise) {
+          const r = this.lineOp("y", sp.l1, sp.l2, buf);
+          return { ...r, buf: at({ lines, cursor: sp.start }) };
+        }
+        const reg: Register = { text: text.slice(sp.s, sp.e), linewise: false };
+        this.register = reg;
+        return { buf: { lines, cursor: sp.start }, yanked: reg };
+      }
+      case "r":
+        return replaceRange((seg) => [...seg].map((c) => (c === "\n" ? c : cmd.arg!)).join(""));
+      case "~":
+        return replaceRange((seg) => [...seg].map(swapCase).join(""));
+      case "u":
+        return replaceRange((seg) => seg.toLowerCase());
+      case "U":
+        return replaceRange((seg) => seg.toUpperCase());
+      case ">":
+      case "<": {
+        let cur = buf;
+        let changed = false;
+        for (let i = 0; i < cmd.count; i++) {
+          const r = this.lineOp(cmd.name, sp.l1, sp.l2, cur);
+          changed ||= !!r.changed;
+          cur = r.buf;
+        }
+        return { buf: cur, changed };
+      }
+      case "J":
+        return this.exec(
+          { count: Math.max(2, sp.l2 - sp.l1 + 1), countGiven: true, name: "J" },
+          { lines, cursor: { line: sp.l1, col: 0 } },
+        );
+      case "p":
+      case "P": {
+        const reg = this.register;
+        if (!reg) return null;
+        const old: Register = linewise
+          ? { text: lines.slice(sp.l1, sp.l2 + 1).join("\n"), linewise: true }
+          : { text: text.slice(sp.s, sp.e), linewise: false };
+        let next: string[];
+        let cursor: Pos;
+        if (linewise) {
+          const ins = reg.linewise ? reg.text.split("\n") : reg.text.split("\n");
+          next = [...lines];
+          next.splice(sp.l1, sp.l2 - sp.l1 + 1, ...ins);
+          cursor = { line: sp.l1, col: reg.linewise ? M.firstNonBlank(ins[0]!) : 0 };
+        } else {
+          const ins = reg.linewise ? `\n${reg.text}\n` : reg.text;
+          const t = text.slice(0, sp.s) + ins + text.slice(sp.e);
+          next = t.split("\n");
+          const end = reg.linewise ? sp.s + 1 : Math.max(sp.s, sp.s + ins.length - 1);
+          cursor = M.fromOff(next, end);
+        }
+        // `p` keeps the replaced text, as in vim; `P` leaves the register alone.
+        if (cmd.name === "p") this.register = old;
+        return {
+          buf: { lines: next, cursor },
+          changed: true,
+          yanked: cmd.name === "p" ? old : undefined,
+        };
+      }
+    }
+    return null;
   }
 
   // ---- motions ----

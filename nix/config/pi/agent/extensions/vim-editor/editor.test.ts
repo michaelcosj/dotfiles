@@ -200,6 +200,81 @@ describe("VimEditor", () => {
   });
 });
 
+describe("visual mode", () => {
+  /** Text inside selection highlights on the editor rows (the cursor cell counts). */
+  const ESC_ = String.fromCharCode(27);
+  const BEL = String.fromCharCode(7);
+  const ON = `${ESC_}[7m`;
+  const OFF = `${ESC_}[27m`;
+  const strip = (r: string) =>
+    [`${ESC_}_pi:c${BEL}`, `${ESC_}_pi:fc${BEL}`, `${ESC_}_pi:/fc${BEL}`].reduce(
+      (t, m) => t.split(m).join(""),
+      r,
+    );
+  const selected = (rows: string[]) =>
+    rows.slice(1, -1).map((r) =>
+      strip(r)
+        .split(ON)
+        .slice(1)
+        .map((part) => part.split(OFF)[0])
+        .join(""),
+    );
+
+  test("v selects; badge shows V; d deletes the selection", () => {
+    const h = make();
+    h.type("hello world", ESC, "0v");
+    expect(h.ed.mode).toBe("visual");
+    expect(h.ed.badge()).toEqual({ text: " V ", color: "warning" });
+    h.type("e");
+    expect(selected(h.ed.render(40))).toEqual(["hello"]);
+    h.type("d");
+    expect(h.ed.getText()).toBe(" world");
+    expect(h.ed.mode).toBe("normal");
+  });
+
+  test("V highlights whole lines; Esc leaves without aborting", () => {
+    const h = make();
+    h.type("one", "\x1b\r", "two", "\x1b\r", "three", ESC, "ggVj");
+    expect(h.ed.getLines()).toEqual(["one", "two", "three"]);
+    expect(selected(h.ed.render(40))).toEqual(["one", "two", ""]);
+    h.type(ESC);
+    expect(h.ed.mode).toBe("normal");
+    expect(h.interrupts()).toBe(0);
+  });
+
+  test("selection rows keep the editor width", () => {
+    const h = make();
+    h.type("abc def", ESC, "0vw");
+    const rows = h.ed.render(30);
+    for (const r of rows) expect(tuiPkg.visibleWidth(r)).toBe(30);
+    expect(selected(rows)).toEqual(["abc d"]);
+  });
+
+  test("wrapped lines highlight the right columns", () => {
+    const h = make();
+    const text = "aaaa bbbb cccc dddd eeee ffff";
+    h.type(text, ESC, "0wv$");
+    const rows = h.ed.render(12);
+    const sel = selected(rows).join("");
+    expect(sel.replace(/ /g, "")).toBe("bbbbccccddddeeeeffff");
+    for (const r of rows) expect(tuiPkg.visibleWidth(r)).toBe(12);
+  });
+
+  test("y yanks the selection to the clipboard", () => {
+    const h = make();
+    h.type("foo bar", ESC, "0vey");
+    expect(h.written.at(-1)).toBe("foo");
+    expect(h.ed.mode).toBe("normal");
+  });
+
+  test("p over a selection reads the clipboard first", async () => {
+    const h = make({ clip: "NEW" });
+    h.type("old text", ESC, "0vep");
+    await Bun.sleep(10);
+    expect(h.ed.getText()).toBe("NEW text");
+  });
+});
+
 describe("config", () => {
   test("parseConfig keeps only two-character Esc remaps", () => {
     const c = parseConfig({

@@ -1,5 +1,7 @@
 # Plan: vim editor mode for pi
 
+Status: phase 1 done (79a54e2), phase 2 visual mode done.
+
 Add a vim-style modal editor to pi's prompt input. Copy the feature set and behavior of Claude Code's vim editor mode (code.claude.com/docs/en/interactive-mode#vim-editor-mode).
 
 ## Facts that shape the design

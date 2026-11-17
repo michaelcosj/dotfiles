@@ -234,6 +234,51 @@ cases("undo, redo, repeat", [
   ["|abc", "u", "|abc"],
 ]);
 
+cases("visual mode", [
+  ["|foo bar baz", "vlld", "| bar baz"],
+  ["|foo bar baz", "vex", "| bar baz"],
+  ["foo |bar baz", "vey$p", "foo bar bazba|r"],
+  ["|foo bar", "vecqux<esc>", "qu|x bar"],
+  ["|foo bar", "vesX<esc>", "|X bar"],
+  ["foo b|ar baz", "viwd", "foo | baz"],
+  ["foo b|ar baz", "vawd", "foo |baz"],
+  ['say "h|i you" ok', 'vi"d', 'say "|" ok'],
+  ["f(a, |b)", "vi(y0P", "a, |bf(a, b)"],
+  ["|abc", "vlrx", "|xxc"],
+  ["|abc", "vl~", "|ABc"],
+  ["|ABC", "vlu", "|abC"],
+  ["|abc", "vlU", "|ABc"],
+  ["|abcd", "lvlohd", "|d"],
+  ["one\n|two\nthree", "Vd", "one\n|three"],
+  ["one\n|two\nthree", "Vjd", "|one"],
+  ["|one\ntwo\nthree", "Vjy", "|one\ntwo\nthree"],
+  ["|one\ntwo\nthree", "VjyGp", "one\ntwo\nthree\n|one\ntwo"],
+  ["|one\ntwo", "Vcnew<esc>", "ne|w\ntwo"],
+  ["|a\nb\nc", "Vj>", "  |a\n  b\nc"],
+  ["|a\nb", "Vj2>", "    |a\n    b"],
+  ["  |a\n  b", "Vj<", "|a\nb"],
+  ["|a\nb\nc", "VjjJ", "a b| c"],
+  ["|a\nb\nc", "vjJ", "a| b\nc"],
+  ["|abc def", "vlx", "|c def"],
+  ["|abc def", "vX", "|"],
+  ["|one\ntwo", "vD", "|two"],
+  ["ab|c\ndef", "vjd", "a|b"],
+  ["|abc", "vl<esc>", "a|bc"],
+  ["|abc", "vlv", "a|bc"],
+  ["|ab\ncd", "vVd", "|cd"],
+  ["|ab\ncd", "Vvd", "|b\ncd"],
+  ["|foo bar", "yiwwviwp", "foo fo|o"],
+  ["|foo bar", "yiwwviwp0viwp", "ba|r foo"],
+  ["|foo bar", "yiwwviwP0viwP", "fo|o foo"],
+  ["|ab\ncd", "yyjvp", "ab\n\n|ab\nd"],
+  ["|ab\ncd", "yyjVp", "ab\n|ab"],
+  ["|abcdef", "vld.", "|ef"],
+  ["|a\nb\nc\nd", "Vjd.", "|"],
+  ["|abcdef", "vlcX<esc>l.", "X|Xef"],
+  ["|one two", "vlUw.", "ONe |TWo"],
+  ["|abc", "vlduu", "|abc"],
+]);
+
 describe("modes and pass-through", () => {
   test("starts in INSERT and passes typed keys to pi", () => {
     const e = new VimEngine();
@@ -269,6 +314,29 @@ describe("modes and pass-through", () => {
     expect(e.feed("d", buf("|abc"))).toEqual({});
     expect(e.feed("z", buf("|abc"))).toEqual({});
     expect(e.pendingKeys).toBe("");
+  });
+
+  test("selection reports the visual range in buffer order", () => {
+    const { engine } = run("ab|cd", "vh");
+    expect(engine.mode).toBe("visual");
+    expect(engine.selection(buf("a|bcd"))).toEqual({
+      kind: "char",
+      start: { line: 0, col: 1 },
+      end: { line: 0, col: 2 },
+    });
+    const v = run("|a\nbc", "Vj").engine;
+    expect(v.selection(buf("a\n|bc"))).toEqual({
+      kind: "line",
+      start: { line: 0, col: 0 },
+      end: { line: 1, col: 2 },
+    });
+    expect(normalEngine("|a").selection(buf("|a"))).toBeUndefined();
+  });
+
+  test("Esc in VISUAL goes to NORMAL, not to pi", () => {
+    const { engine } = run("|abc", "v");
+    expect(engine.feed("<esc>", buf("|abc")).pass).toBeUndefined();
+    expect(engine.mode).toBe("normal");
   });
 
   test("reset returns to INSERT with empty undo", () => {
