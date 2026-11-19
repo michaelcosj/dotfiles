@@ -225,6 +225,12 @@ Every machine links the same file. Pi also writes per-machine state there: a
 strips those keys from what git stages and diffs, so they never reach a commit.
 When a pull changes the file, Pi creates a new `deviceId` for that machine.
 
+Project trust (`~/.pi/agent/trust.json`) is per machine and is not in the
+repo: trust each main checkout once with `/trust`. The `worktree-trust`
+extension then trusts every agent worktree of that checkout (made by
+`agent-worktree`, under `$AGENT_WORKTREES`), so a child agent started with
+`worktree: true` does not stop at the trust prompt. It saves nothing.
+
 `~/.pi` used to be a single link to `config/pi`, which put runtime state in the
 checkout. The first switch with `home/pi.nix` runs `scripts/migrate-pi-state`
 before Home Manager checks its links. It replaces the link with a directory and
