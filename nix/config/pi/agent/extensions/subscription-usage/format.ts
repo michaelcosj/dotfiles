@@ -14,7 +14,7 @@ export type Tone = "dim" | "success" | "warning" | "error";
 export type Paint = (tone: Tone, text: string) => string;
 
 export const STALE_MS = 15 * 60_000;
-const NAMES: Record<ProviderId, [full: string, short: string]> = { claude: ["Claude", "C"], codex: ["GPT", "G"] };
+const NAMES: Record<ProviderId, [full: string, short: string]> = { claude: ["Claude", "C"], codex: ["GPT", "G"], gemini: ["Gemini", "A"] };
 const ESC = /\x1b\[[0-9;]*m/g;
 
 export const visible = (text: string) => [...text.replace(ESC, "")].length;
@@ -170,11 +170,11 @@ function clockTime(at: number, now: number): string {
 }
 
 /** Plain multi-line details for /subscription-usage. */
-export function describe(state: UsageState, errors: Partial<Record<ProviderId, string>>, now = Date.now()): string {
+export function describe(state: UsageState, errors: Partial<Record<ProviderId, string>>, now = Date.now(), ids: readonly ProviderId[] = PROVIDERS): string {
   const lines: string[] = [];
-  for (const id of PROVIDERS) {
+  for (const id of ids) {
     const s = state[id];
-    const name = id === "claude" ? "Claude" : "ChatGPT";
+    const name = id === "claude" ? "Claude" : id === "codex" ? "ChatGPT" : "Gemini";
     if (!s) {
       lines.push(`${name}: ${errors[id] ?? "no data"}`);
       continue;

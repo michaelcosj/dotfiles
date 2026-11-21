@@ -8,7 +8,8 @@ import { parseCache, readCache, storeSnapshot, updateEntry } from "./cache.ts";
 import { claudeFromMessage, claudeFromUsage, claudeTokenFrom } from "./claude.ts";
 import { accountIdFromToken, codexCliLogin, codexFromHeaders, codexFromUsage } from "./codex.ts";
 import { describe, duration, renderUsage, visible } from "./format.ts";
-import { mergeSnapshot, type UsageState } from "./model.ts";
+import { geminiFromUsage } from "./gemini.ts";
+import { mergeSnapshot, providerOfModel, type UsageState } from "./model.ts";
 
 const NOW = Date.UTC(2026, 10, 12, 10, 0, 0);
 const plain = (_tone: string, s: string) => s;
@@ -235,5 +236,34 @@ group("format", () => {
     const text = describe(state, { codex: "HTTP 500" }, NOW);
     expect(text).toContain("Claude: 5h: 78% left, under pace (54% under), resets");
     expect(text).toContain("(last poll: HTTP 500)");
+  });
+});
+
+group("gemini", () => {
+  const out = [
+    "Gemini Models\tWeekly Limit Remaining\t75%\t2026-11-28T13:24:16Z",
+    "Gemini Models\tFive Hour Limit Remaining\t100%\t1970-01-01T00:00:00Z",
+    "Claude and GPT models\tWeekly Limit Remaining\t10%\t2026-11-28T13:24:16Z",
+    "Gemini 4 Argon\tGemini 4 Argon Weekly Limit\t5%\t2026-11-28T21:36:59Z",
+  ].join("\n");
+
+  test("reads the Gemini Models group from agy -p /usage", () => {
+    const s = geminiFromUsage(out, NOW)!;
+    expect(s.weekly).toEqual({ usedPct: 25, resetsAt: Date.parse("2026-11-28T13:24:16Z") });
+    expect(s.session).toEqual({ usedPct: 0 });
+    expect(s.source).toBe("poll");
+  });
+
+  test("no Gemini rows is no data", () => {
+    expect(geminiFromUsage("Error: not signed in\n", NOW)).toBeUndefined();
+  });
+
+  test("antigravity models are the gemini provider", () => {
+    expect(providerOfModel("antigravity")).toBe("gemini");
+  });
+
+  test("details only for the given providers", () => {
+    expect(describe({}, {}, NOW, ["claude", "codex"])).not.toContain("Gemini");
+    expect(describe({}, {}, NOW)).toContain("Gemini: no data");
   });
 });

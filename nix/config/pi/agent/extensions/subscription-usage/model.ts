@@ -1,7 +1,7 @@
 /** Normalised subscription usage shared by the parsers, cache, and formatter. No runtime Pi imports. */
 
-export type ProviderId = "claude" | "codex";
-export const PROVIDERS: readonly ProviderId[] = ["claude", "codex"];
+export type ProviderId = "claude" | "codex" | "gemini";
+export const PROVIDERS: readonly ProviderId[] = ["claude", "codex", "gemini"];
 
 export interface Window {
   /** 0..100 */
@@ -65,5 +65,6 @@ export function isSnapshot(value: unknown): value is Snapshot {
 export function providerOfModel(provider: string | undefined): ProviderId | undefined {
   if (provider === "openai-codex") return "codex";
   if (provider === "claude-code" || provider === "anthropic") return "claude";
+  if (provider === "antigravity") return "gemini";
   return undefined;
 }

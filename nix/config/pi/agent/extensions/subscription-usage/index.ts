@@ -1,9 +1,10 @@
-/** Claude and ChatGPT subscription limits in the footer, without the Agent Bar daemon.
+/** Claude, ChatGPT, and (with pi-agy-acp) Gemini subscription limits in the footer, without the Agent Bar daemon.
  *
  * Passive data comes from Pi's own requests (pi-claude-code rate-limit diagnostics, Codex x-codex-* headers).
  * A low-frequency poll of the providers' usage endpoints fills the gaps at startup and when idle. A cache
  * file shared by all Pi processes means one process polls for all of them. Nothing here blocks Pi: all I/O
- * is async, every request has a timeout, and timers are unref'd.
+ * is async, every request has a timeout, and timers are unref'd. Gemini comes only from `agy -p /usage`,
+ * and only while the pi-agy-acp extension registers the antigravity provider.
  *
  * compact-footer.ts claims the `subscription-usage:update` event and draws the line at its real width. If
  * no footer claims it, the compact text goes to setStatus instead. /subscription-usage forces a poll.
@@ -15,6 +16,7 @@ import { readCache, storeSnapshot, updateEntry, type CacheFile } from "./cache.t
 import { claudeFromMessage, pollClaude } from "./claude.ts";
 import { codexCliLogin, codexFromHeaders, pollCodex } from "./codex.ts";
 import { describe, renderTier, renderUsage, type Paint } from "./format.ts";
+import { AGY_PROVIDER, pollGemini } from "./gemini.ts";
 import { UsageError } from "./http.ts";
 import { mergeSnapshot, PROVIDERS, providerOfModel, type ProviderId, type Snapshot, type UsageState } from "./model.ts";
 
@@ -25,6 +27,8 @@ const TICK_MS = 30_000;
 const FRESH_MS = 5 * 60_000;
 const CLAIM_MS = 60_000;
 const REQUEST_TIMEOUT_MS = 8_000;
+/** agy starts a CLI process for /usage; it takes about 5 s. */
+const AGY_TIMEOUT_MS = 30_000;
 const BACKOFF_MS = [5, 10, 30].map((m) => m * 60_000);
 const NOT_LOGGED_IN_MS = 30 * 60_000;
 
@@ -53,11 +57,18 @@ export default function subscriptionUsage(pi: ExtensionAPI) {
   let writes: Promise<unknown> = Promise.resolve();
 
   const active = () => providerOfModel(ctx?.model?.provider);
+  /** Gemini only while pi-agy-acp is loaded. */
+  const enabled = (id: ProviderId) => id !== "gemini" || !!ctx?.modelRegistry.getProvider(AGY_PROVIDER);
+  const shown = (): UsageState => {
+    const out: UsageState = {};
+    for (const id of PROVIDERS) if (state[id] && enabled(id)) out[id] = state[id];
+    return out;
+  };
 
   function publish() {
     const c = ctx;
     if (!c?.hasUI) return;
-    const snapshot = state;
+    const snapshot = shown();
     const current = active();
     const update: UsageUpdate = {
       render: (width, paint) => renderUsage(snapshot, width, paint, current),
@@ -103,7 +114,7 @@ export default function subscriptionUsage(pi: ExtensionAPI) {
   async function poll(id: ProviderId, force: boolean): Promise<void> {
     const c = ctx;
     const signal = session?.signal;
-    if (!c || !signal || signal.aborted || polling.has(id)) return;
+    if (!c || !signal || signal.aborted || polling.has(id) || !enabled(id)) return;
     polling.add(id);
     try {
       const now = Date.now();
@@ -118,11 +129,12 @@ export default function subscriptionUsage(pi: ExtensionAPI) {
       if (skip || signal.aborted) return;
       debug(`poll ${id}${force ? " (forced)" : ""}`);
 
-      const request = AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]);
+      const request = AbortSignal.any([signal, AbortSignal.timeout(id === "gemini" ? AGY_TIMEOUT_MS : REQUEST_TIMEOUT_MS)]);
       let snapshot: Snapshot | undefined;
       let failure: unknown;
       try {
         if (id === "claude") snapshot = await pollClaude(request);
+        else if (id === "gemini") snapshot = await pollGemini(request);
         else {
           const auth = await c.modelRegistry.getProviderAuth("openai-codex").catch(() => undefined);
           const token = auth?.auth.apiKey;
@@ -146,7 +158,7 @@ export default function subscriptionUsage(pi: ExtensionAPI) {
           entry.failures = failures;
           entry.rateLimited = status === 429;
           entry.nextPollAt = Date.now() + (status === 429 ? BACKOFF_MS.at(-1)! : BACKOFF_MS[Math.min(failures, BACKOFF_MS.length) - 1]);
-          entry.lastError = failure instanceof Error ? (failure.name === "TimeoutError" ? "timed out" : failure.message) : String(failure);
+          entry.lastError = failure instanceof Error ? (failure.name === "TimeoutError" || failure.name === "AbortError" ? "timed out" : failure.message.split("\n")[0]) : String(failure);
           debug(`poll ${id} failed: ${entry.lastError}`);
         }
       });
@@ -204,12 +216,13 @@ export default function subscriptionUsage(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("subscription-usage", {
-    description: "Refresh Claude and ChatGPT subscription limits now and show details",
+    description: "Refresh Claude, ChatGPT, and Gemini (with pi-agy-acp) subscription limits now and show details",
     handler: async (_args, c) => {
       if (!session) return;
       ctx = c;
       await Promise.all(PROVIDERS.map((id) => poll(id, true)));
-      c.ui.notify(describe(state, errors), "info");
+      const ids = PROVIDERS.filter(enabled);
+      c.ui.notify(describe(shown(), errors, Date.now(), ids), "info");
     },
   });
 }
