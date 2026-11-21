@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseCache, readCache, storeSnapshot, updateEntry } from "./cache.ts";
 import { claudeFromMessage, claudeFromUsage, claudeTokenFrom } from "./claude.ts";
-import { accountIdFromToken, codexFromHeaders, codexFromUsage } from "./codex.ts";
+import { accountIdFromToken, codexCliLogin, codexFromHeaders, codexFromUsage } from "./codex.ts";
 import { describe, duration, renderUsage, visible } from "./format.ts";
 import { mergeSnapshot, type UsageState } from "./model.ts";
 
@@ -109,6 +109,17 @@ group("codex", () => {
     expect(codexFromUsage({ rate_limit: null })).toBeUndefined();
   });
 
+  test("reads the Codex CLI login, and nothing when it is missing or bad", async () => {
+    const home = mkdtempSync(join(tmpdir(), "codex-home-"));
+    expect(await codexCliLogin(home)).toBeUndefined();
+    writeFileSync(join(home, "auth.json"), "{not json");
+    expect(await codexCliLogin(home)).toBeUndefined();
+    writeFileSync(join(home, "auth.json"), JSON.stringify({ tokens: { access_token: "tok", account_id: "acc" } }));
+    expect(await codexCliLogin(home)).toEqual({ token: "tok", accountId: "acc" });
+    writeFileSync(join(home, "auth.json"), JSON.stringify({ OPENAI_API_KEY: "sk-x", tokens: null }));
+    expect(await codexCliLogin(home)).toBeUndefined();
+  });
+
   test("account id from JWT", () => {
     const payload = Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "acc" } })).toString("base64url");
     expect(accountIdFromToken(`h.${payload}.s`)).toBe("acc");
@@ -155,15 +166,27 @@ group("format", () => {
     expect(duration(50 * 3600_000)).toBe("2d2h");
   });
 
+  test("wide tier: weekly meter with pace tick and the difference from pace", () => {
+    // 2 of 7 days gone (29%), 59% used: 30 points over pace; tick at 71% left.
+    expect(renderUsage(state, 200, plain, "claude", NOW)).toBe(
+      "Claude 5h ▰┃▰▰▰▱ 78% 1h12m · wk ▰▰▰▰▱▱▱┃▱▱▱ 41% (30% over pace) ↑1d9h   GPT 5h 92% · wk ▰▰▰▰▰▰▱▱▱▱ 63%");
+    const week = (usedPct: number) => renderUsage({ claude: { weekly: { usedPct, resetsAt: NOW + 5 * 86_400_000 }, fetchedAt: NOW, source: "poll" } }, 200, tagged, undefined, NOW)!;
+    expect(week(59)).toContain("<warning>(30% over pace)");
+    expect(week(20)).toContain("<dim>(9% under pace)");
+    expect(week(29)).toContain("(on pace)");
+    // Over pace but too early to call it ahead: shown, not coloured.
+    expect(week(1)).toContain("<dim>(28% under pace)");
+  });
+
   test("full tier, active provider first with meter", () => {
-    expect(renderUsage(state, 200, plain, "claude", NOW)).toBe("Claude 5h ▰┃▰▰▰▱ 78% 1h12m · wk 41% ↑1d9h   GPT 5h 92% · wk 63%");
-    expect(renderUsage(state, 200, plain, "codex", NOW)).toBe("GPT 5h ▰▰▰▰▰ 92% · wk 63%   Claude 5h 78% · wk 41% ↑1d9h");
+    expect(renderUsage(state, 80, plain, "claude", NOW)).toBe("Claude 5h ▰┃▰▰▰▱ 78% 1h12m · wk 41% ↑1d9h   GPT 5h 92% · wk 63%");
+    expect(renderUsage(state, 80, plain, "codex", NOW)).toBe("GPT 5h ▰▰▰▰▰ 92% · wk 63%   Claude 5h 78% · wk 41% ↑1d9h");
   });
 
   test("medium and narrow tiers by width", () => {
     expect(renderUsage(state, 45, plain, "claude", NOW)).toBe("Claude 78% 1h12m · 41% ↑1d9h   GPT 92/63");
     expect(renderUsage(state, 25, plain, "claude", NOW)).toBe("C 78/41↑ · G 92/63");
-    for (const width of [25, 45, 200]) expect(visible(renderUsage(state, width, plain, "claude", NOW)!)).toBeLessThanOrEqual(width);
+    for (const width of [25, 45, 80, 200]) expect(visible(renderUsage(state, width, plain, "claude", NOW)!)).toBeLessThanOrEqual(width);
   });
 
   test("colours: low is warning, empty is error and shows the countdown", () => {
@@ -196,7 +219,7 @@ group("format", () => {
   test("pace in the narrow tier and details", () => {
     const ahead: UsageState = { codex: { weekly: { usedPct: 50, resetsAt: NOW + 5 * 86_400_000 }, fetchedAt: NOW, source: "poll" } };
     expect(renderUsage(ahead, 8, plain, undefined, NOW)).toBe("G -/50↑");
-    expect(describe(ahead, {}, NOW)).toContain("week: 50% left, ahead, empty in 2d0h, resets");
+    expect(describe(ahead, {}, NOW)).toContain("week: 50% left, ahead (21% over), empty in 2d0h, resets");
   });
 
   test("stale data and passed resets get ~", () => {
@@ -210,7 +233,7 @@ group("format", () => {
 
   test("details", () => {
     const text = describe(state, { codex: "HTTP 500" }, NOW);
-    expect(text).toContain("Claude: 5h: 78% left, under pace, resets");
+    expect(text).toContain("Claude: 5h: 78% left, under pace (54% under), resets");
     expect(text).toContain("(last poll: HTTP 500)");
   });
 });

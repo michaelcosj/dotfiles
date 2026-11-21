@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readCache, storeSnapshot, updateEntry, type CacheFile } from "./cache.ts";
 import { claudeFromMessage, pollClaude } from "./claude.ts";
-import { codexFromHeaders, pollCodex } from "./codex.ts";
+import { codexCliLogin, codexFromHeaders, pollCodex } from "./codex.ts";
 import { describe, renderTier, renderUsage, type Paint } from "./format.ts";
 import { UsageError } from "./http.ts";
 import { mergeSnapshot, PROVIDERS, providerOfModel, type ProviderId, type Snapshot, type UsageState } from "./model.ts";
@@ -125,7 +125,8 @@ export default function subscriptionUsage(pi: ExtensionAPI) {
         if (id === "claude") snapshot = await pollClaude(request);
         else {
           const auth = await c.modelRegistry.getProviderAuth("openai-codex").catch(() => undefined);
-          snapshot = await pollCodex(auth?.auth.apiKey, request);
+          const token = auth?.auth.apiKey;
+          snapshot = await pollCodex(token ? { token } : await codexCliLogin(), request);
         }
       } catch (error) {
         failure = error;

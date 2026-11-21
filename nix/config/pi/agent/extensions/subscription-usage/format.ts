@@ -4,6 +4,9 @@
  * Pace: the used % and the time to reset give the use rate so far, and so the used %
  * at reset if the rate holds. Near full use (80-105%) is on pace (green), more runs
  * out before the reset (ahead, yellow), less leaves capacity unused (under, dim).
+ *
+ * Wide tier (wide screens): every weekly window gets a 10-cell meter with the pace tick and
+ * how many points of the week it is over or under a full-use pace.
  */
 import { PROVIDERS, type ProviderId, type Snapshot, type UsageState, type Window } from "./model.ts";
 
@@ -44,6 +47,8 @@ interface View {
   emptyIn?: number;
   /** % left now on a full-use pace; where the meter's tick goes. */
   due?: number;
+  /** Used % minus used % on a full-use pace: positive is over pace. */
+  over?: number;
 }
 
 /** A window whose reset time has passed is assumed reset (100% left) but marked as old. */
@@ -54,10 +59,14 @@ function view(window: Window, kind: WindowKind, now: number): View {
   const v: View = { left, tone: "dim", resetIn, expired };
   const elapsed = resetIn !== undefined ? LENGTH[kind] - resetIn : 0;
   const part = elapsed / LENGTH[kind];
+  // The tick and the difference only need the time; the pace verdict below waits for enough data.
+  if (resetIn !== undefined && part >= 0 && part <= 1) {
+    v.due = 100 * (1 - part);
+    v.over = window.usedPct - 100 * part;
+  }
   if (left > 0 && part >= MIN_ELAPSED && part <= 1 && window.usedPct >= MIN_USED) {
     const projected = window.usedPct / part;
     v.pace = projected > ON_PACE[1] ? "ahead" : projected >= ON_PACE[0] ? "on" : "under";
-    v.due = 100 * (1 - part);
     if (v.pace === "ahead") v.emptyIn = ((100 - window.usedPct) * elapsed) / window.usedPct;
   }
   v.tone =
@@ -69,9 +78,8 @@ function view(window: Window, kind: WindowKind, now: number): View {
   return v;
 }
 
-/** Five cells of % left, with a tick at the full-use pace: fill past the tick is under pace. */
-function meter(v: View, paint: Paint): string {
-  const cells = 5;
+/** Cells of % left, with a tick at the full-use pace: fill past the tick is under pace. */
+function meter(v: View, paint: Paint, cells = 5): string {
   const cell = (pct: number) => Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)));
   const full = cell(v.left);
   // Cells from..to: filled ones in the window's tone, empty ones dim.
@@ -84,7 +92,15 @@ function meter(v: View, paint: Paint): string {
   return draw(0, tick) + paint("dim", "┃") + draw(tick, cells);
 }
 
-type Tier = "full" | "medium" | "narrow";
+type Tier = "wide" | "full" | "medium" | "narrow";
+
+/** "(12% over pace)" or "(8% under pace)" in points of the window; within half a point, "(on pace)". */
+function overPace(v: View, paint: Paint): string {
+  if (v.over === undefined) return "";
+  const points = Math.round(Math.abs(v.over));
+  if (points === 0) return " " + paint("dim", "(on pace)");
+  return " " + paint(v.over > 0 && v.pace === "ahead" ? v.tone : "dim", `(${points}% ${v.over > 0 ? "over" : "under"} pace)`);
+}
 
 function provider(id: ProviderId, s: Snapshot, active: boolean, tier: Tier, paint: Paint, now: number): string {
   const session = s.session && view(s.session, "session", now);
@@ -105,6 +121,11 @@ function provider(id: ProviderId, s: Snapshot, active: boolean, tier: Tier, pain
     return paint(nameTone, NAMES[id][1]) + " " + nums.join(paint("dim", "/")) + mark;
   }
   const parts: string[] = [];
+  if (tier === "wide") {
+    if (session) parts.push(paint("dim", "5h ") + (active ? meter(session, paint) + " " : "") + paint(session.tone, `${session.left}%`) + clock(session, active));
+    if (weekly) parts.push(paint("dim", "wk ") + meter(weekly, paint, 10) + " " + paint(weekly.tone, `${weekly.left}%`) + overPace(weekly, paint) + clock(weekly, false));
+    return paint(nameTone, NAMES[id][0]) + " " + parts.join(paint("dim", " · ")) + mark;
+  }
   if (tier === "full") {
     if (session) parts.push(paint("dim", "5h ") + (active ? meter(session, paint) + " " : "") + paint(session.tone, `${session.left}%`) + clock(session, active));
     if (weekly) parts.push(paint("dim", "wk ") + paint(weekly.tone, `${weekly.left}%`) + clock(weekly, false));
@@ -135,7 +156,7 @@ export function renderTier(state: UsageState, tier: Tier, paint: Paint, active?:
 /** The widest tier that fits in width. The caller still truncates the narrow tier if needed. */
 export function renderUsage(state: UsageState, width: number, paint: Paint, active?: ProviderId, now = Date.now()): string | undefined {
   let text: string | undefined;
-  for (const tier of ["full", "medium", "narrow"] as const) {
+  for (const tier of ["wide", "full", "medium", "narrow"] as const) {
     text = renderTier(state, tier, paint, active, now);
     if (text === undefined || visible(text) <= width) return text;
   }
@@ -162,7 +183,8 @@ export function describe(state: UsageState, errors: Partial<Record<ProviderId, s
       .filter(([, w]) => w)
       .map(([label, w, kind]) => {
         const v = view(w!, kind, now);
-        const pace = v.pace === "ahead" ? `ahead, empty in ${duration(v.emptyIn!)}` : v.pace === "on" ? "on pace" : v.pace === "under" ? "under pace" : "";
+        const diff = v.over === undefined ? "" : ` (${Math.round(Math.abs(v.over))}% ${v.over > 0 ? "over" : "under"})`;
+        const pace = v.pace === "ahead" ? `ahead${diff}, empty in ${duration(v.emptyIn!)}` : v.pace === "on" ? `on pace${diff}` : v.pace === "under" ? `under pace${diff}` : "";
         const reset = v.expired ? "reset passed" : w!.resetsAt ? `resets ${clockTime(w!.resetsAt, now)} (${duration(w!.resetsAt - now)})` : "";
         return `${label}: ${v.left}% left${pace ? `, ${pace}` : ""}${reset ? `, ${reset}` : ""}`;
       });
