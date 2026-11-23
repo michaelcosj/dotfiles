@@ -46,3 +46,6 @@ node_modules/
 # Local research notes and investigation reports
 /reports/
 /research_notes/
+
+# Local agent plans
+/.plans/
