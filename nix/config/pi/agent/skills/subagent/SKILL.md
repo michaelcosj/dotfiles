@@ -63,8 +63,8 @@ background({ action: "start", name: "scout-auth", notify: true, command: 'pi -p 
 ## Recommended Picks
 
 Opus: claude-code/claude-opus-5-5
-Sol: openai-codex/gpt-6.1-sol
-Terra: openai-codex/gpt-6.1-terra
+Sol: openai/gpt-6.2-sol
+Terra: openai/gpt-6.1-terra
 
 - For code-related tasks, use Opus at low or medium thinking.
 - For reviews, use Sol at high thinking.

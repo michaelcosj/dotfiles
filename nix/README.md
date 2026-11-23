@@ -206,8 +206,9 @@ git config user.email 'you@company.example'
 ```
 
 Pi settings are linked from each account's own checkout, like on desktops. The
-personal Claude Code and cached-compaction forks are pinned to commits in
-`config/pi/agent/settings.json`; Pi installs missing packages when it starts.
+personal Git packages in `config/pi/agent/settings.json` follow a branch, not a
+commit; `pi update --extensions` moves them to the latest push. Pi installs
+missing packages when it starts.
 Auth and sessions remain separate per account; sign in to providers as
 needed.
 

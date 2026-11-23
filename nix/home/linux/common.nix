@@ -23,6 +23,8 @@
     noto-fonts
     noto-fonts-color-emoji
     jetbrains-mono
+    antigravity-cli
+    antigravity-acp
     claude-code
     # Use the official prebuilt release instead of compiling the Rust workspace.
     (callPackage ../../pkgs/codex-bin.nix { })

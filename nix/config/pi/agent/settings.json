@@ -25,7 +25,8 @@
     "npm:pi-web-access",
     "npm:@ff-labs/pi-fff",
     "git:github.com/michaelcosj/pi-claude-code@personal",
-    "git:github.com/michaelcosj/pi-cached-compaction@132e0da268def8f6ae18c25c8b100497a54a589e"
+    "git:github.com/michaelcosj/pi-agy-acp",
+    "git:github.com/michaelcosj/pi-cached-compaction"
   ],
   "tuiMode": "fullscreen",
   "showHardwareCursor": false,
@@ -46,8 +47,10 @@
   "fullscreenExitOutput": "resume-hint",
   "enabledModels": [
     "claude-code/claude-opus-5-5",
+    "antigravity/gemini-4-neon",
+    "openai/gpt-6.2-sol",
     "claude-code/claude-fable-5-2",
     "claude-code/claude-haiku-5-5",
-    "openai/gpt-6.1-sol"
+    "openai/gpt-6.2-astra"
   ]
 }
