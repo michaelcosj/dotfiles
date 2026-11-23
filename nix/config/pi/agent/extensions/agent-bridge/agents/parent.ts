@@ -15,7 +15,7 @@ import { duration } from "../../lib/duration.js";
 import * as rex from "../../lib/rex.js";
 import { type Bridge, type Client, programStatus } from "../core.js";
 import { deliverNote, deliverReview } from "../notes.js";
-import { type AgentStatus, ENV, type Roster } from "./protocol.js";
+import { type AgentStatus, ENV, type Roster, type RosterEntry } from "./protocol.js";
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const START_TIMEOUT_MS = 30_000;
@@ -137,7 +137,7 @@ const REMOTE_SCRIPT = [
 const Params = Type.Object({
   action: StringEnum(["start", "send", "wait", "status", "stop", "resume", "hosts"] as const, {
     description:
-      "start a child agent; send a follow-up to a running child; wait for children to settle; status of one or all (lists resumable ones); stop (closes it); resume a stopped child's conversation in a new pane (e.g. after a restart); hosts lists other Rex hosts and whether each answers",
+      "start a child agent; send a message to a running child (a busy child gets it as a steer after its current tool call); wait for children to settle; status of one or all (lists resumable ones); stop (closes it); resume a stopped child's conversation in a new pane (e.g. after a restart); hosts lists other Rex hosts and whether each answers",
   }),
   host: Type.Optional(Type.String({ description: "start: run on this Rex host (full label from hosts); its files, paths and models are the host's" })),
   name: Type.Optional(Type.String({ description: "Agent name: lowercase letters, digits, - (e.g. scout-auth). wait: omit to wait for any" })),
@@ -209,11 +209,36 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
   /** Saved children that are not running and whose session still exists (a remote one is checked on its host at launch). */
   const resumable = () => [...saved.values()].filter((d) => !agents.has(d.name) && (!!d.host || fs.existsSync(d.sessionFile)));
 
+  // Read-only rows from other extensions (for example pi-antigravity's agy
+  // subagents), by source:
+  //   pi.events.emit("agent-bridge:external", { source, agents: ExternalAgent[] })
+  // Enter on such a row calls back on "agent-bridge:external-open" { source, name }.
+  const external = new Map<string, RosterEntry[]>();
+  pi.events?.on?.("agent-bridge:external", (data: any) => {
+    if (typeof data?.source !== "string") return;
+    const list: RosterEntry[] = (Array.isArray(data.agents) ? data.agents : [])
+      .filter((x: any) => typeof x?.name === "string")
+      .map((x: any) => ({
+        name: String(x.name),
+        title: String(x.title ?? x.name),
+        block: "",
+        status: (["starting", "working", "idle", "blocked", "crashed"] as const).find((st) => st === x.status) ?? "idle",
+        message: typeof x.message === "string" ? x.message : undefined,
+        runStartedAt: typeof x.runStartedAt === "number" ? x.runStartedAt : undefined,
+        runMs: typeof x.runMs === "number" ? x.runMs : undefined,
+        tokens: typeof x.tokens === "number" ? x.tokens : undefined,
+        external: data.source,
+      }));
+    if (list.length) external.set(data.source, list);
+    else external.delete(data.source);
+    publish();
+  });
+
   function roster(): Roster {
     return {
       main: rex.REX_BLOCK!,
       visible,
-      agents: [...agents.values()].filter((a) => a.block).map((a) => ({
+      agents: [...[...agents.values()].filter((a) => a.block).map((a) => ({
         name: a.name,
         title: a.title,
         block: a.block,
@@ -223,7 +248,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
         runStartedAt: a.runStartedAt,
         runMs: a.runMs,
         tokens: a.tokens,
-      })),
+      })), ...[...external.values()].flat()],
     };
   }
 
@@ -244,7 +269,8 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
     rosterTimer = setTimeout(() => {
       rosterTimer = undefined;
       const r = roster();
-      bridge.broadcast("agent", "roster", r as any);
+      // Children can't open another extension's rows; they get only real agents.
+      bridge.broadcast("agent", "roster", { ...r, agents: r.agents.filter((x) => !x.external) } as any);
       opts.onRoster(r);
       refreshAttention();
     }, 50);
@@ -771,7 +797,25 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
 
   // ---- the tool ----
 
-  pi.registerTool({
+  // Other extensions can run the agent actions through the event bus, for
+  // example pi-antigravity's MCP `agent` tool that agy calls:
+  //   pi.events.emit("agent-bridge:call", { params, signal, notify?, accept(), reply({ text } | { error }) })
+  // accept() is called at once, so the caller knows agent-bridge is loaded.
+  // notify: true lets a child's result post to this pi when it settles (it
+  // starts a turn, as for the agent tool); otherwise the caller gets it from
+  // `wait` and nothing posts.
+  pi.events?.on?.("agent-bridge:call", (data: any) => {
+    if (typeof data?.reply !== "function") return;
+    data.accept?.();
+    const p = { ...(data.params ?? {}) };
+    if (p.action === "start" || p.action === "resume") p.notify = data.notify === true;
+    Promise.resolve()
+      .then(() => tool.execute("bridge-call", p, data.signal, undefined, bridge.ctx))
+      .then((r: any) => data.reply({ text: r.content.map((c: any) => c.text).join("\n") }))
+      .catch((e: any) => data.reply({ error: (e as Error).message }));
+  });
+
+  const tool = {
     name: "agent",
     label: "Agent",
     description:
@@ -840,7 +884,7 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
           if (!a.client) throw new Error(`agent ${a.name} is not connected (${a.status})`);
           bridge.event(a.client, "prompt", { text: p.text });
           a.unreported = false;
-          return text(`Sent to ${a.name}${a.status === "working" ? " (queued as a follow-up)" : ""}.`);
+          return text(`Sent to ${a.name}${a.status === "working" ? " (steered in; it sees it after its current tool call)" : ""}.`);
         }
         case "status": {
           if (p.name) {
@@ -936,7 +980,8 @@ export function registerParent(pi: any, bridge: Bridge, opts: { onFilesChanged: 
       if (shown.length < lines.length) t += theme.fg("muted", `\n... (${lines.length - shown.length} more lines, expand to view)`);
       return new Text(t, 0, 0);
     },
-  });
+  };
+  pi.registerTool(tool);
 
   /** Notes that could not reach their child go to this pi. */
   function flushNotes(a: Agent) {

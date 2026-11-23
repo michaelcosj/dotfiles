@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { deliverNote, deliverReview } from "./notes.ts";
 
 describe("deliverNote", () => {
-  test("starts a turn or queues a follow-up, hidden from the transcript", () => {
+  test("starts a turn or steers into a running one, hidden from the transcript", () => {
     const calls: any[] = [];
     const pi = { sendMessage: (...args: any[]) => calls.push(args) };
     deliverNote(pi, "The user rejected your changes to a.ts.");
     expect(calls).toEqual([
       [
         { customType: "editor-context", content: "The user rejected your changes to a.ts.", display: false },
-        { triggerTurn: true, deliverAs: "followUp" },
+        { triggerTurn: true, deliverAs: "steer" },
       ],
     ]);
   });

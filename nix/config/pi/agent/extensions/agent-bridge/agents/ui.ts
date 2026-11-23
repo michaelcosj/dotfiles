@@ -113,6 +113,7 @@ export function registerAgentsUI(
             const build = (title: boolean, host: "full" | "short") => {
               let s = `${focus ? theme.fg("accent", "› ") : "  "}${mark} ${nameText}`;
               if (e?.host) s += theme.fg("dim", `@${host === "full" ? e.host : shortHost(e.host)}`);
+              if (e?.external) s += theme.fg("dim", ` (${e.external})`);
               if (title && r.title && r.title !== r.name) s += `  ${focus || here ? r.title : theme.fg("dim", r.title)}`;
               if (e?.status === "blocked") s += theme.fg("warning", "  needs an answer");
               return s;
@@ -133,6 +134,11 @@ export function registerAgentsUI(
   };
 
   async function switchTo(row: Row) {
+    // Another extension's read-only row: that extension shows it.
+    if (row.entry?.external) {
+      pi.events?.emit?.("agent-bridge:external-open", { source: row.entry.external, name: row.name });
+      return;
+    }
     if (switching || row.block === rex.REX_BLOCK) return;
     switching = true;
     try {
@@ -228,7 +234,7 @@ export function registerAgentsUI(
       if (list.length < 2 && !stopped.length) return ctx.ui.notify("No child agents.", "info");
       const labels = list.length < 2 ? [] : list.map((r) => {
         const here = r.block === rex.REX_BLOCK ? " (here)" : "";
-        const st = r.entry ? ` [${r.entry.status}]` : "";
+        const st = r.entry ? ` [${r.entry.status}${r.entry.external ? `, ${r.entry.external}, read-only` : ""}]` : "";
         return `${r.name}${r.entry?.host ? `@${r.entry.host}` : ""}${r.title && r.title !== r.name ? ` — ${r.title}` : ""}${st}${here}`;
       });
       const resumeLabels = stopped.map((d) => `resume ${d.name}${d.title && d.title !== d.name ? ` — ${d.title}` : ""} [stopped]`);

@@ -170,7 +170,7 @@ export function registerEditor(pi: any, bridge: Bridge, hooks: EditorHooks = {})
   bridge.registerMethod("editor", "prompt", (_c, p) => {
     const text = p?.text;
     if (typeof text !== "string" || text.trim() === "" || Buffer.byteLength(text) > MAX_LINE_BYTES) throw new Error("invalid prompt");
-    if (bridge.ctx?.isIdle?.() === false) pi.sendUserMessage(text, { deliverAs: "followUp" });
+    if (bridge.ctx?.isIdle?.() === false) pi.sendUserMessage(text, { deliverAs: "steer" });
     else pi.sendUserMessage(text);
   });
   bridge.registerMethod("editor", "set_context", (_c, p) => {

@@ -13,8 +13,8 @@
 //   switch { name }                        show agent `name` (or "main"); the parent does it
 //   session { session_file }               the child's pi session, so it can be resumed
 // and receives events (parent -> child):
-//   prompt { text }    new work; a follow-up if busy
-//   note { text }      a review note; starts a turn or queues as a follow-up
+//   prompt { text }    new work; a steer if busy
+//   note { text }      a review note; starts a turn or steers into a running one
 //   abort              stop the current run
 //   shutdown           exit
 //   roster { ... }     everyone in the group, to draw the list
@@ -34,6 +34,8 @@ export interface RosterEntry {
   /** length of the last finished run */
   runMs?: number;
   tokens?: number;
+  /** a read-only row from another extension (its source); no pane */
+  external?: string;
 }
 
 export interface Roster {

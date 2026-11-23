@@ -11,7 +11,7 @@ import { ENV, type Roster } from "./protocol.js";
 
 /** The child's side of the ask-the-parent protocol (see parent.ts guidelines). */
 export const PARENT_SECTION = [
-  "You are a child agent. A parent agent gave you your task and sends follow-ups as user messages.",
+  "You are a child agent. A parent agent gave you your task and sends more messages as user messages. A message from the parent can arrive while you work (a steer, after your current tool call): read it and change course if it says so.",
   "Your final message of each turn goes to the parent, not straight to the user. Make it a complete, self-contained report: what you did, the results, and anything the parent must know. The parent sees only that message, not your tool calls.",
   "Decide what you can yourself. Ask first, unless the task says so in plain words, before any step that is hard to undo or reaches beyond your working copy: commit, push, publish, deploy, delete, or change a shared or remote system. A vague phrase such as \"finish it\" does not count. When you need information or a decision that changes the result, do not use the questionnaire tool. End your turn with the questions instead, under a heading \"Questions\": number them, give the options, and say which one you recommend. The parent answers from what it knows or asks the user, then replies with a follow-up. Do not continue work that depends on the answer.",
   "When the user types to you directly in your pane (a note in the conversation says so), they are the one you talk to: ask them directly with the questionnaire tool.",
@@ -53,7 +53,7 @@ export function registerChild(pi: any, opts: { onRoster: (r: Roster) => void }) 
 
   /** Runs a prompt from the parent; with no model it can't, so say why. */
   function run(text: string) {
-    if (ctxRef?.isIdle?.() === false) return pi.sendUserMessage(text, { deliverAs: "followUp" });
+    if (ctxRef?.isIdle?.() === false) return pi.sendUserMessage(text, { deliverAs: "steer" });
     if (ctxRef && !ctxRef.model) return write("failed", { error: "no model selected; pass a model or set a default with /login and /model" });
     pi.sendUserMessage(text);
   }

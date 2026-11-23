@@ -619,3 +619,100 @@ describe("renderCall", () => {
     expect(render({ action: "send", name: "scout", text: "go on" }, false)).toBe("agent send scout go on");
   });
 });
+
+describe("agent-bridge:call (event bus)", () => {
+  function setupBus() {
+    const listeners = new Map<string, (d: any) => void>();
+    const tools = new Map<string, any>();
+    const bridge: any = {
+      running: true, socketPath: "/tmp/test.sock", token: "token",
+      registerMethod: () => {}, onShutdown: () => {}, onClient: () => {}, event: () => {}, broadcast: () => {}, ctx: undefined,
+    };
+    const pi: any = {
+      on: () => {}, registerTool: (t: any) => tools.set(t.name, t), sendMessage: () => {}, appendEntry: () => {},
+      events: { on: (n: string, fn: any) => listeners.set(n, fn), emit: () => {} },
+    };
+    registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: () => {} });
+    const call = (params: any) =>
+      new Promise<any>((resolve) => {
+        let accepted = false;
+        listeners.get("agent-bridge:call")!({ params, accept: () => (accepted = true), reply: (r: any) => resolve({ accepted, ...r }) });
+        expect(accepted).toBe(true);
+      });
+    return { call, tools };
+  }
+
+  test("runs the tool action and replies with its text", async () => {
+    const { call } = setupBus();
+    const r = await call({ action: "status" });
+    expect(r).toEqual({ accepted: true, text: "No agents running." });
+  });
+
+  test("an error comes back as error", async () => {
+    const { call } = setupBus();
+    const r = await call({ action: "stop", name: "nobody" });
+    expect(r.error).toContain("no agent nobody");
+  });
+
+  test("start with notify: true on the call keeps notify on", async () => {
+    const listeners = new Map<string, (d: any) => void>();
+    const tools = new Map<string, any>();
+    const bridge: any = {
+      running: true, socketPath: "/tmp/test.sock", token: "token",
+      registerMethod: () => {}, onShutdown: () => {}, onClient: () => {}, event: () => {}, broadcast: () => {}, ctx: undefined,
+    };
+    const pi: any = {
+      on: () => {}, registerTool: (t: any) => tools.set(t.name, t), sendMessage: () => {}, appendEntry: () => {},
+      events: { on: (n: string, fn: any) => listeners.set(n, fn), emit: () => {} },
+    };
+    registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: () => {} });
+    const tool = tools.get("agent");
+    let seen: any;
+    const original = tool.execute;
+    tool.execute = (id: string, p: any, ...rest: any[]) => {
+      seen = p;
+      return original.call(tool, id, { action: "status" }, ...rest);
+    };
+    await new Promise((resolve) =>
+      listeners.get("agent-bridge:call")!({ params: { action: "start", name: "x", task: "t" }, notify: true, accept: () => {}, reply: resolve }),
+    );
+    expect(seen.notify).toBe(true);
+  });
+
+  test("external rows join the roster for this pi only", async () => {
+    const listeners = new Map<string, (d: any) => void>();
+    const broadcasts: any[] = [];
+    const rosters: any[] = [];
+    const bridge: any = {
+      running: true, socketPath: "/tmp/test.sock", token: "token",
+      registerMethod: () => {}, onShutdown: () => {}, onClient: () => {}, event: () => {},
+      broadcast: (_r: string, _e: string, d: any) => broadcasts.push(d), ctx: undefined,
+    };
+    const pi: any = {
+      on: () => {}, registerTool: () => {}, sendMessage: () => {}, appendEntry: () => {},
+      events: { on: (n: string, fn: any) => listeners.set(n, fn), emit: () => {} },
+    };
+    registerParent(pi, bridge, { onFilesChanged: () => {}, onRoster: (r) => rosters.push(r) });
+    listeners.get("agent-bridge:external")!({ source: "agy", agents: [{ name: "agy:counter", title: "counter", status: "working", bogus: 1 }] });
+    await new Promise((r) => setTimeout(r, 80));
+    const last = rosters.at(-1);
+    expect(last.agents).toEqual([{ name: "agy:counter", title: "counter", block: "", status: "working", message: undefined, runStartedAt: undefined, runMs: undefined, tokens: undefined, external: "agy" }]);
+    expect(broadcasts.at(-1).agents).toEqual([]);
+    listeners.get("agent-bridge:external")!({ source: "agy", agents: [] });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(rosters.at(-1).agents).toEqual([]);
+  });
+
+  test("start forces notify off, so results never post to the parent", async () => {
+    const { call, tools } = setupBus();
+    const tool = tools.get("agent");
+    let seen: any;
+    const original = tool.execute;
+    tool.execute = (id: string, p: any, ...rest: any[]) => {
+      seen = p;
+      return original.call(tool, id, { action: "status" }, ...rest);
+    };
+    await call({ action: "start", name: "x", task: "t", notify: true });
+    expect(seen.notify).toBe(false);
+  });
+});
