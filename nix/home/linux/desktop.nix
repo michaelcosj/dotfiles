@@ -7,6 +7,32 @@
   nix-flatpak,
   ...
 }:
+let
+  # 1.13.0-prerelease-1 for jtroo/kanata#2129: 1.12.0 never drains its inotify
+  # queue, so after a Bluetooth keyboard reconnects (the K780 waking up) it can
+  # miss the new /dev/input node and stop remapping it until a restart. Drop
+  # this override once nixpkgs ships kanata >= 1.13.0.
+  kanata = pkgs.kanata.overrideAttrs (
+    final: old: {
+      version = "1.13.0-prerelease-1";
+      src = pkgs.fetchFromGitHub {
+        owner = "jtroo";
+        repo = "kanata";
+        rev = "v${final.version}";
+        hash = "sha256-EDmhgP8P4wZolP9QZDrO0VOODd5c0416ruPNIeftLys=";
+      };
+      cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+        inherit (final) src;
+        hash = "sha256-moRxx2X+mmJVtgopsTtN5s7jRyZ1Vz0F1qnFH/5SQZg=";
+      };
+      # 1.13 links libudev (gamepad input).
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.pkg-config ];
+      buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.udev ];
+      # The tagged source reports itself as v1.13.0-prerelease-2, so versionCheckHook fails.
+      doInstallCheck = false;
+    }
+  );
+in
 {
   imports = [
     ../desktop.nix
@@ -74,7 +100,7 @@
   systemd.user.services.kanata = {
     Unit.Description = "kanata keyboard remapper";
     Service = {
-      ExecStart = "${pkgs.kanata}/bin/kanata --cfg ${config.home.homeDirectory}/.dotfiles/nix/config/kanata/kanata.kbd";
+      ExecStart = "${kanata}/bin/kanata --cfg ${config.home.homeDirectory}/.dotfiles/nix/config/kanata/kanata.kbd";
       Restart = "on-failure";
       RestartSec = 3;
     };
