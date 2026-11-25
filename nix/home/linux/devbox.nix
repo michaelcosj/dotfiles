@@ -5,44 +5,53 @@
   pkgs,
   ...
 }:
+let
+  # One CLIProxyAPI for the whole host, under m. Every account reaches it on
+  # 127.0.0.1:8317, and connect-cliproxy.sh publishes /v1 on the tailnet. One
+  # instance owns each OAuth refresh token; copies in a second instance go stale.
+  runsCliProxyAPI = config.home.username == "m";
+in
 {
   imports = [ ./docker-rootless.nix ];
 
-  # CLIProxyAPI pools the Codex accounts that T3 Code uses. Credentials and the
-  # generated keys stay in ~/.cli-proxy-api, never in the Nix store.
-  home.packages = [ pkgs.cliproxyapi ];
+  # CLIProxyAPI pools the Codex and Claude accounts that T3 Code, Claude Code
+  # and pi use. Credentials and the generated keys stay in ~/.cli-proxy-api,
+  # never in the Nix store.
+  home.packages = lib.mkIf runsCliProxyAPI [ pkgs.cliproxyapi ];
 
-  home.activation.seedCliProxyAPIConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    config="$HOME/.cli-proxy-api/config.yaml"
-    if [ ! -e "$config" ]; then
-      mkdir -p "$HOME/.cli-proxy-api"
-      api_key="sk-$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
-      management_key="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
-      # The server rewrites secret-key in config.yaml as a hash, so keep the
-      # usable value in its own file for the management API.
-      (
-        umask 077
-        printf '%s\n' "$management_key" > "$HOME/.cli-proxy-api/management.key"
-        cat > "$config" <<EOF
-host: "127.0.0.1"
-port: 8317
-auth-dir: "~/.cli-proxy-api"
-api-keys:
-  - "$api_key"
-remote-management:
-  allow-remote: false
-  secret-key: "$management_key"
-routing:
-  strategy: "round-robin"
-  session-affinity: true
-EOF
-      )
-    fi
-  '';
+  home.activation.seedCliProxyAPIConfig = lib.mkIf runsCliProxyAPI (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          config="$HOME/.cli-proxy-api/config.yaml"
+          if [ ! -e "$config" ]; then
+            mkdir -p "$HOME/.cli-proxy-api"
+            api_key="sk-$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+            management_key="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+            # The server rewrites secret-key in config.yaml as a hash, so keep the
+            # usable value in its own file for the management API.
+            (
+              umask 077
+              printf '%s\n' "$management_key" > "$HOME/.cli-proxy-api/management.key"
+              cat > "$config" <<EOF
+      host: "127.0.0.1"
+      port: 8317
+      auth-dir: "~/.cli-proxy-api"
+      api-keys:
+        - "$api_key"
+      remote-management:
+        allow-remote: false
+        secret-key: "$management_key"
+      routing:
+        strategy: "round-robin"
+        session-affinity: true
+      EOF
+            )
+          fi
+    ''
+  );
 
-  systemd.user.services.cli-proxy-api = {
+  systemd.user.services.cli-proxy-api = lib.mkIf runsCliProxyAPI {
     Unit = {
-      Description = "CLIProxyAPI Codex account pool";
+      Description = "CLIProxyAPI account pool";
       After = [ "network.target" ];
     };
     Service = {
