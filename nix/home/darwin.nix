@@ -14,6 +14,17 @@
     pngpaste
   ];
 
+  # Load the passphrase-protected key into the agent from the Keychain on first
+  # use, so non-interactive git (agents, scripts) can push after a reboot.
+  # UseKeychain is Apple's OpenSSH option; IgnoreUnknown keeps Nix's OpenSSH
+  # from rejecting it.
+  programs.ssh.settings."*" = {
+    IgnoreUnknown = "UseKeychain";
+    AddKeysToAgent = "yes";
+    UseKeychain = "yes";
+    IdentityFile = "~/.ssh/id_ed25519";
+  };
+
   # Rex session restore: saves what each pane runs and resumes it after the
   # server restarts (nix/config/rex/bin/rex-watch.lua). It exits when the
   # server stops; launchd starts it again, and it waits for the server.
