@@ -49,6 +49,9 @@ in
     silent = true;
   };
 
+  xdg.configFile."fish/conf.d/claude-proxy.fish".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/nix/config/fish/claude-proxy.fish";
+
   programs.fish = {
     enable = true;
     functions = {

@@ -38,5 +38,7 @@ pkgs.runCommand "devbox-services" { } ''
     --subst-var-by runtime ${runtime}
   substitute ${./connect-opencode.sh} "$out/bin/connect-opencode-tailnet" \
     --subst-var-by runtime ${runtime}
+  substitute ${./connect-cliproxy.sh} "$out/bin/connect-cliproxy-tailnet" \
+    --subst-var-by runtime ${runtime}
   chmod +x "$out/bin/"*
 ''
